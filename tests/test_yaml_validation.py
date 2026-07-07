@@ -6,10 +6,14 @@ from stig_audit_pro.core.yaml_loader import load_check_library, load_exceptions,
 
 def test_check_library_and_profile_validate():
     library = load_check_library(DATA_DIR / "checks" / "iosxe_l2.yaml")
+    ndm_library = load_check_library(DATA_DIR / "checks" / "iosxe_ndm.yaml")
     profile = load_profile(DATA_DIR / "profiles" / "example_site.yaml")
     exceptions = load_exceptions(DATA_DIR / "exceptions" / "exceptions.yaml")
 
-    assert len(library.checks) == 5
+    assert len(library.checks) == 23
+    assert len(ndm_library.checks) == 42
+    assert any(check.vuln_id == "CISC-L2-000130" for check in library.checks)
+    assert any(check.vuln_id == "CISC-ND-001470" for check in ndm_library.checks)
     assert profile.profile_name == "example_site"
     assert profile.unused_vlan == 999
     assert profile.dhcp_snooping.vlans == [10, 20, 30]

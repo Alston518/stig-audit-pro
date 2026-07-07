@@ -11,6 +11,11 @@ from stig_audit_pro.core.models import CheckDefinition, CheckLibrary
 from stig_audit_pro.stig.stig_metadata import StigBenchmarkMetadata, StigRuleMetadata
 
 GENERATED_LIBRARY_NAME = "generated_stig_manual_starters"
+SEVERITY_TO_CATEGORY = {
+    "high": "cat1",
+    "medium": "cat2",
+    "low": "cat3",
+}
 
 
 def build_manual_starter_library(
@@ -47,12 +52,18 @@ def _manual_check_from_rule(
         vuln_id=key,
         title=rule.title or key,
         stig_family=metadata.family or "UNKNOWN",
-        severity=rule.severity or "unknown",
+        severity=_severity_to_category(rule.severity),
         automated=False,
         check_type="manual_review",
         commands=[],
         stig_id=rule.stig_id or None,
+        group_id=rule.group_id or rule.vuln_id or None,
         rule_id=rule.rule_id or None,
+        source_benchmark=metadata.title or metadata.benchmark_id or None,
+        source_version=metadata.version or None,
+        source_release=metadata.release_info or None,
+        check_text=rule.check_text,
+        fix_text=rule.fix_text,
         result={
             "pass_status": "NotAFinding",
             "fail_status": "Not_Reviewed",
@@ -82,6 +93,10 @@ def _existing_rule_keys(checks: Iterable[CheckDefinition]) -> set[str]:
 
 def _rule_key(rule: StigRuleMetadata) -> str:
     return rule.stig_id or rule.vuln_id or rule.rule_id
+
+
+def _severity_to_category(severity: str) -> str:
+    return SEVERITY_TO_CATEGORY.get(severity.lower().strip(), severity or "unknown")
 
 
 def _model_dump(value: object) -> object:

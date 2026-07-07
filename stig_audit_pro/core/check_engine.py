@@ -97,7 +97,12 @@ class CheckEngine:
         parsed: ParsedDeviceData,
     ) -> EvaluationOutcome:
         if check.check_type == "manual_review":
-            return EvaluationOutcome(passed=False, details=["Manual review required."])
+            details = ["Manual review required."]
+            if check.check_text:
+                details.extend(["STIG Check Text:", check.check_text])
+            if check.fix_text:
+                details.extend(["STIG Fix Text:", check.fix_text])
+            return EvaluationOutcome(passed=False, details=details)
         if check.check_type == "command_contains":
             return self._command_contains(check, outputs, expected=True)
         if check.check_type == "command_not_contains":

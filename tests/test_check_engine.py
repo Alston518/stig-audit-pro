@@ -18,21 +18,21 @@ def test_required_checks_pass_on_compliant_sample_outputs():
     results = _results_by_vuln("compliant")
 
     assert results["CISC-L2-000210"].status == "NotAFinding"
-    assert results["EXAMPLE-TRUNK-VLAN1-PRUNED"].status == "NotAFinding"
+    assert results["CISC-L2-000230"].status == "NotAFinding"
     assert results["EXAMPLE-ACL-LOG-INPUT"].status == "NotAFinding"
-    assert results["EXAMPLE-DHCP-SNOOPING"].status == "NotAFinding"
-    assert results["EXAMPLE-ARP-INSPECTION"].status == "NotAFinding"
+    assert results["CISC-L2-000130"].status == "NotAFinding"
+    assert results["CISC-L2-000150"].status == "NotAFinding"
 
 
 def test_required_checks_fail_on_noncompliant_sample_outputs():
     results = _results_by_vuln("noncompliant")
 
     assert results["CISC-L2-000210"].status == "Open"
-    assert results["EXAMPLE-TRUNK-VLAN1-PRUNED"].status == "Open"
+    assert results["CISC-L2-000230"].status == "Open"
     assert results["EXAMPLE-ACL-LOG-INPUT"].status == "Open"
-    assert results["EXAMPLE-DHCP-SNOOPING"].status == "Open"
-    assert results["EXAMPLE-ARP-INSPECTION"].status == "Open"
+    assert results["CISC-L2-000130"].status == "Open"
+    assert results["CISC-L2-000150"].status == "Open"
 
-    assert results["EXAMPLE-TRUNK-VLAN1-PRUNED"].failed_objects[0].object_name == "GigabitEthernet1/0/24"
-    assert results["EXAMPLE-DHCP-SNOOPING"].failed_objects
-    assert results["EXAMPLE-ARP-INSPECTION"].failed_objects[0].object_name == "30"
+    assert results["CISC-L2-000230"].failed_objects[0].object_name == "GigabitEthernet1/0/24"
+    assert results["CISC-L2-000130"].failed_objects
+    assert results["CISC-L2-000150"].failed_objects[0].object_name == "30"

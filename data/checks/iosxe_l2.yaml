@@ -1,156 +1,867 @@
-﻿library_name: iosxe_l2
+library_name: iosxe_l2
 checks:
-  - vuln_id: CISC-L2-000210
-    title: Disabled switch ports must be shutdown and assigned to the unused VLAN.
-    stig_family: IOSXE_L2
-    severity: cat2
-    automated: true
-    check_type: interface_policy
-    commands:
-      - show running-config
-      - show interfaces status
-    scope:
-      interfaces:
-        include:
-          - type: physical
-            match:
-              admin_state: disabled_or_notconnect
-    conditions:
-      all:
-        - field: shutdown
-          op: equals
-          value: true
-        - field: access_vlan
-          op: equals_profile_value
-          profile_key: unused_vlan
-    result:
-      pass_status: NotAFinding
-      fail_status: Open
-      error_status: Error
-    evidence:
-      include_command_output: false
-      include_failed_objects: true
-      pass_comment: All disabled/not-connected access interfaces are shutdown and assigned to unused VLAN {{ unused_vlan }}.
-      fail_comment: One or more disabled/not-connected interfaces are not shutdown and/or not assigned to unused VLAN {{ unused_vlan }}.
-      error_comment: Disabled port policy could not be evaluated.
-      finding_details_template: default
-
-  - vuln_id: EXAMPLE-TRUNK-VLAN1-PRUNED
-    title: VLAN 1 must be pruned from trunks.
-    stig_family: IOSXE_L2
-    severity: cat2
-    automated: true
-    check_type: trunk_vlan_policy
-    commands:
-      - show running-config
-      - show interfaces trunk
-    scope:
-      interfaces:
-        mode: trunk
-    conditions:
-      all:
-        - field: allowed_vlans
-          op: excludes
-          value: 1
-        - field: allowed_vlans
-          op: excludes_profile_list
-          profile_key: additional_pruned_vlans
-    result:
-      pass_status: NotAFinding
-      fail_status: Open
-      error_status: Error
-    evidence:
-      include_command_output: false
-      include_failed_objects: true
-      pass_comment: VLAN 1 is pruned from all trunk interfaces.
-      fail_comment: One or more trunk interfaces allow VLAN 1.
-      error_comment: Trunk VLAN pruning could not be evaluated.
-      finding_details_template: default
-
-  - vuln_id: EXAMPLE-ACL-LOG-INPUT
-    title: ACL deny statements must use log-input.
-    stig_family: IOSXE_L2
-    severity: cat2
-    automated: true
-    check_type: acl_deny_logging_policy
-    commands:
-      - show running-config
-      - show ip access-lists
-    parser:
-      source: running_config
-      ignore_lines:
-        - "^\\s*remark\\b"
-    conditions:
-      deny_statements:
-        require_keyword: log-input
-        ignore_remarks: true
-        include_standard_acls: true
-        include_extended_acls: true
-        include_ipv6_acls: false
-        include_object_groups: true
-    result:
-      pass_status: NotAFinding
-      fail_status: Open
-      error_status: Error
-    evidence:
-      include_command_output: false
-      include_failed_objects: true
-      pass_comment: All ACL deny statements include log-input.
-      fail_comment: One or more ACL deny statements are missing log-input.
-      error_comment: ACL deny logging could not be evaluated.
-      finding_details_template: default
-
-  - vuln_id: EXAMPLE-DHCP-SNOOPING
-    title: DHCP snooping must be enabled for required VLANs.
-    stig_family: IOSXE_L2
-    severity: cat2
-    automated: true
-    check_type: dhcp_snooping_policy
-    commands:
-      - show running-config
-      - show ip dhcp snooping
-    conditions:
-      all:
-        - field: global_enabled
-          op: equals
-          value: true
-        - field: snooping_vlans
-          op: includes_profile_list
-          profile_key: dhcp_snooping.vlans
-    result:
-      pass_status: NotAFinding
-      fail_status: Open
-      error_status: Error
-    evidence:
-      include_command_output: false
-      include_failed_objects: true
-      pass_comment: DHCP snooping is enabled for all required VLANs.
-      fail_comment: DHCP snooping is missing globally or missing required VLANs.
-      error_comment: DHCP snooping could not be evaluated.
-      finding_details_template: default
-
-  - vuln_id: EXAMPLE-ARP-INSPECTION
-    title: ARP inspection must be enabled for required VLANs.
-    stig_family: IOSXE_L2
-    severity: cat2
-    automated: true
-    check_type: arp_inspection_policy
-    commands:
-      - show running-config
-      - show ip arp inspection
-    conditions:
-      all:
-        - field: inspection_vlans
-          op: includes_profile_list
-          profile_key: arp_inspection.vlans
-    result:
-      pass_status: NotAFinding
-      fail_status: Open
-      error_status: Error
-    evidence:
-      include_command_output: false
-      include_failed_objects: true
-      pass_comment: ARP inspection is enabled for all required VLANs.
-      fail_comment: ARP inspection is missing required VLANs.
-      error_comment: ARP inspection could not be evaluated.
-      finding_details_template: default
+- vuln_id: CISC-L2-000020
+  title: The Cisco switch must uniquely identify and authenticate all network-connected endpoint devices before establishing
+    any connection.
+  stig_family: IOSXE_L2
+  severity: cat1
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000020
+  group_id: V-220649
+  rule_id: SV-220649r863283_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Verify if the switch configuration has 802.1x authentication implemented for all access switch ports connecting
+    to LAN outlets (i.e., RJ-45 wall plates) or devices not located in the telecom room, wiring closets, or equipment rooms.
+    MAC Authentication Bypass (MAB) must be configured on those switch ports connected to devices that do not support an 802.1x
+    supplicant. Step 1: Verify that 802.1x is configured on all host-facing interfaces as shown in the example below: interface
+    GigabitEthernet1/0 switchport access vlan 12 switchport mode access authentication port-control auto dot1x pae authenticator
+    ! interface GigabitEthernet1/1 switchport access vlan 13 switchport mode access authentication port-control auto dot1x
+    pae authenticator ! interface GigabitEthernet1/2 switchport access vlan 13 switchport mode access authentication port-control
+    auto dot1x pae authenticator Step 2: Verify that 802.1x authentication is configured on the switch as shown in the example
+    below: aaa new-model ! ! aaa group server radius RADIUS_SERVERS server name RADIUS_1 server name RADIUS_2 ! aaa authentication
+    dot1x default group RADIUS_SERVERS … … … dot1x system-auth-control Step 3: Verify that the radius servers have been defined.
+    SW1#show radius server-group RADIUS_SERVERS Note: Single-host is the default. Host-mode multi-domain (for VoIP phone +
+    PC) or multi-auth (multiple PCs connected to a hub) can be configured as alternatives. Host-mode multi-host is not compliant
+    with this requirement. If 802.1x authentication or MAB is not configured on all access switch ports connecting to LAN
+    outlets or devices not located in the telecom room, wiring closets, or equipment rooms, this is a finding.'
+  fix_text: 'Configure 802.1 x authentications on all host-facing access switch ports. To authenticate those devices that
+    do not support 802.1x, MAC Authentication Bypass must be configured. Step 1: Configure the radius servers as shown in
+    the example below: SW1(config)#radius server RADIUS_1 SW1(config-radius-server)#address ipv4 10.1.22.3 SW1(config-radius-server)#key
+    xxxxxx SW1(config-radius-server)#exit SW1(config)#radius server RADIUS_2 SW1(config-radius-server)#address ipv4 10.1.14.5
+    SW1(config-radius-server)#key xxxxxx SW1(config-radius-server)#exit Step 2: Enable 802.1x authentication on the switch.
+    SW1(config)#aaa new-model SW1(config)#aaa group server radius RADIUS_SERVERS SW1(config-sg-radius)#server name RADIUS_1
+    SW1(config-sg-radius)#server name RADIUS_2 SW1(config-sg-radius)#exit SW1(config)#aaa authentication dot1x default group
+    RADIUS_SERVERS SW1(config)#dot1x system-auth-control Step 3: Enable 802.1x on all host-facing interfaces as shown in the
+    example below: SW1(config)#int range g1/0 - 8 SW1(config-if-range)#switchport mode access SW1(config-if-range)#authentication
+    host-mode single-host SW1(config-if-range)#dot1x pae authenticator SW1(config-if-range)#authentication port-control auto
+    SW1(config-if-range)#end Note: Single-host is the default. Host-mode multi-domain (for VoIP phone + PC) or multi-auth
+    (multiple PCs connected to a hub) can be configured as alternatives.'
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000030
+  title: The Cisco switch must authenticate all VLAN Trunk Protocol (VTP) messages with a hash function using the most secured
+    cryptographic algorithm available.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000030
+  group_id: V-220650
+  rule_id: SV-220650r539671_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configuration to verify if VTP is enabled using the show vtp status command as shown in the
+    example below: Switch#show vtp status VTP Version capable : 1 to 3 VTP version running : 1 VTP Domain Name : VTP Pruning
+    Mode : Disabled VTP Traps Generation : Disabled Device ID : 5e00.0000.8000 Feature VLAN: -------------- VTP Operating
+    Mode : Off Maximum VLANs supported locally : 1005 Number of existing VLANs : 5 Configuration Revision : 0 MD5 digest :
+    0x57 0xCD 0x40 0x65 0x63 0x59 0x47 0xBD 0x56 0x9D 0x4A 0x3E 0xA5 0x69 0x35 0xBC Switch# If mode is set to anything other
+    than off, verify that a password has been configured using the show vtp password command. Note: VTP authenticates all
+    messages using an MD5 hash that consists of the VTP version + The VTP Password + VTP Domain + VTP Configuration Revision.
+    If VTP is enabled on the switch and is not authenticating VTP messages with a hash function using a configured password,
+    this is a finding.'
+  fix_text: 'Configure the switch to authenticate all VLAN Trunk Protocol (VTP) messages with a hash function using a configured
+    password as shown in the example below: SW1(config)#vtp password xxxxxxxxx'
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000040
+  title: The Cisco switch must manage excess bandwidth to limit the effects of packet flooding types of denial-of-service
+    (DoS) attacks.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000040
+  group_id: V-220651
+  rule_id: SV-220651r1107171_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Step 1: Verify that the class-maps are configured to match on DSCP values as shown in the configuration example
+    below: class-map match-all C2_VOICE match ip dscp 47 class-map match-all VOICE match ip dscp ef class-map match-all VIDEO
+    match ip dscp af41 class-map match-all PREFERRED_DATA match ip dscp af33 Step 2: Verify that the policy map reserves the
+    bandwidth for each traffic type as shown in the following example: policy-map QOS_POLICY_SWITCHPORT class C2_VOICE priority
+    level 1 10 class VOICE priority level 2 15 class VIDEO bandwidth percent 25 class PREFERRED_DATA bandwidth percent 25
+    class class-default bandwidth percent 25 verone interface GigabitEthernet1/1 switchport trunk allowed vlan 100,110,200
+    switchport mode trunk service-policy output QOS_POLICY_SWITCHPORT ! interface GigabitEthernet1/2 switchport access vlan
+    100 switchport mode access switchport voice vlan 200 trust device cisco-phone service-policy output QOS_POLICY_SWITCHPORT
+    ! interface GigabitEthernet1/2 switchport access vlan 110 switchport mode access switchport voice vlan 200 trust device
+    cisco-phone service-policy output QOS_POLICY_SWITCHPORT If quality of service (QoS) has not been enabled, this is a finding.'
+  fix_text: 'Step 1: Configure class-maps to match on DSCP values as shown in the configuration example below: SW1(config-cmap)#class-map
+    match-all C2_VOICE SW1(config-cmap)# match ip dscp 47 SW1(config-cmap)#class-map match-all VOICE SW1(config-cmap)# match
+    ip dscp ef SW1(config-cmap)#class-map match-all VIDEO SW1(config-cmap)# match ip dscp af41 SW1(config)#class-map match-all
+    PREFERRED_DATA SW1(config-cmap)# match ip dscp af33 SW1(config-cmap)#exit Step 2: Configure a policy map to be applied
+    to the core-layer-facing interface that reserves the bandwidth for each traffic type as shown in the example below: SW1(config)#policy-map
+    QOS_POLICY_SWITCHPORT SW1(config-pmap-c)#class C2_VOICE SW1(config-pmap-c)# priority level 1 10 SW1(config-pmap-c)#class
+    VOICE SW1(config-pmap-c)# priority level 2 15 SW1(config-pmap-c)#class VIDEO SW1(config-pmap-c)#bandwidth percent 25 SW1(config-pmap-c)#class
+    PREFERRED_DATA SW1(config-pmap-c)#bandwidth percent 25 SW1(config-pmap-c)#class class-default SW1(config-pmap-c)#bandwidth
+    percent 25 SW1(config-pmap-c)#exit SW1(config-pmap)#exit Step 3: Apply the output service policy to the core-layer-facing
+    interface as shown in the configuration example below: SW1(config)#int g1/1 SW1(config-if)#service-policy output QOS_POLICY_SWITCHPORT
+    SW1(config-if)#exit SW1(config)#int g1/2 SW1(config-if)#service-policy output QOS_POLICY_SWITCHPORT SW1(config-if)#exit
+    SW1(config)#int g1/3 SW1(config-if)#service-policy output QOS_POLICY_SWITCHPORT SW1(config-if)#end.'
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000090
+  title: The Cisco switch must have Root Guard enabled on all switch ports connecting to access layer switches.
+  stig_family: IOSXE_L2
+  severity: cat3
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000090
+  group_id: V-220655
+  rule_id: SV-220655r917683_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: Review the switch topology as well as the configuration to verify that Root Guard is enabled on all switch ports
+    connecting to access layer switches. interface GigabitEthernet0/0 spanning-tree guard root ! interface GigabitEthernet0/1
+    spanning-tree guard root … … … interface GigabitEthernet0/9 spanning-tree guard root If the switch has not enabled Root
+    Guard on all switch ports connecting to access layer switches, this is a finding.
+  fix_text: Configure the switch to have Root Guard enabled on all ports connecting to access layer switches. SW1(config)#int
+    range g0/0 - 9 SW1(config-if-range)#spanning-tree guard root
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000100
+  title: The Cisco switch must have BPDU Guard enabled on all user-facing or untrusted access switch ports.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000100
+  group_id: V-220656
+  rule_id: SV-220656r856278_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configuration to verify that BPDU Guard is enabled on all user-facing or untrusted access
+    switch ports as shown in the configuration example below: interface GigabitEthernet0/0 spanning-tree bpduguard enable
+    ! interface GigabitEthernet0/1 spanning-tree bpduguard enable … … … interface GigabitEthernet0/9 spanning-tree bpduguard
+    enable If the switch has not enabled BPDU Guard, this is a finding.'
+  fix_text: 'Ensure that BPDU Guard is enabled on all user-facing or untrusted access switch ports as shown in the configuration
+    example below: SW1(config)#int range g0/0 - 9 SW1(config-if-range)#spanning-tree bpduguard enable Note: BPDU guard can
+    also be enabled globally on all Port Fast-enabled ports by using the spanning-tree portfast bpduguard default command.'
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000110
+  title: The Cisco switch must have STP Loop Guard enabled.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000110
+  group_id: V-220657
+  rule_id: SV-220657r856279_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configuration to verify that STP Loop Guard is enabled as shown in the configuration example
+    below: hostname SW2 … … … spanning-tree mode pvst spanning-tree loopguard default If STP Loop Guard is not enabled, this
+    is a finding.'
+  fix_text: Configure the switch to have STP Loop Guard enabled via the spanning-tree loopguard default global command.
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000120
+  title: The Cisco switch must have Unknown Unicast Flood Blocking (UUFB) enabled.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000120
+  group_id: V-220658
+  rule_id: SV-220658r856280_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configuration to verify that UUFB is enabled on all access switch ports as shown in the configuration
+    example below: interface GigabitEthernet0/0 switchport block unicast ! interface GigabitEthernet0/1 switchport block unicast
+    … … … interface GigabitEthernet0/9 switchport block unicast If any access switch ports do not have UUFB enabled, this
+    is a finding.'
+  fix_text: 'Configure the switch to have Unknown Unicast Flood Blocking (UUFB) enabled as shown in the configuration example
+    below: SW1(config)#int range g0/0 - 9 SW1(config-if-range)#switchport block unicast'
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000130
+  title: The Cisco switch must have DHCP snooping for all user VLANs to validate DHCP messages from untrusted sources.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: dhcp_snooping_policy
+  commands:
+  - show running-config
+  - show ip dhcp snooping
+  automated: true
+  stig_id: CISC-L2-000130
+  group_id: V-220659
+  rule_id: SV-220659r928999_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configuration and verify that DHCP snooping is enabled on all user VLANs as shown in the
+    example below: hostname SW2 … … … ip dhcp snooping vlan 2,4-8,11 ip dhcp snooping Note: Switchports assigned to a user
+    VLAN would have drops in the area where the user community would reside; hence, the "untrusted" term is used. Server and
+    printer VLANs would not be applicable. If the switch does not have DHCP snooping enabled for all user VLANs to validate
+    DHCP messages from untrusted sources, this is a finding.'
+  fix_text: 'Configure the switch to have DHCP snooping for all user VLANs to validate DHCP messages from untrusted sources
+    as shown in the example below: SW2(config)#ip dhcp snooping SW2(config)#ip dhcp snooping vlan 2,4-8,11'
+  parser: {}
+  scope: {}
+  conditions:
+    all:
+    - field: global_enabled
+      op: equals
+      value: true
+    - field: snooping_vlans
+      op: includes_profile_list
+      profile_key: dhcp_snooping.vlans
+  result:
+    pass_status: NotAFinding
+    fail_status: Open
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: true
+    pass_comment: DHCP snooping is enabled for all required VLANs.
+    fail_comment: DHCP snooping is missing globally or missing required VLANs.
+    error_comment: DHCP snooping could not be evaluated.
+    finding_details_template: default
+- vuln_id: CISC-L2-000140
+  title: The Cisco switch must have IP Source Guard enabled on all user-facing or untrusted access switch ports.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000140
+  group_id: V-220660
+  rule_id: SV-220660r929001_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configuration to verify that IP Source Guard is enabled on all user-facing or untrusted access
+    switch ports as shown in the example below: interface GigabitEthernet0/0 ip verify source ! interface GigabitEthernet0/1
+    ip verify source … … … interface GigabitEthernet0/9 ip verify source Note: The IP Source Guard feature depends on the
+    entries in the DHCP snooping database or static IP-MAC-VLAN configuration commands to verify IP-to-MAC address bindings.
+    If the switch does not have IP Source Guard enabled on all untrusted access switch ports, this is a finding.'
+  fix_text: Configure the switch to have IP Source Guard enabled on all user-facing or untrusted access switch ports. SW2(config)#int
+    range g0/0 - 9 SW2(config-if-range)#ip verify source
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000150
+  title: The Cisco switch must have Dynamic Address Resolution Protocol (ARP) Inspection (DAI) enabled on all user VLANs.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: arp_inspection_policy
+  commands:
+  - show running-config
+  - show ip arp inspection
+  automated: true
+  stig_id: CISC-L2-000150
+  group_id: V-220661
+  rule_id: SV-220661r929003_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configuration to verify that Dynamic Address Resolution Protocol (ARP) Inspection (DAI) feature
+    is enabled on all user VLANs. hostname SW2 … … … ip arp inspection vlan 2,4-8,11 Note: DAI depends on the entries in the
+    DHCP snooping binding database to verify IP-to-MAC address bindings in incoming ARP requests and ARP responses. If DAI
+    is not enabled on all user VLANs, this is a finding.'
+  fix_text: 'Configure the switch to have Dynamic Address Resolution Protocol (ARP) Inspection (DAI) enabled on all user VLANs
+    as shown in the example below: SW2(config)#ip arp inspection vlan 2,4-8,11'
+  parser: {}
+  scope: {}
+  conditions:
+    all:
+    - field: inspection_vlans
+      op: includes_profile_list
+      profile_key: arp_inspection.vlans
+  result:
+    pass_status: NotAFinding
+    fail_status: Open
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: true
+    pass_comment: ARP inspection is enabled for all required VLANs.
+    fail_comment: ARP inspection is missing required VLANs.
+    error_comment: ARP inspection could not be evaluated.
+    finding_details_template: default
+- vuln_id: CISC-L2-000160
+  title: The Cisco switch must have Storm Control configured on all host-facing switchports.
+  stig_family: IOSXE_L2
+  severity: cat3
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000160
+  group_id: V-220662
+  rule_id: SV-220662r648766_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configuration to verify that storm control is enabled on all host-facing interfaces as shown
+    in the example below: interface GigabitEthernet0/3 switchport access vlan 12 storm-control unicast level bps 62000000
+    storm-control broadcast level bps 20000000 Note: Bandwidth percentage thresholds (via level parameter) can be used in
+    lieu of PPS rate. If storm control is not enabled at a minimum for broadcast traffic, this is a finding.'
+  fix_text: 'Configure storm control for each host-facing interface as shown in the example below: SW1(config)#int range g0/2
+    - 8 SW1(config-if-range)#storm-control unicast bps 62000000 SW1(config-if-range)#storm-control broadcast level bps 20000000
+    Note: The acceptable range is 10000000 -1000000000 for a gigabit Ethernet interface, and 100000000-10000000000 for a ten
+    gigabit interface. Storm control is not supported on most FastEthernet interfaces.'
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000170
+  title: The Cisco switch must have IGMP or MLD Snooping configured on all VLANs.
+  stig_family: IOSXE_L2
+  severity: cat3
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000170
+  group_id: V-220663
+  rule_id: SV-220663r929005_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configuration to verify that IGMP or MLD snooping has been configured for IPv4 and IPv6 multicast
+    traffic respectively. Below is an example of the steps to verify that IGMP snooping is enabled for each VLAN. Step 1:
+    Verify that IGMP or MLD snooping is enabled globally. By default, IGMP snooping is enabled globally; hence, the following
+    command should not be in the switch configuration: no ip igmp snooping Step 2: Verify that IGMP snooping is not disabled
+    for any VLAN as shown in the example below: no ip igmp snooping vlan 11 Note: When globally enabled, it is also enabled
+    by default on all VLANs, but can be disabled on a per-VLAN basis. If global snooping is disabled, VLAN snooping cannot
+    be enabled. If the switch is not configured to implement IGMP or MLD snooping for each VLAN, this is a finding.'
+  fix_text: Configure IGMP or MLD snooping for IPv4 and IPv6 multicast traffic respectively globally. SW1(config)#ip igmp
+    snooping
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000180
+  title: The Cisco switch must implement Rapid STP where VLANs span multiple switches with redundant links.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000180
+  group_id: V-220664
+  rule_id: SV-220664r539671_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'In cases where VLANs do not span multiple switches, it is a best practice to not implement STP. Avoiding the
+    use of STP will provide the most deterministic and highly available network topology. If STP is required, then review
+    the switch configuration to verify that Rapid STP has been implemented. hostname SW2 … … … spanning-tree mode rapid-pvst
+    Note: Multiple STP (MSTP) can be configured as an alternate mode. MSTP which uses RSTP for rapid convergence and enables
+    multiple VLANs to be grouped into and mapped to the same spanning-tree instance; thereby reducing the number of spanning-tree
+    instances needed to support a large number of VLANs. If either RSTP or MSTP has not been implemented where STP is required,
+    this is a finding.'
+  fix_text: 'Configure Rapid STP or MSTP to be implemented at the access and distribution layers where VLANs span multiple
+    switches as shown in the examples below: SW2(config)#spanning-tree mode rapid-pvst or SW1(config)#spanning-tree mode mst'
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000190
+  title: The Cisco switch must enable Unidirectional Link Detection (UDLD) to protect against one-way connections.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000190
+  group_id: V-220665
+  rule_id: SV-220665r539671_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'If any of the switch ports have fiber optic interconnections with neighbors, review the switch configuration
+    to verify that UDLD is enabled globally or on a per-interface basis as shown in the examples below: hostname SW2 … … …
+    udld enable or interface GigabitEthernet0/1 udld port Note: An alternative implementation when UDLD is not supported by
+    connected device is to deploy a single member Link Aggregation Group (LAG) via IEEE 802.3ad Link Aggregation Control Protocol
+    (LACP). If the switch has fiber optic interconnections with neighbors and UDLD is not enabled, this is a finding.'
+  fix_text: Configure the switch to enable Unidirectional Link Detection (UDLD) to protect against one-way connections. SW2(config)#udld
+    enable or SW2(config)#int g0/1 SW2(config-if)#udld port
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000200
+  title: The Cisco switch must have all trunk links enabled statically.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000200
+  group_id: V-220666
+  rule_id: SV-220666r539671_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'By default, Dynamic Trunking Protocol (DTP) is enabled on all Cisco switches. Review the switch configuration
+    to verify that trunk links will not form trunk via negotiation as shown in the example below: SW2#show interfaces switchport
+    Name: Gi0/0 Switchport: Enabled Administrative Mode: dynamic auto Operational Mode: static access Administrative Trunking
+    Encapsulation: negotiate Operational Trunking Encapsulation: native Negotiation of Trunking: On If trunk negotiation is
+    enabled on any interface, this is a finding.'
+  fix_text: 'Configure the switch to enable trunk links statically as shown in the configuration below: SW2(config-if)#switchport
+    trunk encapsulation dot1q SW2(config-if)#switchport mode trunk SW2(config-if)#switchport nonegotiate'
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000210
+  title: The Cisco switch must have all disabled switch ports assigned to an unused VLAN.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: interface_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  automated: true
+  stig_id: CISC-L2-000210
+  group_id: V-220667
+  rule_id: SV-220667r991904_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Step 1: Review the switch configurations and examine all access switch ports. Each access switch port not in
+    use should have membership to an inactive VLAN. interface GigabitEthernet0/0 switchport access vlan 999 shutdown ! interface
+    GigabitEthernet0/1 switchport access vlan 999 shutdown … … … interface GigabitEthernet0/9 switchport access vlan 999 shutdown
+    Step 2: Verify that traffic from the inactive VLAN is not allowed on any trunk links as shown in the example below: interface
+    GigabitEthernet1/1 switchport trunk allowed vlan 1-998,1000-4094 switchport trunk encapsulation dot1q switchport mode
+    trunk Note: Switch ports configured for 802.1x are exempt from this requirement. If there are any access switch ports
+    not in use and not in an inactive VLAN, this is a finding.'
+  fix_text: 'Assign all switch ports not in use to an inactive VLAN. Step 1: Assign the disabled interfaces to an inactive
+    VLAN. SW3(config)#int range g0/0 – 9 SW3(config-if-range)# switchport access vlan 999 Step 2: Configure trunk links to
+    not allow traffic from the inactive VLAN. SW3(config)#int g1/1 SW3(config-if)#switchport trunk allowed vlan except 999'
+  parser: {}
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          admin_state: disabled_or_notconnect
+  conditions:
+    all:
+    - field: shutdown
+      op: equals
+      value: true
+    - field: access_vlan
+      op: equals_profile_value
+      profile_key: unused_vlan
+  result:
+    pass_status: NotAFinding
+    fail_status: Open
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: true
+    pass_comment: All disabled/not-connected access interfaces are shutdown and assigned to unused VLAN {{ unused_vlan }}.
+    fail_comment: One or more disabled/not-connected interfaces are not shutdown and/or not assigned to unused VLAN {{ unused_vlan
+      }}.
+    error_comment: Disabled port policy could not be evaluated.
+    finding_details_template: default
+- vuln_id: CISC-L2-000220
+  title: The Cisco switch must not have the default VLAN assigned to any host-facing switch ports.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000220
+  group_id: V-220668
+  rule_id: SV-220668r991905_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: Review the switch configurations and verify that no access switch ports have been assigned membership to the
+    default VLAN (i.e., VLAN 1). VLAN assignments can be verified via the show vlan command. SW1#show vlan VLAN Name Status
+    Ports ---- -------------------------------- --------- ------------------------------- 1 default active 10 User VLAN active
+    Gi0/3, Gi1/0, Gi1/1, Gi1/2 Gi1/3, Gi2/1 20 Management VLAN active Gi0/2 999 VLAN0999 active Gi2/0 If there are access
+    switch ports assigned to the default VLAN, this is a finding.
+  fix_text: Remove the assignment of the default VLAN from all access switch ports.
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000230
+  title: The Cisco switch must have the default VLAN pruned from all trunk ports that do not require it.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: trunk_vlan_policy
+  commands:
+  - show running-config
+  - show interfaces trunk
+  automated: true
+  stig_id: CISC-L2-000230
+  group_id: V-220669
+  rule_id: SV-220669r991906_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: Review the switch configuration and verify that the default VLAN is pruned from trunk links that do not require
+    it. SW1#show interfaces trunk Port Mode Encapsulation Status Native vlan Gi0/1 on 802.1q trunking 1 Gi0/2 on 802.1q trunking
+    1 Port Vlans allowed on trunk Gi0/1 1-998,1000-4094 Gi0/2 1-4094 If the default VLAN is not pruned from trunk links that
+    should not be transporting frames for the VLAN, this is a finding.
+  fix_text: Prune VLAN 1 from any trunk links as necessary. SW1(config)#int g0/2 SW1(config-if)#switchport trunk allowed vlan
+    except 1 Verify VLAN 1 is not allowed on the trunk link. SW1#show interfaces trunk Port Mode Encapsulation Status Native
+    vlan Gi0/1 on 802.1q trunking 1 Gi0/2 on 802.1q trunking 1 Port Vlans allowed on trunk Gi0/1 1-998,1000-4094 Gi0/2 2-4094
+  parser: {}
+  scope:
+    interfaces:
+      mode: trunk
+  conditions:
+    all:
+    - field: allowed_vlans
+      op: excludes
+      value: 1
+    - field: allowed_vlans
+      op: excludes_profile_list
+      profile_key: additional_pruned_vlans
+  result:
+    pass_status: NotAFinding
+    fail_status: Open
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: true
+    pass_comment: VLAN 1 is pruned from all trunk interfaces.
+    fail_comment: One or more trunk interfaces allow VLAN 1.
+    error_comment: Trunk VLAN pruning could not be evaluated.
+    finding_details_template: default
+- vuln_id: CISC-L2-000240
+  title: The Cisco switch must not use the default VLAN for management traffic.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000240
+  group_id: V-220670
+  rule_id: SV-220670r991907_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: Review the switch configuration and verify that the default VLAN is not used to access the switch for management.
+    interface Vlan22 description Management VLAN ip address 10.1.22.3 255.255.255.0 If the default VLAN is being used for
+    management access to the switch, this is a finding.
+  fix_text: Configure the switch for management access to use a VLAN other than the default VLAN. SW1(config)#int vlan 22
+    SW1(config-if)#ip add 10.1.22.3 255.255.255.0 SW1(config-if)#no shut
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000250
+  title: The Cisco switch must have all user-facing or untrusted ports configured as access switch ports.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000250
+  group_id: V-220671
+  rule_id: SV-220671r991908_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: Review the switch configurations and examine all user-facing or untrusted switchports. The example below depicts
+    both access and trunk ports. interface GigabitEthernet0/1 switchport trunk encapsulation dot1q switchport mode trunk negotiation
+    auto ! interface GigabitEthernet0/2 switchport access vlan 11 negotiation auto ! interface GigabitEthernet0/3 switchport
+    access vlan 12 negotiation auto If any of the user-facing switch ports are configured as a trunk, this is a finding.
+  fix_text: Disable trunking on all user-facing or untrusted switch ports. SW1(config)#int g0/6 SW1(config-if)#switchport
+    mode access SW1(config-if)#end
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000260
+  title: The Cisco switch must have the native VLAN assigned to an ID other than the default VLAN for all 802.1q trunk links.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000260
+  group_id: V-220672
+  rule_id: SV-220672r991909_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configurations and examine all trunk links. Verify the native VLAN has been configured to
+    a VLAN ID other than the ID of the default VLAN (i.e. VLAN 1) as shown in the example below: interface GigabitEthernet0/1
+    switchport trunk encapsulation dot1q switchport trunk native vlan 44 switchport mode trunk negotiation auto Note: An alternative
+    to configuring a dedicated native VLAN is to ensure that all native VLAN traffic is tagged. This will mitigate the risk
+    of VLAN hopping since there will always be an outer tag for native traffic as it traverses an 802.1q trunk link. If the
+    native VLAN has the same VLAN ID as the default VLAN, this is a finding.'
+  fix_text: 'To ensure the integrity of the trunk link and prevent unauthorized access, the ID of the native VLAN of the trunk
+    port must be changed from the default VLAN (i.e., VLAN 1) to its own unique VLAN ID. SW1(config)#int g0/1 SW1(config-if)#switchport
+    trunk native vlan 44 Note: The native VLAN ID must be the same on both ends of the trunk link; otherwise, traffic could
+    accidentally leak between broadcast domains.'
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: CISC-L2-000270
+  title: The Cisco switch must not have any switchports assigned to the native VLAN.
+  stig_family: IOSXE_L2
+  severity: cat3
+  check_type: manual_review
+  commands: []
+  automated: false
+  stig_id: CISC-L2-000270
+  group_id: V-220673
+  rule_id: SV-220673r991910_rule
+  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
+  source_version: '3'
+  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
+  check_text: 'Review the switch configurations and examine all access switch ports. Verify that they do not belong to the
+    native VLAN as shown in the example below: interface GigabitEthernet0/1 switchport trunk encapsulation dot1q switchport
+    trunk native vlan 44 switchport mode trunk negotiation auto ! interface GigabitEthernet0/2 switchport access vlan 11 negotiation
+    auto ! interface GigabitEthernet0/3 switchport access vlan 12 negotiation auto ! If any access switch ports have been
+    assigned to the same VLAN ID as the native VLAN, this is a finding.'
+  fix_text: Configure all access switch ports to a VLAN other than the native VLAN.
+  parser: {}
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Reviewed
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Manual review required. Review the imported STIG check text and customer/site tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: EXAMPLE-ACL-LOG-INPUT
+  title: ACL deny statements must use log-input.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: acl_deny_logging_policy
+  commands:
+  - show running-config
+  - show ip access-lists
+  automated: true
+  check_text: ''
+  fix_text: ''
+  parser:
+    source: running_config
+    ignore_lines:
+    - ^\s*remark\b
+  scope: {}
+  conditions:
+    deny_statements:
+      require_keyword: log-input
+      ignore_remarks: true
+      include_standard_acls: true
+      include_extended_acls: true
+      include_ipv6_acls: false
+      include_object_groups: true
+  result:
+    pass_status: NotAFinding
+    fail_status: Open
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: true
+    pass_comment: All ACL deny statements include log-input.
+    fail_comment: One or more ACL deny statements are missing log-input.
+    error_comment: ACL deny logging could not be evaluated.
+    finding_details_template: default

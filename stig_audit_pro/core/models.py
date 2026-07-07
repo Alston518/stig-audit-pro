@@ -64,7 +64,13 @@ class CheckDefinition(StrictModel):
     commands: list[str] = Field(default_factory=list)
     automated: bool = True
     stig_id: str | None = None
+    group_id: str | None = None
     rule_id: str | None = None
+    source_benchmark: str | None = None
+    source_version: str | None = None
+    source_release: str | None = None
+    check_text: str = ""
+    fix_text: str = ""
     parser: dict[str, Any] = Field(default_factory=dict)
     scope: dict[str, Any] = Field(default_factory=dict)
     conditions: dict[str, Any] = Field(default_factory=dict)
