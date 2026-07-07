@@ -1,4 +1,4 @@
-﻿"""Results tab for check outcomes and finding detail."""
+"""Results tab for check outcomes and finding detail."""
 
 from __future__ import annotations
 
@@ -21,12 +21,14 @@ class ResultsTab(PageFrame):
 
         actions = ctk.CTkFrame(self, fg_color="transparent")
         actions.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 6))
-        actions.grid_columnconfigure((0, 1, 2, 3, 4), weight=1)
+        actions.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
         self.metrics = {
             "total": Metric(actions, "Total"),
             "NotAFinding": Metric(actions, "NotAFinding"),
             "Open": Metric(actions, "Open"),
             "Error": Metric(actions, "Error"),
+            "Skipped": Metric(actions, "Skipped"),
+            "Not_Reviewed": Metric(actions, "NotReviewed"),
         }
         for column, metric in enumerate(self.metrics.values()):
             metric.grid(row=0, column=column, sticky="ew", padx=4)
@@ -85,7 +87,7 @@ class ResultsTab(PageFrame):
         self.app_controller.update_report_summary([])
 
     def _update_metrics(self) -> None:
-        counts = {"total": len(self.results), "NotAFinding": 0, "Open": 0, "Error": 0}
+        counts = {"total": len(self.results), "NotAFinding": 0, "Open": 0, "Error": 0, "Skipped": 0, "Not_Reviewed": 0}
         for result in self.results:
             if result.status in counts:
                 counts[result.status] += 1

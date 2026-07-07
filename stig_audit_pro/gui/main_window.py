@@ -14,7 +14,7 @@ from stig_audit_pro.core.check_engine import CheckEngine
 from stig_audit_pro.core.command_planner import plan_commands
 from stig_audit_pro.core.output_cache import CommandOutputCache
 from stig_audit_pro.core.ssh_runner import DeviceCredentials, DeviceTarget, NetmikoSshRunner
-from stig_audit_pro.core.models import CheckLibrary, SiteProfile
+from stig_audit_pro.core.models import CheckDefinition, CheckLibrary, SiteProfile
 from stig_audit_pro.core.result_model import CheckResult
 from stig_audit_pro.core.yaml_loader import ConfigValidationError, deep_merge, load_check_library, load_profile, load_yaml_file
 from stig_audit_pro.gui.checks_tab import ChecksTab
@@ -23,7 +23,9 @@ from stig_audit_pro.gui.reports_tab import ReportsTab
 from stig_audit_pro.gui.results_tab import ResultsTab
 from stig_audit_pro.gui.stig_tab import StigTab
 from stig_audit_pro.gui.targets_tab import TargetsTab
+from stig_audit_pro.reports.audit_report import write_csv_report, write_text_report
 from stig_audit_pro.storage.device_groups import DeviceGroup, DeviceGroupStore, DeviceTargetRecord
+from stig_audit_pro.stig.check_generator import build_manual_starter_library, write_manual_starter_library
 from stig_audit_pro.stig.source_manager import StigSourceError, StigSourceManager
 from stig_audit_pro.stig.stig_metadata import StigBenchmarkMetadata
 
@@ -121,9 +123,10 @@ class StigAuditProApp(ctk.CTk):
 
     def reload_from_disk(self) -> None:
         try:
-            l2_library = load_check_library(self.check_path)
-            ndm_library = load_check_library(self.ndm_check_path)
-            self.checks = [*l2_library.checks, *ndm_library.checks]
+            libraries = [load_check_library(path) for path in self._check_library_paths()]
+            checks = [check for library in libraries for check in library.checks]
+            self._raise_on_duplicate_checks(checks)
+            self.checks = checks
             self._set_active_profile(self.profile_name, announce=False)
             self.checks_tab.refresh(self.checks, self.check_path)
             self.refresh_device_groups()
@@ -131,9 +134,25 @@ class StigAuditProApp(ctk.CTk):
         except ConfigValidationError as exc:
             self.set_status("YAML validation failed.")
             self._show_error(str(exc))
+        except ValueError as exc:
+            self.set_status("Check library validation failed.")
+            self._show_error(str(exc))
 
     def available_profile_names(self) -> list[str]:
         return sorted(path.stem for path in (self.data_dir / "profiles").glob("*.yaml"))
+
+    def _check_library_paths(self) -> list[Path]:
+        return sorted((self.data_dir / "checks").glob("*.yaml"))
+
+    def _raise_on_duplicate_checks(self, checks: list[CheckDefinition]) -> None:
+        seen: set[str] = set()
+        duplicates: set[str] = set()
+        for check in checks:
+            if check.vuln_id in seen:
+                duplicates.add(check.vuln_id)
+            seen.add(check.vuln_id)
+        if duplicates:
+            raise ValueError(f"Duplicate check IDs across check libraries: {', '.join(sorted(duplicates))}")
 
     def refresh_device_groups(self) -> None:
         self.targets_tab.refresh_groups(
@@ -180,6 +199,24 @@ class StigAuditProApp(ctk.CTk):
         except Exception as exc:
             self.stig_tab.set_status("STIG import failed.")
             self.set_status("STIG import failed.")
+            self._show_error(str(exc))
+
+    def generate_starter_checks_from_stigs(self) -> None:
+        try:
+            self.refresh_stig_metadata()
+            if not self.stig_metadata:
+                raise ValueError("Import the current L2/NDM STIG ZIP/XML first, then build starter checks.")
+            starter_library = build_manual_starter_library(self.stig_metadata, self.checks)
+            destination = self.data_dir / "checks" / "generated_stig_manual.yaml"
+            write_manual_starter_library(starter_library, destination)
+            self.reload_from_disk()
+            self.stig_tab.set_status(
+                f"Generated {len(starter_library.checks)} starter manual review check(s) in {destination.name}."
+            )
+            self.set_status(f"Generated {len(starter_library.checks)} starter check(s).")
+        except Exception as exc:
+            self.stig_tab.set_status("Starter check generation failed.")
+            self.set_status("Starter check generation failed.")
             self._show_error(str(exc))
 
     def load_device_group(self, group_name: str) -> None:
@@ -246,6 +283,28 @@ class StigAuditProApp(ctk.CTk):
 
     def update_report_summary(self, results: list[CheckResult]) -> None:
         self.reports_tab.refresh(results)
+
+    def export_text_report(self, path: Path) -> None:
+        try:
+            if not self.results:
+                raise ValueError("Run a scan before exporting a report.")
+            destination = write_text_report(self.results, path)
+            self.set_status(f"Saved TXT report to {destination}.")
+            self.reports_tab.set_export_status(f"Saved TXT report: {destination}")
+        except Exception as exc:
+            self.set_status("TXT report export failed.")
+            self._show_error(str(exc))
+
+    def export_csv_report(self, path: Path) -> None:
+        try:
+            if not self.results:
+                raise ValueError("Run a scan before exporting a report.")
+            destination = write_csv_report(self.results, path)
+            self.set_status(f"Saved CSV report to {destination}.")
+            self.reports_tab.set_export_status(f"Saved CSV report: {destination}")
+        except Exception as exc:
+            self.set_status("CSV report export failed.")
+            self._show_error(str(exc))
 
     def validate_check_yaml(self, text: str) -> tuple[bool, str]:
         try:

@@ -1,4 +1,4 @@
-﻿"""STIG source, metadata visualization, and CKL output options tab."""
+"""STIG source, metadata visualization, and CKL output options tab."""
 
 from __future__ import annotations
 
@@ -52,9 +52,10 @@ class StigTab(PageFrame):
         ctk.CTkButton(url_row, text="Download URL", width=120, command=self._download_url).grid(row=0, column=1)
 
         ctk.CTkButton(source_panel, text="Refresh Cached STIGs", command=self.app_controller.refresh_stig_metadata).grid(row=6, column=0, sticky="ew", padx=12, pady=(0, 8))
+        ctk.CTkButton(source_panel, text="Build Starter Checks", command=self._generate_starter_checks).grid(row=7, column=0, sticky="ew", padx=12, pady=(0, 8))
 
         self.source_status = ctk.CTkLabel(source_panel, text="No STIG metadata loaded.", anchor="w", text_color=("#475467", "#d0d5dd"))
-        self.source_status.grid(row=7, column=0, sticky="ew", padx=12, pady=(2, 8))
+        self.source_status.grid(row=8, column=0, sticky="ew", padx=12, pady=(2, 8))
 
         columns = ("family", "version", "rules")
         self.benchmark_tree = ttk.Treeview(source_panel, columns=columns, show="tree headings", height=8, selectmode="browse")
@@ -146,6 +147,8 @@ class StigTab(PageFrame):
     def _download_url(self) -> None:
         self.app_controller.download_stig_from_url(self.download_url.get(), self.family_select.get())
 
+    def _generate_starter_checks(self) -> None:
+        self.app_controller.generate_starter_checks_from_stigs()
     def _import_source(self) -> None:
         path = filedialog.askopenfilename(
             title="Import STIG source",
