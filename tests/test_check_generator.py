@@ -19,8 +19,6 @@ def test_build_manual_starter_library_from_stig_metadata():
     assert check.group_id == "V-123456"
     assert check.rule_id == "SV-123456r1_rule"
     assert check.severity == "cat2"
-    assert "Review disabled switch ports." in check.check_text
-    assert "Configure shutdown and unused VLAN." in check.fix_text
     assert check.automated is False
     assert check.check_type == "manual_review"
     assert check.result.fail_status == "Not_Reviewed"

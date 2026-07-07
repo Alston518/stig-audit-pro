@@ -97,16 +97,13 @@ class CheckEngine:
         parsed: ParsedDeviceData,
     ) -> EvaluationOutcome:
         if check.check_type == "manual_review":
-            details = ["Manual review required."]
-            if check.check_text:
-                details.extend(["STIG Check Text:", check.check_text])
-            if check.fix_text:
-                details.extend(["STIG Fix Text:", check.fix_text])
-            return EvaluationOutcome(passed=False, details=details)
+            return EvaluationOutcome(passed=False, details=["Manual review required."])
         if check.check_type == "command_contains":
             return self._command_contains(check, outputs, expected=True)
         if check.check_type == "command_not_contains":
             return self._command_contains(check, outputs, expected=False)
+        if check.check_type == "command_pattern_policy":
+            return self._command_pattern_policy(check, outputs)
         if check.check_type == "command_regex":
             return self._command_regex(check, outputs)
         if check.check_type == "section_contains":
@@ -115,6 +112,8 @@ class CheckEngine:
             return self._section_contains(check, parsed, expected=False)
         if check.check_type == "interface_policy":
             return self._interface_policy(check, parsed)
+        if check.check_type == "interface_config_policy":
+            return self._interface_config_policy(check, parsed)
         if check.check_type == "trunk_vlan_policy":
             return self._trunk_vlan_policy(check, parsed)
         if check.check_type == "acl_deny_logging_policy":
@@ -285,11 +284,78 @@ class CheckEngine:
         pattern = check.conditions.get("pattern") or check.conditions.get("value")
         if pattern is None:
             raise ValueError("command_regex checks require conditions.pattern or conditions.value")
-        flags = re.MULTILINE
-        if not bool(check.conditions.get("case_sensitive", False)):
-            flags |= re.IGNORECASE
-        matched = bool(re.search(str(pattern), outputs.get(command, ""), flags=flags))
+        matched = self._regex_matches(
+            str(pattern),
+            outputs.get(command, ""),
+            case_sensitive=bool(check.conditions.get("case_sensitive", False)),
+        )
         return EvaluationOutcome(passed=matched, details=[f"Regex evaluated against {command}."])
+
+    def _regex_matches(self, pattern: str, text: str, case_sensitive: bool = False) -> bool:
+        flags = re.MULTILINE
+        if not case_sensitive:
+            flags |= re.IGNORECASE
+        return bool(re.search(pattern, text, flags=flags))
+
+    def _pattern_label(self, pattern_config: dict[str, Any]) -> str:
+        return str(pattern_config.get("description") or pattern_config.get("pattern") or "")
+
+    def _command_pattern_matches(
+        self,
+        outputs: dict[str, str],
+        pattern_config: dict[str, Any],
+        default_command: str,
+    ) -> bool:
+        command = str(pattern_config.get("command") or default_command)
+        pattern = pattern_config.get("pattern") or pattern_config.get("value")
+        if pattern is None:
+            raise ValueError("command pattern policies require pattern values")
+        return self._regex_matches(
+            str(pattern),
+            outputs.get(command, ""),
+            case_sensitive=bool(pattern_config.get("case_sensitive", False)),
+        )
+
+    def _command_pattern_policy(self, check: CheckDefinition, outputs: dict[str, str]) -> EvaluationOutcome:
+        default_command = check.conditions.get("command") or (check.commands[0] if check.commands else "")
+        required = check.conditions.get("all", [])
+        alternatives = check.conditions.get("any", [])
+        forbidden = check.conditions.get("none", [])
+
+        missing = [
+            self._pattern_label(pattern_config)
+            for pattern_config in required
+            if not self._command_pattern_matches(outputs, pattern_config, default_command)
+        ]
+        forbidden_found = [
+            self._pattern_label(pattern_config)
+            for pattern_config in forbidden
+            if self._command_pattern_matches(outputs, pattern_config, default_command)
+        ]
+        any_matched = True
+        if alternatives:
+            any_matched = any(
+                self._command_pattern_matches(outputs, pattern_config, default_command)
+                for pattern_config in alternatives
+            )
+
+        details: list[str] = []
+        if missing:
+            details.append(f"Missing required pattern(s): {', '.join(missing)}")
+        if alternatives and not any_matched:
+            details.append(
+                "None of the acceptable pattern(s) matched: "
+                + ", ".join(self._pattern_label(pattern_config) for pattern_config in alternatives)
+            )
+        if forbidden_found:
+            details.append(f"Forbidden pattern(s) present: {', '.join(forbidden_found)}")
+        if not details:
+            details.append("Command pattern policy matched.")
+
+        return EvaluationOutcome(
+            passed=not missing and any_matched and not forbidden_found,
+            details=details,
+        )
 
     def _section_contains(
         self,
@@ -319,10 +385,44 @@ class CheckEngine:
                 if admin_state == "disabled_or_notconnect":
                     if interface.operational_status not in {"disabled", "notconnect"}:
                         continue
+                status = match.get("status") or match.get("operational_status")
+                if status is not None and not self._value_matches(interface.operational_status, status):
+                    continue
+                switchport_mode = match.get("switchport_mode")
+                if switchport_mode is not None and not self._value_matches(
+                    interface.switchport_mode,
+                    switchport_mode,
+                ):
+                    continue
+                access_vlan = match.get("access_vlan")
+                if access_vlan is not None and not self._value_matches(interface.access_vlan, access_vlan):
+                    continue
+                media_type = match.get("media_type")
+                if media_type is not None:
+                    actual_media = interface.status.media_type if interface.status else None
+                    if not self._value_matches(actual_media, media_type):
+                        continue
                 include = True
             if include:
                 candidates.append(interface)
         return candidates
+
+    def _value_matches(self, actual: Any, expected: Any) -> bool:
+        if isinstance(expected, list):
+            return actual in expected
+        if isinstance(expected, dict):
+            if "equals" in expected and actual != expected["equals"]:
+                return False
+            if "not_equals" in expected and actual == expected["not_equals"]:
+                return False
+            if "in" in expected and actual not in expected["in"]:
+                return False
+            if "not_in" in expected and actual in expected["not_in"]:
+                return False
+            if "regex" in expected and not self._regex_matches(str(expected["regex"]), str(actual or "")):
+                return False
+            return True
+        return actual == expected
 
     def _interface_field(self, interface: InterfaceView, field: str) -> Any:
         if field == "shutdown":
@@ -334,6 +434,66 @@ class CheckEngine:
         if field == "switchport_mode":
             return interface.switchport_mode
         raise ValueError(f"Unsupported interface field: {field}")
+
+    def _interface_config_policy(self, check: CheckDefinition, parsed: ParsedDeviceData) -> EvaluationOutcome:
+        required = check.conditions.get("required_patterns", [])
+        alternatives = check.conditions.get("any_patterns", [])
+        forbidden = check.conditions.get("forbidden_patterns", [])
+        failed: list[FindingObject] = []
+        passed: list[FindingObject] = []
+
+        for interface in self._interface_candidates(check, parsed):
+            raw_lines = interface.config.raw_lines if interface.config else []
+            text = "\n".join(raw_lines)
+            missing = [
+                self._pattern_label(pattern_config)
+                for pattern_config in required
+                if not self._regex_matches(
+                    str(pattern_config.get("pattern") or pattern_config.get("value")),
+                    text,
+                    case_sensitive=bool(pattern_config.get("case_sensitive", False)),
+                )
+            ]
+            forbidden_found = [
+                self._pattern_label(pattern_config)
+                for pattern_config in forbidden
+                if self._regex_matches(
+                    str(pattern_config.get("pattern") or pattern_config.get("value")),
+                    text,
+                    case_sensitive=bool(pattern_config.get("case_sensitive", False)),
+                )
+            ]
+            any_missing: list[str] = []
+            for group_index, pattern_group in enumerate(alternatives, start=1):
+                group = pattern_group if isinstance(pattern_group, list) else [pattern_group]
+                if not any(
+                    self._regex_matches(
+                        str(pattern_config.get("pattern") or pattern_config.get("value")),
+                        text,
+                        case_sensitive=bool(pattern_config.get("case_sensitive", False)),
+                    )
+                    for pattern_config in group
+                ):
+                    any_missing.append(
+                        " or ".join(self._pattern_label(pattern_config) for pattern_config in group)
+                        or f"alternative group {group_index}"
+                    )
+
+            detail_parts = []
+            if missing:
+                detail_parts.append(f"missing: {', '.join(missing)}")
+            if any_missing:
+                detail_parts.append(f"missing one of: {', '.join(any_missing)}")
+            if forbidden_found:
+                detail_parts.append(f"forbidden present: {', '.join(forbidden_found)}")
+            details = "; ".join(detail_parts) or "required interface config present"
+            obj = FindingObject(object_type="interface", object_name=interface.name, details=details)
+            if detail_parts:
+                failed.append(obj)
+            else:
+                passed.append(obj)
+
+        return EvaluationOutcome(passed=not failed, failed_objects=failed, passed_objects=passed)
 
     def _interface_policy(self, check: CheckDefinition, parsed: ParsedDeviceData) -> EvaluationOutcome:
         conditions = check.conditions.get("all", [])
@@ -360,6 +520,10 @@ class CheckEngine:
             return trunk.active_vlans
         if field == "status":
             return trunk.status
+        if field == "mode":
+            return trunk.mode
+        if field == "native_vlan":
+            return trunk.native_vlan
         raise ValueError(f"Unsupported trunk field: {field}")
 
     def _trunk_vlan_policy(self, check: CheckDefinition, parsed: ParsedDeviceData) -> EvaluationOutcome:
@@ -371,7 +535,10 @@ class CheckEngine:
                 lambda field, name=trunk_name: self._trunk_field(name, parsed, field),
                 conditions,
             )
-            details = f"allowed_vlans={vlan_set_to_text(trunk.allowed_vlans)}"
+            details = (
+                f"mode={trunk.mode}, status={trunk.status}, native_vlan={trunk.native_vlan}, "
+                f"allowed_vlans={vlan_set_to_text(trunk.allowed_vlans)}"
+            )
             obj = FindingObject(object_type="interface", object_name=trunk_name, details=details)
             if ok:
                 passed.append(obj)

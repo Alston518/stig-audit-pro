@@ -62,8 +62,6 @@ def _manual_check_from_rule(
         source_benchmark=metadata.title or metadata.benchmark_id or None,
         source_version=metadata.version or None,
         source_release=metadata.release_info or None,
-        check_text=rule.check_text,
-        fix_text=rule.fix_text,
         result={
             "pass_status": "NotAFinding",
             "fail_status": "Not_Reviewed",
@@ -73,7 +71,7 @@ def _manual_check_from_rule(
             "include_command_output": False,
             "include_failed_objects": False,
             "pass_comment": "Manual review completed and requirement was marked NotAFinding.",
-            "fail_comment": "Manual review required. Review the imported STIG check text and customer/site tailoring.",
+            "fail_comment": "Manual review required. Review the STIG requirement and customer/site tailoring.",
             "error_comment": "Manual review check could not be prepared.",
             "finding_details_template": "manual_review",
         },

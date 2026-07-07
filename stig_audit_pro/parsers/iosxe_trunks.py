@@ -40,7 +40,7 @@ def parse_interfaces_trunk(text: str) -> dict[str, TrunkInfo]:
     section: str | None = None
 
     for raw_line in text.splitlines():
-        line = raw_line.rstrip()
+        line = raw_line.rstrip().lstrip("\ufeff")
         stripped = line.strip()
         if not stripped or stripped.startswith("-"):
             continue

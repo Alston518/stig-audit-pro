@@ -33,6 +33,7 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 
 COMMAND_FILES = {
     "show running-config": "show_running_config.txt",
+    "show vtp status": "show_vtp_status.txt",
     "show interfaces status": "show_interfaces_status.txt",
     "show interfaces trunk": "show_interfaces_trunk.txt",
     "show ip access-lists": "show_ip_access_lists.txt",

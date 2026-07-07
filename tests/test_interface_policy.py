@@ -31,4 +31,4 @@ def test_disabled_notconnect_ports_must_be_shutdown_and_unused_vlan_fails():
     assert result.status == "Open"
     assert [obj.object_name for obj in result.failed_objects] == ["GigabitEthernet1/0/2"]
     assert "shutdown=False" in result.failed_objects[0].details
-    assert "access_vlan=10" in result.failed_objects[0].details
+    assert "access_vlan=1" in result.failed_objects[0].details

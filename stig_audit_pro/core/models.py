@@ -21,10 +21,12 @@ StatusLiteral = Literal[
 CheckTypeLiteral = Literal[
     "command_contains",
     "command_not_contains",
+    "command_pattern_policy",
     "command_regex",
     "section_contains",
     "section_not_contains",
     "interface_policy",
+    "interface_config_policy",
     "trunk_vlan_policy",
     "acl_deny_logging_policy",
     "dhcp_snooping_policy",
@@ -69,8 +71,6 @@ class CheckDefinition(StrictModel):
     source_benchmark: str | None = None
     source_version: str | None = None
     source_release: str | None = None
-    check_text: str = ""
-    fix_text: str = ""
     parser: dict[str, Any] = Field(default_factory=dict)
     scope: dict[str, Any] = Field(default_factory=dict)
     conditions: dict[str, Any] = Field(default_factory=dict)
