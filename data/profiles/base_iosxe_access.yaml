@@ -1,0 +1,27 @@
+﻿profile_name: base_iosxe_access
+inherits: null
+unused_vlan: 999
+disabled_port_policy:
+  require_shutdown: true
+  required_access_vlan: 999
+trunk_policy:
+  vlan_1_must_be_pruned: true
+  additional_pruned_vlans: []
+dhcp_snooping:
+  enabled: true
+  vlans:
+    - 10
+    - 20
+    - 30
+  required_global_commands:
+    - ip dhcp snooping
+arp_inspection:
+  enabled: true
+  vlans:
+    - 10
+    - 20
+    - 30
+comments:
+  default_open_prefix: Automated STIG validation found noncompliant configuration.
+  default_pass_prefix: Automated STIG validation found required configuration present.
+  default_error_prefix: Automated STIG validation could not confidently evaluate this requirement.

@@ -1,0 +1,156 @@
+﻿library_name: iosxe_l2
+checks:
+  - vuln_id: CISC-L2-000210
+    title: Disabled switch ports must be shutdown and assigned to the unused VLAN.
+    stig_family: IOSXE_L2
+    severity: cat2
+    automated: true
+    check_type: interface_policy
+    commands:
+      - show running-config
+      - show interfaces status
+    scope:
+      interfaces:
+        include:
+          - type: physical
+            match:
+              admin_state: disabled_or_notconnect
+    conditions:
+      all:
+        - field: shutdown
+          op: equals
+          value: true
+        - field: access_vlan
+          op: equals_profile_value
+          profile_key: unused_vlan
+    result:
+      pass_status: NotAFinding
+      fail_status: Open
+      error_status: Error
+    evidence:
+      include_command_output: false
+      include_failed_objects: true
+      pass_comment: All disabled/not-connected access interfaces are shutdown and assigned to unused VLAN {{ unused_vlan }}.
+      fail_comment: One or more disabled/not-connected interfaces are not shutdown and/or not assigned to unused VLAN {{ unused_vlan }}.
+      error_comment: Disabled port policy could not be evaluated.
+      finding_details_template: default
+
+  - vuln_id: EXAMPLE-TRUNK-VLAN1-PRUNED
+    title: VLAN 1 must be pruned from trunks.
+    stig_family: IOSXE_L2
+    severity: cat2
+    automated: true
+    check_type: trunk_vlan_policy
+    commands:
+      - show running-config
+      - show interfaces trunk
+    scope:
+      interfaces:
+        mode: trunk
+    conditions:
+      all:
+        - field: allowed_vlans
+          op: excludes
+          value: 1
+        - field: allowed_vlans
+          op: excludes_profile_list
+          profile_key: additional_pruned_vlans
+    result:
+      pass_status: NotAFinding
+      fail_status: Open
+      error_status: Error
+    evidence:
+      include_command_output: false
+      include_failed_objects: true
+      pass_comment: VLAN 1 is pruned from all trunk interfaces.
+      fail_comment: One or more trunk interfaces allow VLAN 1.
+      error_comment: Trunk VLAN pruning could not be evaluated.
+      finding_details_template: default
+
+  - vuln_id: EXAMPLE-ACL-LOG-INPUT
+    title: ACL deny statements must use log-input.
+    stig_family: IOSXE_L2
+    severity: cat2
+    automated: true
+    check_type: acl_deny_logging_policy
+    commands:
+      - show running-config
+      - show ip access-lists
+    parser:
+      source: running_config
+      ignore_lines:
+        - "^\\s*remark\\b"
+    conditions:
+      deny_statements:
+        require_keyword: log-input
+        ignore_remarks: true
+        include_standard_acls: true
+        include_extended_acls: true
+        include_ipv6_acls: false
+        include_object_groups: true
+    result:
+      pass_status: NotAFinding
+      fail_status: Open
+      error_status: Error
+    evidence:
+      include_command_output: false
+      include_failed_objects: true
+      pass_comment: All ACL deny statements include log-input.
+      fail_comment: One or more ACL deny statements are missing log-input.
+      error_comment: ACL deny logging could not be evaluated.
+      finding_details_template: default
+
+  - vuln_id: EXAMPLE-DHCP-SNOOPING
+    title: DHCP snooping must be enabled for required VLANs.
+    stig_family: IOSXE_L2
+    severity: cat2
+    automated: true
+    check_type: dhcp_snooping_policy
+    commands:
+      - show running-config
+      - show ip dhcp snooping
+    conditions:
+      all:
+        - field: global_enabled
+          op: equals
+          value: true
+        - field: snooping_vlans
+          op: includes_profile_list
+          profile_key: dhcp_snooping.vlans
+    result:
+      pass_status: NotAFinding
+      fail_status: Open
+      error_status: Error
+    evidence:
+      include_command_output: false
+      include_failed_objects: true
+      pass_comment: DHCP snooping is enabled for all required VLANs.
+      fail_comment: DHCP snooping is missing globally or missing required VLANs.
+      error_comment: DHCP snooping could not be evaluated.
+      finding_details_template: default
+
+  - vuln_id: EXAMPLE-ARP-INSPECTION
+    title: ARP inspection must be enabled for required VLANs.
+    stig_family: IOSXE_L2
+    severity: cat2
+    automated: true
+    check_type: arp_inspection_policy
+    commands:
+      - show running-config
+      - show ip arp inspection
+    conditions:
+      all:
+        - field: inspection_vlans
+          op: includes_profile_list
+          profile_key: arp_inspection.vlans
+    result:
+      pass_status: NotAFinding
+      fail_status: Open
+      error_status: Error
+    evidence:
+      include_command_output: false
+      include_failed_objects: true
+      pass_comment: ARP inspection is enabled for all required VLANs.
+      fail_comment: ARP inspection is missing required VLANs.
+      error_comment: ARP inspection could not be evaluated.
+      finding_details_template: default
