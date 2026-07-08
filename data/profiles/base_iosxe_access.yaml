@@ -1,4 +1,4 @@
-﻿profile_name: base_iosxe_access
+profile_name: base_iosxe_access
 inherits: null
 unused_vlan: 999
 disabled_port_policy:
@@ -10,18 +10,24 @@ trunk_policy:
 dhcp_snooping:
   enabled: true
   vlans:
-    - 10
-    - 20
-    - 30
+  - 10
+  - 20
+  - 30
   required_global_commands:
-    - ip dhcp snooping
+  - ip dhcp snooping
 arp_inspection:
   enabled: true
   vlans:
-    - 10
-    - 20
-    - 30
+  - 10
+  - 20
+  - 30
 comments:
   default_open_prefix: Automated STIG validation found noncompliant configuration.
   default_pass_prefix: Automated STIG validation found required configuration present.
   default_error_prefix: Automated STIG validation could not confidently evaluate this requirement.
+variables:
+  site_label: Base IOS-XE access switch profile
+  required_user_vlans:
+  - 10
+  - 20
+  - 30

@@ -149,6 +149,7 @@ class ProfileComments(StrictModel):
 class SiteProfile(StrictModel):
     profile_name: str
     inherits: str | None = None
+    variables: dict[str, Any] = Field(default_factory=dict)
     unused_vlan: int = 999
     disabled_port_policy: DisabledPortPolicy = Field(default_factory=DisabledPortPolicy)
     trunk_policy: TrunkPolicy = Field(default_factory=TrunkPolicy)

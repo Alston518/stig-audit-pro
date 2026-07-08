@@ -31,3 +31,15 @@ def test_building_profiles_override_site_specific_vlans():
     assert building_2.profile_name == "building_2"
     assert building_2.dhcp_snooping.vlans == [210, 220, 230]
     assert building_2.arp_inspection.vlans == [210, 220, 230]
+
+def test_l2_automated_checks_use_editable_string_policies():
+    library = load_check_library(DATA_DIR / "checks" / "iosxe_l2.yaml")
+    editable_policy_types = {"command_pattern_policy", "interface_config_policy"}
+
+    non_editable = [
+        f"{check.vuln_id}: {check.check_type}"
+        for check in library.checks
+        if check.automated and check.check_type not in editable_policy_types
+    ]
+
+    assert non_editable == []

@@ -1,4 +1,4 @@
-﻿profile_name: example_site
+profile_name: example_site
 inherits: base_iosxe_access
 unused_vlan: 999
 disabled_port_policy:
@@ -10,12 +10,18 @@ trunk_policy:
 dhcp_snooping:
   enabled: true
   vlans:
-    - 10
-    - 20
-    - 30
+  - 10
+  - 20
+  - 30
 arp_inspection:
   enabled: true
   vlans:
-    - 10
-    - 20
-    - 30
+  - 10
+  - 20
+  - 30
+variables:
+  site_label: Example site
+  required_user_vlans:
+  - 10
+  - 20
+  - 30

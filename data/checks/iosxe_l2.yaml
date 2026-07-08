@@ -230,10 +230,9 @@ checks:
   title: The Cisco switch must have DHCP snooping for all user VLANs to validate DHCP messages from untrusted sources.
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: dhcp_snooping_policy
+  check_type: command_pattern_policy
   commands:
   - show running-config
-  - show ip dhcp snooping
   automated: true
   stig_id: CISC-L2-000130
   group_id: V-220659
@@ -245,12 +244,17 @@ checks:
   scope: {}
   conditions:
     all:
-    - field: global_enabled
-      op: equals
-      value: true
-    - field: snooping_vlans
-      op: includes_profile_list
+    - command: show running-config
+      pattern: ^\s*ip dhcp snooping\s*$
+      description: global ip dhcp snooping enabled
+      object_type: global
+      object_name: ip dhcp snooping
+    profile_all:
+    - command: show running-config
       profile_key: dhcp_snooping.vlans
+      object_type: vlan
+      pattern_template: ^\s*ip dhcp snooping vlan\s+.*(?<!\d){{ item }}(?!\d).*$
+      description_template: DHCP snooping VLAN {{ item }}
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -258,9 +262,9 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: DHCP snooping is enabled for all required VLANs.
-    fail_comment: DHCP snooping is missing globally or missing required VLANs.
-    error_comment: DHCP snooping could not be evaluated.
+    pass_comment: DHCP snooping strings are present for all VLANs required by the selected profile.
+    fail_comment: DHCP snooping is missing required strings from the selected profile.
+    error_comment: DHCP snooping string validation could not be evaluated.
     finding_details_template: default
 - vuln_id: CISC-L2-000140
   title: The Cisco switch must have IP Source Guard enabled on all user-facing or untrusted access switch ports.
@@ -299,10 +303,9 @@ checks:
   title: The Cisco switch must have Dynamic Address Resolution Protocol (ARP) Inspection (DAI) enabled on all user VLANs.
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: arp_inspection_policy
+  check_type: command_pattern_policy
   commands:
   - show running-config
-  - show ip arp inspection
   automated: true
   stig_id: CISC-L2-000150
   group_id: V-220661
@@ -313,10 +316,12 @@ checks:
   parser: {}
   scope: {}
   conditions:
-    all:
-    - field: inspection_vlans
-      op: includes_profile_list
+    profile_all:
+    - command: show running-config
       profile_key: arp_inspection.vlans
+      object_type: vlan
+      pattern_template: ^\s*ip arp inspection vlan\s+.*(?<!\d){{ item }}(?!\d).*$
+      description_template: ARP inspection VLAN {{ item }}
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -324,9 +329,9 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: ARP inspection is enabled for all required VLANs.
-    fail_comment: ARP inspection is missing required VLANs.
-    error_comment: ARP inspection could not be evaluated.
+    pass_comment: ARP inspection strings are present for all VLANs required by the selected profile.
+    fail_comment: ARP inspection is missing required strings from the selected profile.
+    error_comment: ARP inspection string validation could not be evaluated.
     finding_details_template: default
 - vuln_id: CISC-L2-000160
   title: The Cisco switch must have Storm Control configured on all host-facing switchports.
@@ -507,7 +512,7 @@ checks:
   title: The Cisco switch must have all disabled switch ports assigned to an unused VLAN.
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: interface_policy
+  check_type: interface_config_policy
   commands:
   - show running-config
   - show interfaces status
@@ -526,13 +531,11 @@ checks:
         match:
           admin_state: disabled_or_notconnect
   conditions:
-    all:
-    - field: shutdown
-      op: equals
-      value: true
-    - field: access_vlan
-      op: equals_profile_value
-      profile_key: unused_vlan
+    required_patterns:
+    - pattern: ^shutdown$
+      description: shutdown configured
+    - pattern: ^switchport access vlan\s+{{ unused_vlan }}$
+      description: unused VLAN {{ unused_vlan }} assigned
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -540,16 +543,16 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: All disabled/not-connected access interfaces are shutdown and assigned to unused VLAN {{ unused_vlan }}.
-    fail_comment: One or more disabled/not-connected interfaces are not shutdown and/or not assigned to unused VLAN {{ unused_vlan
-      }}.
-    error_comment: Disabled port policy could not be evaluated.
+    pass_comment: All disabled/not-connected access interfaces have the required shutdown and unused VLAN strings.
+    fail_comment: One or more disabled/not-connected interfaces are missing the shutdown or unused VLAN strings required by
+      the selected profile.
+    error_comment: Disabled port string validation could not be evaluated.
     finding_details_template: default
 - vuln_id: CISC-L2-000220
   title: The Cisco switch must not have the default VLAN assigned to any host-facing switch ports.
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: interface_policy
+  check_type: interface_config_policy
   commands:
   - show running-config
   - show interfaces status
@@ -568,10 +571,12 @@ checks:
         match:
           switchport_mode: access
   conditions:
-    all:
-    - field: access_vlan
-      op: not_equals
-      value: 1
+    required_patterns:
+    - pattern: ^switchport access vlan\s+(?!1\b)\d+$
+      description: non-default access VLAN configured
+    forbidden_patterns:
+    - pattern: ^switchport access vlan\s+1$
+      description: access VLAN 1
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -588,10 +593,10 @@ checks:
   title: The Cisco switch must have the default VLAN pruned from all trunk ports that do not require it.
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: trunk_vlan_policy
+  check_type: interface_config_policy
   commands:
   - show running-config
-  - show interfaces trunk
+  - show interfaces status
   automated: true
   stig_id: CISC-L2-000230
   group_id: V-220669
@@ -602,15 +607,22 @@ checks:
   parser: {}
   scope:
     interfaces:
-      mode: trunk
+      include:
+      - type: physical
+        match:
+          switchport_mode: trunk
   conditions:
-    all:
-    - field: allowed_vlans
-      op: excludes
-      value: 1
-    - field: allowed_vlans
-      op: excludes_profile_list
-      profile_key: additional_pruned_vlans
+    required_patterns:
+    - pattern: ^switchport trunk allowed vlan\s+.+$
+      description: explicit trunk allowed VLAN list
+    forbidden_patterns:
+    - pattern: ^switchport trunk allowed vlan\s+.*(?<!\d)1(?!\d).*$
+      description: VLAN 1 allowed on trunk
+    profile_forbidden_patterns:
+    - profile_key: trunk_policy.additional_pruned_vlans
+      object_type: vlan
+      pattern_template: ^switchport trunk allowed vlan\s+.*(?<!\d){{ item }}(?!\d).*$
+      description_template: profile-pruned VLAN {{ item }} allowed on trunk
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -618,9 +630,9 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: VLAN 1 is pruned from all trunk interfaces.
-    fail_comment: One or more trunk interfaces allow VLAN 1.
-    error_comment: Trunk VLAN pruning could not be evaluated.
+    pass_comment: Trunk allowed VLAN strings exclude VLAN 1 and any additional VLANs required by the selected profile.
+    fail_comment: One or more trunk interfaces have allowed VLAN strings that include VLAN 1 or another profile-pruned VLAN.
+    error_comment: Trunk VLAN pruning string validation could not be evaluated.
     finding_details_template: default
 - vuln_id: CISC-L2-000240
   title: The Cisco switch must not use the default VLAN for management traffic.
@@ -686,10 +698,10 @@ checks:
   title: The Cisco switch must have the native VLAN assigned to an ID other than the default VLAN for all 802.1q trunk links.
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: trunk_vlan_policy
+  check_type: interface_config_policy
   commands:
   - show running-config
-  - show interfaces trunk
+  - show interfaces status
   automated: true
   stig_id: CISC-L2-000260
   group_id: V-220672
@@ -700,12 +712,17 @@ checks:
   parser: {}
   scope:
     interfaces:
-      mode: trunk
+      include:
+      - type: physical
+        match:
+          switchport_mode: trunk
   conditions:
-    all:
-    - field: native_vlan
-      op: not_equals
-      value: 1
+    required_patterns:
+    - pattern: ^switchport trunk native vlan\s+(?!1\b)\d+$
+      description: non-default native VLAN configured
+    forbidden_patterns:
+    - pattern: ^switchport trunk native vlan\s+1$
+      description: native VLAN 1
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -749,24 +766,25 @@ checks:
   title: ACL deny statements must use log-input.
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: acl_deny_logging_policy
+  check_type: command_pattern_policy
   commands:
   - show running-config
   - show ip access-lists
   automated: true
-  parser:
-    source: running_config
-    ignore_lines:
-    - ^\s*remark\b
+  parser: {}
   scope: {}
   conditions:
-    deny_statements:
-      require_keyword: log-input
-      ignore_remarks: true
-      include_standard_acls: true
-      include_extended_acls: true
-      include_ipv6_acls: false
-      include_object_groups: true
+    none:
+    - command: show running-config
+      pattern: (?im)^\s*(?:access-list\s+\S+\s+)?(?:\d+\s+)?deny\b(?:(?!\blog-input\b).)*$
+      description: deny statement missing log-input in running-config
+      object_type: acl_statement
+      object_name: running-config deny
+    - command: show ip access-lists
+      pattern: (?im)^\s*(?:\d+\s+)?deny\b(?:(?!\blog-input\b).)*$
+      description: deny statement missing log-input in show ip access-lists
+      object_type: acl_statement
+      object_name: show access-list deny
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -774,7 +792,7 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: All ACL deny statements include log-input.
-    fail_comment: One or more ACL deny statements are missing log-input.
-    error_comment: ACL deny logging could not be evaluated.
+    pass_comment: No deny strings were found without log-input.
+    fail_comment: One or more deny strings are missing log-input.
+    error_comment: ACL deny log-input string validation could not be evaluated.
     finding_details_template: default

@@ -180,18 +180,29 @@ class CheckEngine:
             return self.profile.comments.default_error_prefix
         return ""
 
-    def _render_template(self, template: str) -> str:
+    def _render_template(self, template: str, extra_context: dict[str, Any] | None = None) -> str:
         context = {
             "unused_vlan": self.profile.unused_vlan,
             "additional_pruned_vlans": self.profile.trunk_policy.additional_pruned_vlans,
             "dhcp_snooping.vlans": self.profile.dhcp_snooping.vlans,
             "arp_inspection.vlans": self.profile.arp_inspection.vlans,
         }
+        if extra_context:
+            context.update(extra_context)
+
+        def format_value(value: Any) -> str:
+            if value is None:
+                return ""
+            if isinstance(value, (list, set, tuple)):
+                return ",".join(str(item) for item in value)
+            return str(value)
 
         def replace(match: re.Match[str]) -> str:
             key = match.group(1).strip()
-            value = context.get(key, self._profile_value(key))
-            return str(value)
+            value = context.get(key)
+            if value is None:
+                value = self._profile_value(key)
+            return format_value(value)
 
         return re.sub(r"{{\s*([^}]+)\s*}}", replace, template)
 
@@ -206,6 +217,9 @@ class CheckEngine:
                 break
         if current is not None:
             return current
+
+        if key in self.profile.variables:
+            return self.profile.variables[key]
 
         for parent_name in (
             "disabled_port_policy",
@@ -298,7 +312,59 @@ class CheckEngine:
         return bool(re.search(pattern, text, flags=flags))
 
     def _pattern_label(self, pattern_config: dict[str, Any]) -> str:
-        return str(pattern_config.get("description") or pattern_config.get("pattern") or "")
+        label = str(pattern_config.get("description") or pattern_config.get("pattern") or "")
+        return self._render_template(label)
+
+    def _pattern_value(self, pattern_config: dict[str, Any]) -> str:
+        pattern = pattern_config.get("pattern") or pattern_config.get("value")
+        if pattern is None:
+            raise ValueError("pattern policies require pattern values")
+        return self._render_template(str(pattern))
+
+    def _profile_pattern_configs(self, pattern_configs: Iterable[dict[str, Any]]) -> list[dict[str, Any]]:
+        expanded: list[dict[str, Any]] = []
+        for pattern_config in pattern_configs:
+            profile_key = pattern_config.get("profile_key")
+            if not profile_key:
+                continue
+            for item in sorted(self._profile_list(str(profile_key))):
+                rendered = {
+                    key: value
+                    for key, value in pattern_config.items()
+                    if key not in {"profile_key", "pattern_template", "description_template"}
+                }
+                pattern_template = (
+                    pattern_config.get("pattern_template")
+                    or pattern_config.get("pattern")
+                    or pattern_config.get("value")
+                )
+                if pattern_template is None:
+                    raise ValueError("profile pattern policies require pattern_template or pattern")
+                rendered["pattern"] = self._render_template(str(pattern_template), {"item": item})
+                description_template = (
+                    pattern_config.get("description_template")
+                    or pattern_config.get("description")
+                    or pattern_template
+                )
+                rendered["description"] = self._render_template(str(description_template), {"item": item})
+                rendered["object_type"] = str(pattern_config.get("object_type") or "profile_value")
+                rendered["object_name"] = str(item)
+                expanded.append(rendered)
+        return expanded
+
+    def _command_pattern_match_text(
+        self,
+        outputs: dict[str, str],
+        pattern_config: dict[str, Any],
+        default_command: str,
+    ) -> str | None:
+        command = str(pattern_config.get("command") or default_command)
+        pattern = self._pattern_value(pattern_config)
+        flags = re.MULTILINE
+        if not bool(pattern_config.get("case_sensitive", False)):
+            flags |= re.IGNORECASE
+        match = re.search(pattern, outputs.get(command, ""), flags=flags)
+        return match.group(0).strip() if match else None
 
     def _command_pattern_matches(
         self,
@@ -307,31 +373,30 @@ class CheckEngine:
         default_command: str,
     ) -> bool:
         command = str(pattern_config.get("command") or default_command)
-        pattern = pattern_config.get("pattern") or pattern_config.get("value")
-        if pattern is None:
-            raise ValueError("command pattern policies require pattern values")
-        return self._regex_matches(
-            str(pattern),
-            outputs.get(command, ""),
-            case_sensitive=bool(pattern_config.get("case_sensitive", False)),
-        )
+        return self._command_pattern_match_text(outputs, pattern_config, default_command) is not None
 
     def _command_pattern_policy(self, check: CheckDefinition, outputs: dict[str, str]) -> EvaluationOutcome:
         default_command = check.conditions.get("command") or (check.commands[0] if check.commands else "")
-        required = check.conditions.get("all", [])
+        required = check.conditions.get("all", []) + self._profile_pattern_configs(
+            check.conditions.get("profile_all", []),
+        )
         alternatives = check.conditions.get("any", [])
-        forbidden = check.conditions.get("none", [])
+        forbidden = check.conditions.get("none", []) + self._profile_pattern_configs(
+            check.conditions.get("profile_none", []),
+        )
 
-        missing = [
-            self._pattern_label(pattern_config)
+        missing_configs = [
+            pattern_config
             for pattern_config in required
             if not self._command_pattern_matches(outputs, pattern_config, default_command)
         ]
-        forbidden_found = [
-            self._pattern_label(pattern_config)
+        forbidden_matches = [
+            (pattern_config, self._command_pattern_match_text(outputs, pattern_config, default_command))
             for pattern_config in forbidden
-            if self._command_pattern_matches(outputs, pattern_config, default_command)
         ]
+        forbidden_matches = [(config, text) for config, text in forbidden_matches if text]
+        missing = [self._pattern_label(pattern_config) for pattern_config in missing_configs]
+        forbidden_found = [self._pattern_label(pattern_config) for pattern_config, _ in forbidden_matches]
         any_matched = True
         if alternatives:
             any_matched = any(
@@ -352,8 +417,26 @@ class CheckEngine:
         if not details:
             details.append("Command pattern policy matched.")
 
+        failed_objects = [
+            FindingObject(
+                object_type=str(pattern_config.get("object_type") or "pattern"),
+                object_name=str(pattern_config.get("object_name") or self._pattern_label(pattern_config)),
+                details="missing required pattern",
+            )
+            for pattern_config in missing_configs
+        ]
+        failed_objects.extend(
+            FindingObject(
+                object_type=str(pattern_config.get("object_type") or "pattern"),
+                object_name=str(pattern_config.get("object_name") or self._pattern_label(pattern_config)),
+                details=f"forbidden pattern present: {matched_text}",
+            )
+            for pattern_config, matched_text in forbidden_matches
+        )
+
         return EvaluationOutcome(
             passed=not missing and any_matched and not forbidden_found,
+            failed_objects=failed_objects,
             details=details,
         )
 
@@ -436,9 +519,13 @@ class CheckEngine:
         raise ValueError(f"Unsupported interface field: {field}")
 
     def _interface_config_policy(self, check: CheckDefinition, parsed: ParsedDeviceData) -> EvaluationOutcome:
-        required = check.conditions.get("required_patterns", [])
+        required = check.conditions.get("required_patterns", []) + self._profile_pattern_configs(
+            check.conditions.get("profile_required_patterns", []),
+        )
         alternatives = check.conditions.get("any_patterns", [])
-        forbidden = check.conditions.get("forbidden_patterns", [])
+        forbidden = check.conditions.get("forbidden_patterns", []) + self._profile_pattern_configs(
+            check.conditions.get("profile_forbidden_patterns", []),
+        )
         failed: list[FindingObject] = []
         passed: list[FindingObject] = []
 
@@ -449,7 +536,7 @@ class CheckEngine:
                 self._pattern_label(pattern_config)
                 for pattern_config in required
                 if not self._regex_matches(
-                    str(pattern_config.get("pattern") or pattern_config.get("value")),
+                    self._pattern_value(pattern_config),
                     text,
                     case_sensitive=bool(pattern_config.get("case_sensitive", False)),
                 )
@@ -458,7 +545,7 @@ class CheckEngine:
                 self._pattern_label(pattern_config)
                 for pattern_config in forbidden
                 if self._regex_matches(
-                    str(pattern_config.get("pattern") or pattern_config.get("value")),
+                    self._pattern_value(pattern_config),
                     text,
                     case_sensitive=bool(pattern_config.get("case_sensitive", False)),
                 )
@@ -468,7 +555,7 @@ class CheckEngine:
                 group = pattern_group if isinstance(pattern_group, list) else [pattern_group]
                 if not any(
                     self._regex_matches(
-                        str(pattern_config.get("pattern") or pattern_config.get("value")),
+                        self._pattern_value(pattern_config),
                         text,
                         case_sensitive=bool(pattern_config.get("case_sensitive", False)),
                     )
