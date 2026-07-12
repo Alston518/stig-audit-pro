@@ -1,4 +1,4 @@
-﻿"""Small reusable customtkinter widgets for the desktop GUI."""
+"""Small reusable customtkinter widgets for the desktop GUI."""
 
 from __future__ import annotations
 
@@ -22,7 +22,9 @@ class PageFrame(ctk.CTkFrame):
 
 
 class Panel(ctk.CTkFrame):
-    def __init__(self, master: ctk.CTkBaseClass, title: str | None = None, **kwargs: object) -> None:
+    def __init__(
+        self, master: ctk.CTkBaseClass, title: str | None = None, **kwargs: object
+    ) -> None:
         super().__init__(master, corner_radius=8, border_width=1, **kwargs)
         self.grid_columnconfigure(0, weight=1)
         self._row = 0
@@ -51,7 +53,9 @@ class Metric(ctk.CTkFrame):
 
 
 def label_value(parent: ctk.CTkBaseClass, row: int, label: str, value: str) -> ctk.CTkLabel:
-    ctk.CTkLabel(parent, text=label, anchor="w").grid(row=row, column=0, sticky="w", padx=12, pady=4)
+    ctk.CTkLabel(parent, text=label, anchor="w").grid(
+        row=row, column=0, sticky="w", padx=12, pady=4
+    )
     value_label = ctk.CTkLabel(parent, text=value, anchor="e", font=ctk.CTkFont(weight="bold"))
     value_label.grid(row=row, column=1, sticky="e", padx=12, pady=4)
     return value_label

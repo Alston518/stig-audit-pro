@@ -1,4 +1,4 @@
-﻿"""Parser for IOS-XE running configuration."""
+"""Parser for IOS-XE running configuration."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-﻿"""Targets tab with a persistent device-list workbench."""
+"""Targets tab with a persistent device-list workbench."""
 
 from __future__ import annotations
 
@@ -40,52 +40,78 @@ class TargetsTab(PageFrame):
         panel.grid_columnconfigure(0, weight=1)
         panel.grid_rowconfigure(5, weight=1)
 
-        ctk.CTkLabel(panel, text="Single IP").grid(row=1, column=0, sticky="w", padx=12, pady=(8, 4))
+        ctk.CTkLabel(panel, text="Single IP").grid(
+            row=1, column=0, sticky="w", padx=12, pady=(8, 4)
+        )
         single_row = ctk.CTkFrame(panel, fg_color="transparent")
         single_row.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
         single_row.grid_columnconfigure(0, weight=1)
         self.single_ip = ctk.CTkEntry(single_row, placeholder_text="10.50.10.25")
         self.single_ip.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         self.single_ip.bind("<Return>", lambda _event: self.add_single_ip())
-        ctk.CTkButton(single_row, text="Add", width=86, command=self.add_single_ip).grid(row=0, column=1)
+        ctk.CTkButton(single_row, text="Add", width=86, command=self.add_single_ip).grid(
+            row=0, column=1
+        )
 
-        ctk.CTkLabel(panel, text="Paste IPs").grid(row=3, column=0, sticky="w", padx=12, pady=(6, 4))
+        ctk.CTkLabel(panel, text="Paste IPs").grid(
+            row=3, column=0, sticky="w", padx=12, pady=(6, 4)
+        )
         self.ip_list = ctk.CTkTextbox(panel, height=150)
         self.ip_list.grid(row=4, column=0, sticky="nsew", padx=12, pady=(0, 8))
 
         add_row = ctk.CTkFrame(panel, fg_color="transparent")
         add_row.grid(row=5, column=0, sticky="ew", padx=12, pady=(0, 10))
         add_row.grid_columnconfigure((0, 1), weight=1)
-        ctk.CTkButton(add_row, text="Add Pasted", command=self.add_pasted_ips).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(add_row, text="Import CSV/TXT", command=self.import_targets).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        ctk.CTkButton(add_row, text="Add Pasted", command=self.add_pasted_ips).grid(
+            row=0, column=0, sticky="ew", padx=(0, 6)
+        )
+        ctk.CTkButton(add_row, text="Import CSV/TXT", command=self.import_targets).grid(
+            row=0, column=1, sticky="ew", padx=(6, 0)
+        )
 
         group_panel = ctk.CTkFrame(panel, corner_radius=8, border_width=1)
         group_panel.grid(row=6, column=0, sticky="ew", padx=12, pady=(4, 12))
         group_panel.grid_columnconfigure(0, weight=1)
-        ctk.CTkLabel(group_panel, text="Device Groups", font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, sticky="w", padx=10, pady=(10, 4))
-        self.group_select = ctk.CTkComboBox(group_panel, values=["Session targets"], state="readonly")
+        ctk.CTkLabel(
+            group_panel, text="Device Groups", font=ctk.CTkFont(size=14, weight="bold")
+        ).grid(row=0, column=0, sticky="w", padx=10, pady=(10, 4))
+        self.group_select = ctk.CTkComboBox(
+            group_panel, values=["Session targets"], state="readonly"
+        )
         self.group_select.set("Session targets")
         self.group_select.grid(row=1, column=0, sticky="ew", padx=10, pady=(0, 8))
 
-        ctk.CTkLabel(group_panel, text="Group site profile").grid(row=2, column=0, sticky="w", padx=10, pady=(0, 4))
-        self.group_profile = ctk.CTkComboBox(group_panel, values=[USE_SELECTED_PROFILE], state="readonly")
+        ctk.CTkLabel(group_panel, text="Group site profile").grid(
+            row=2, column=0, sticky="w", padx=10, pady=(0, 4)
+        )
+        self.group_profile = ctk.CTkComboBox(
+            group_panel, values=[USE_SELECTED_PROFILE], state="readonly"
+        )
         self.group_profile.set(USE_SELECTED_PROFILE)
         self.group_profile.grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 8))
 
         group_buttons = ctk.CTkFrame(group_panel, fg_color="transparent")
         group_buttons.grid(row=4, column=0, sticky="ew", padx=10, pady=(0, 8))
         group_buttons.grid_columnconfigure((0, 1), weight=1)
-        ctk.CTkButton(group_buttons, text="Load", command=self.load_selected_group).grid(row=0, column=0, sticky="ew", padx=(0, 5))
-        ctk.CTkButton(group_buttons, text="Save", command=self.save_current_group).grid(row=0, column=1, sticky="ew", padx=(5, 0))
+        ctk.CTkButton(group_buttons, text="Load", command=self.load_selected_group).grid(
+            row=0, column=0, sticky="ew", padx=(0, 5)
+        )
+        ctk.CTkButton(group_buttons, text="Save", command=self.save_current_group).grid(
+            row=0, column=1, sticky="ew", padx=(5, 0)
+        )
         self.group_name = ctk.CTkEntry(group_panel, placeholder_text="Group name")
         self.group_name.grid(row=5, column=0, sticky="ew", padx=10, pady=(0, 10))
 
         scan_panel = ctk.CTkFrame(panel, corner_radius=8, border_width=1)
         scan_panel.grid(row=7, column=0, sticky="ew", padx=12, pady=(0, 12))
         scan_panel.grid_columnconfigure(1, weight=1)
-        ctk.CTkLabel(scan_panel, text="Scan Mode", font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 4))
+        ctk.CTkLabel(scan_panel, text="Scan Mode", font=ctk.CTkFont(size=14, weight="bold")).grid(
+            row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 4)
+        )
         ctk.CTkLabel(scan_panel, text="Mode").grid(row=1, column=0, sticky="w", padx=10, pady=4)
-        self.scan_mode = ctk.CTkComboBox(scan_panel, values=["Sample outputs", "Live SSH"], state="readonly")
+        self.scan_mode = ctk.CTkComboBox(
+            scan_panel, values=["Sample outputs", "Live SSH"], state="readonly"
+        )
         self.scan_mode.set("Sample outputs")
         self.scan_mode.grid(row=1, column=1, sticky="ew", padx=10, pady=4)
         ctk.CTkLabel(scan_panel, text="Username").grid(row=2, column=0, sticky="w", padx=10, pady=4)
@@ -94,15 +120,33 @@ class TargetsTab(PageFrame):
         ctk.CTkLabel(scan_panel, text="Password").grid(row=3, column=0, sticky="w", padx=10, pady=4)
         self.ssh_password = ctk.CTkEntry(scan_panel, show="*")
         self.ssh_password.grid(row=3, column=1, sticky="ew", padx=10, pady=4)
-        ctk.CTkLabel(scan_panel, text="Enable Secret").grid(row=4, column=0, sticky="w", padx=10, pady=4)
+        ctk.CTkLabel(scan_panel, text="Enable Secret").grid(
+            row=4, column=0, sticky="w", padx=10, pady=4
+        )
         self.enable_secret = ctk.CTkEntry(scan_panel, show="*")
         self.enable_secret.grid(row=4, column=1, sticky="ew", padx=10, pady=4)
-        ctk.CTkLabel(scan_panel, text="Timeout").grid(row=5, column=0, sticky="w", padx=10, pady=(4, 10))
+        ctk.CTkLabel(scan_panel, text="Timeout").grid(
+            row=5, column=0, sticky="w", padx=10, pady=(4, 10)
+        )
         self.ssh_timeout = ctk.CTkEntry(scan_panel)
         self.ssh_timeout.insert(0, "30")
         self.ssh_timeout.grid(row=5, column=1, sticky="ew", padx=10, pady=(4, 10))
+        ctk.CTkLabel(scan_panel, text="Concurrency").grid(
+            row=6, column=0, sticky="w", padx=10, pady=4
+        )
+        self.scan_concurrency = ctk.CTkEntry(scan_panel)
+        self.scan_concurrency.insert(0, "4")
+        self.scan_concurrency.grid(row=6, column=1, sticky="ew", padx=10, pady=4)
+        ctk.CTkLabel(scan_panel, text="Retries").grid(
+            row=7, column=0, sticky="w", padx=10, pady=(4, 10)
+        )
+        self.scan_retries = ctk.CTkEntry(scan_panel)
+        self.scan_retries.insert(0, "1")
+        self.scan_retries.grid(row=7, column=1, sticky="ew", padx=10, pady=(4, 10))
 
-        self.status = ctk.CTkLabel(panel, text="No targets loaded.", anchor="w", text_color=("#475467", "#d0d5dd"))
+        self.status = ctk.CTkLabel(
+            panel, text="No targets loaded.", anchor="w", text_color=("#475467", "#d0d5dd")
+        )
         self.status.grid(row=8, column=0, sticky="ew", padx=12, pady=(0, 8))
 
     def _build_table_panel(self) -> None:
@@ -114,10 +158,18 @@ class TargetsTab(PageFrame):
         toolbar = ctk.CTkFrame(panel, fg_color="transparent")
         toolbar.grid(row=1, column=0, sticky="ew", padx=12, pady=(8, 6))
         toolbar.grid_columnconfigure((0, 1, 2, 3), weight=1)
-        ctk.CTkButton(toolbar, text="Check All", command=self.check_all).grid(row=0, column=0, sticky="ew", padx=(0, 4))
-        ctk.CTkButton(toolbar, text="Uncheck All", command=self.uncheck_all).grid(row=0, column=1, sticky="ew", padx=4)
-        ctk.CTkButton(toolbar, text="Remove Selected", command=self.remove_selected).grid(row=0, column=2, sticky="ew", padx=4)
-        ctk.CTkButton(toolbar, text="Clear", command=self.clear_targets).grid(row=0, column=3, sticky="ew", padx=(4, 0))
+        ctk.CTkButton(toolbar, text="Check All", command=self.check_all).grid(
+            row=0, column=0, sticky="ew", padx=(0, 4)
+        )
+        ctk.CTkButton(toolbar, text="Uncheck All", command=self.uncheck_all).grid(
+            row=0, column=1, sticky="ew", padx=4
+        )
+        ctk.CTkButton(toolbar, text="Remove Selected", command=self.remove_selected).grid(
+            row=0, column=2, sticky="ew", padx=4
+        )
+        ctk.CTkButton(toolbar, text="Clear", command=self.clear_targets).grid(
+            row=0, column=3, sticky="ew", padx=(4, 0)
+        )
 
         self.table = ctk.CTkScrollableFrame(panel)
         self.table.grid(row=2, column=0, sticky="nsew", padx=12, pady=(0, 8))
@@ -125,14 +177,29 @@ class TargetsTab(PageFrame):
 
         run_row = ctk.CTkFrame(panel, fg_color="transparent")
         run_row.grid(row=3, column=0, sticky="ew", padx=12, pady=(4, 12))
-        run_row.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkButton(run_row, text="Run Selected", command=lambda: self.app_controller.run_target_scope("selected")).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(run_row, text="Run Checked", command=lambda: self.app_controller.run_target_scope("checked")).grid(row=0, column=1, sticky="ew", padx=6)
-        ctk.CTkButton(run_row, text="Run All", command=lambda: self.app_controller.run_target_scope("all")).grid(row=0, column=2, sticky="ew", padx=(6, 0))
+        run_row.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        ctk.CTkButton(
+            run_row,
+            text="Run Selected",
+            command=lambda: self.app_controller.run_target_scope("selected"),
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(
+            run_row,
+            text="Run Checked",
+            command=lambda: self.app_controller.run_target_scope("checked"),
+        ).grid(row=0, column=1, sticky="ew", padx=6)
+        ctk.CTkButton(
+            run_row, text="Run All", command=lambda: self.app_controller.run_target_scope("all")
+        ).grid(row=0, column=2, sticky="ew", padx=(6, 0))
+        ctk.CTkButton(run_row, text="Cancel", command=self.app_controller.cancel_scan).grid(
+            row=0, column=3, sticky="ew", padx=(6, 0)
+        )
 
         self._render_rows()
 
-    def refresh_groups(self, group_names: list[str], profile_names: list[str] | None = None) -> None:
+    def refresh_groups(
+        self, group_names: list[str], profile_names: list[str] | None = None
+    ) -> None:
         group_values = ["Session targets", *group_names]
         self.group_select.configure(values=group_values)
         if self.group_select.get() not in group_values:
@@ -182,6 +249,10 @@ class TargetsTab(PageFrame):
             "password": self.ssh_password.get(),
             "secret": self.enable_secret.get() or None,
             "timeout": timeout,
+            "concurrency": int(self.scan_concurrency.get())
+            if self.scan_concurrency.get().isdigit()
+            else 4,
+            "retries": int(self.scan_retries.get()) if self.scan_retries.get().isdigit() else 1,
         }
 
     def add_single_ip(self) -> None:
@@ -274,7 +345,7 @@ class TargetsTab(PageFrame):
         values: list[str] = []
         skipped = 0
         for token in re.split(r"[\s,;]+", text):
-            cleaned = token.strip().strip('"\'')
+            cleaned = token.strip().strip("\"'")
             if not cleaned or cleaned.lower() in {"ip", "address", "hostname"}:
                 continue
             try:
@@ -303,10 +374,16 @@ class TargetsTab(PageFrame):
 
         headers = ["Use", "IP Address", "Override", "Row"]
         for column, header in enumerate(headers):
-            ctk.CTkLabel(self.table, text=header, font=ctk.CTkFont(weight="bold")).grid(row=0, column=column, sticky="w", padx=8, pady=(0, 6))
+            ctk.CTkLabel(self.table, text=header, font=ctk.CTkFont(weight="bold")).grid(
+                row=0, column=column, sticky="w", padx=8, pady=(0, 6)
+            )
 
         if not self.targets:
-            ctk.CTkLabel(self.table, text="No targets yet. Add or import switches on the left.", text_color=("#475467", "#d0d5dd")).grid(row=1, column=0, columnspan=4, sticky="ew", padx=8, pady=18)
+            ctk.CTkLabel(
+                self.table,
+                text="No targets yet. Add or import switches on the left.",
+                text_color=("#475467", "#d0d5dd"),
+            ).grid(row=1, column=0, columnspan=4, sticky="ew", padx=8, pady=18)
             return
 
         for index, target in enumerate(self.targets, start=1):
@@ -325,7 +402,15 @@ class TargetsTab(PageFrame):
             check.grid(row=0, column=0, padx=(8, 4), pady=6)
             self.row_checks[actual_index] = check
 
-            ip_button = ctk.CTkButton(row, text=target.ip, anchor="w", fg_color="transparent", text_color=("#101828", "#f2f4f7"), hover_color=("#d0e2ff", "#1f2937"), command=lambda i=actual_index: self._select_row(i))
+            ip_button = ctk.CTkButton(
+                row,
+                text=target.ip,
+                anchor="w",
+                fg_color="transparent",
+                text_color=("#101828", "#f2f4f7"),
+                hover_color=("#d0e2ff", "#1f2937"),
+                command=lambda i=actual_index: self._select_row(i),
+            )
             ip_button.grid(row=0, column=1, sticky="ew", padx=4, pady=6)
 
             combo = ctk.CTkComboBox(row, values=self.profile_values, width=150)
@@ -333,7 +418,9 @@ class TargetsTab(PageFrame):
             combo.grid(row=0, column=2, sticky="ew", padx=4, pady=6)
             self.row_profiles[actual_index] = combo
 
-            remove_button = ctk.CTkButton(row, text="Remove", width=78, command=lambda i=actual_index: self._remove_row(i))
+            remove_button = ctk.CTkButton(
+                row, text="Remove", width=78, command=lambda i=actual_index: self._remove_row(i)
+            )
             remove_button.grid(row=0, column=3, padx=(4, 8), pady=6)
 
     def _refresh_row_profile_values(self) -> None:
@@ -375,4 +462,3 @@ class TargetsTab(PageFrame):
     def _set_status(self, message: str) -> None:
         self.status.configure(text=message)
         self.app_controller.set_status(message)
-

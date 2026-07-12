@@ -1,4 +1,4 @@
-﻿"""Parsers for IOS-XE IPv4 ACL output and running-config ACL sections."""
+"""Parsers for IOS-XE IPv4 ACL output and running-config ACL sections."""
 
 from __future__ import annotations
 
@@ -44,7 +44,9 @@ def _infer_numbered_acl_type(name: str) -> str:
     return "extended"
 
 
-def _parse_statement_line(acl_name: str, acl_type: str, line: str, source: str) -> AclStatement | None:
+def _parse_statement_line(
+    acl_name: str, acl_type: str, line: str, source: str
+) -> AclStatement | None:
     stripped = line.strip()
     if not stripped:
         return None
@@ -86,7 +88,9 @@ def _parse_show_ip_access_lists(text: str) -> list[AclStatement]:
             current_name = header.group(2).strip()
             continue
         if current_name and current_type:
-            statement = _parse_statement_line(current_name, current_type, stripped, "show_ip_access_lists")
+            statement = _parse_statement_line(
+                current_name, current_type, stripped, "show_ip_access_lists"
+            )
             if statement:
                 statements.append(statement)
     return statements
@@ -130,7 +134,9 @@ def _parse_running_config_acls(text: str) -> list[AclStatement]:
                 statements.append(statement)
             continue
         if current_name and current_type and raw_line[:1].isspace():
-            statement = _parse_statement_line(current_name, current_type, stripped, "running_config")
+            statement = _parse_statement_line(
+                current_name, current_type, stripped, "running_config"
+            )
             if statement:
                 statements.append(statement)
     return statements

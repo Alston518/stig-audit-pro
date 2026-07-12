@@ -1,4 +1,4 @@
-﻿"""Parser for Dynamic ARP Inspection state."""
+"""Parser for Dynamic ARP Inspection state."""
 
 from __future__ import annotations
 
@@ -24,7 +24,9 @@ def _parse_running_config(text: str) -> ArpInspectionInfo:
             current_interface = None
             continue
         if stripped.startswith("interface "):
-            current_interface = normalize_interface_name(stripped.removeprefix("interface ").strip())
+            current_interface = normalize_interface_name(
+                stripped.removeprefix("interface ").strip()
+            )
             continue
         if stripped.startswith("ip arp inspection vlan "):
             info.vlans.update(parse_vlan_list(stripped.removeprefix("ip arp inspection vlan ")))
@@ -54,7 +56,11 @@ def _parse_show_output(text: str) -> ArpInspectionInfo:
             continue
         if in_vlan_table:
             parts = stripped.split()
-            if parts and parts[0].isdigit() and any(part.lower().startswith("enabled") for part in parts[1:]):
+            if (
+                parts
+                and parts[0].isdigit()
+                and any(part.lower().startswith("enabled") for part in parts[1:])
+            ):
                 info.vlans.add(int(parts[0]))
         elif in_interface_table:
             parts = stripped.split()

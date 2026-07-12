@@ -1,4 +1,4 @@
-﻿"""Combine command outputs into a parsed IOS-XE device view."""
+"""Combine command outputs into a parsed IOS-XE device view."""
 
 from __future__ import annotations
 
@@ -9,7 +9,11 @@ from stig_audit_pro.parsers.iosxe_arp_inspection import ArpInspectionInfo, parse
 from stig_audit_pro.parsers.iosxe_dhcp_snooping import DhcpSnoopingInfo, parse_dhcp_snooping
 from stig_audit_pro.parsers.iosxe_facts import DeviceFacts, parse_facts
 from stig_audit_pro.parsers.iosxe_interfaces import InterfaceStatus, parse_interfaces_status
-from stig_audit_pro.parsers.iosxe_running_config import InterfaceConfig, RunningConfig, parse_running_config
+from stig_audit_pro.parsers.iosxe_running_config import (
+    InterfaceConfig,
+    RunningConfig,
+    parse_running_config,
+)
 from stig_audit_pro.parsers.iosxe_trunks import TrunkInfo, parse_interfaces_trunk
 
 
@@ -63,6 +67,9 @@ def parse_outputs(outputs: dict[str, str]) -> ParsedDeviceData:
 
     running_config = parse_running_config(running_text)
     status_interfaces = parse_interfaces_status(status_text)
+    warnings: list[str] = []
+    if status_text.strip() and not status_interfaces:
+        warnings.append("show interfaces status parser produced no interface rows")
     names = set(running_config.interfaces) | set(status_interfaces)
     interfaces = {
         name: InterfaceView(
@@ -86,4 +93,5 @@ def parse_outputs(outputs: dict[str, str]) -> ParsedDeviceData:
         acls=parse_acls(show_ip_access_lists=acl_text, running_config=running_text),
         dhcp_snooping=parse_dhcp_snooping(show_output=dhcp_text, running_config=running_text),
         arp_inspection=parse_arp_inspection(show_output=arp_text, running_config=running_text),
+        parser_warnings=warnings,
     )

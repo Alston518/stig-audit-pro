@@ -36,9 +36,21 @@ class ResultsTab(PageFrame):
         run_row = ctk.CTkFrame(self, fg_color="transparent")
         run_row.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
         run_row.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkButton(run_row, text="Run Compliant Sample", command=lambda: app_controller.run_sample_audit("compliant")).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(run_row, text="Run Noncompliant Sample", command=lambda: app_controller.run_sample_audit("noncompliant"), fg_color="#9f1d1d", hover_color="#7f1d1d").grid(row=0, column=1, sticky="ew", padx=6)
-        ctk.CTkButton(run_row, text="Clear", command=self.clear).grid(row=0, column=2, sticky="ew", padx=(6, 0))
+        ctk.CTkButton(
+            run_row,
+            text="Run Compliant Sample",
+            command=lambda: app_controller.run_sample_audit("compliant"),
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(
+            run_row,
+            text="Run Noncompliant Sample",
+            command=lambda: app_controller.run_sample_audit("noncompliant"),
+            fg_color="#9f1d1d",
+            hover_color="#7f1d1d",
+        ).grid(row=0, column=1, sticky="ew", padx=6)
+        ctk.CTkButton(run_row, text="Clear", command=self.clear).grid(
+            row=0, column=2, sticky="ew", padx=(6, 0)
+        )
 
         content = ctk.CTkFrame(self, corner_radius=8, border_width=1)
         content.grid(row=2, column=0, sticky="nsew", padx=12, pady=(0, 12))
@@ -56,7 +68,14 @@ class ResultsTab(PageFrame):
             "status": "Status",
             "failed": "Failed Objects",
         }
-        widths = {"ip": 110, "vuln": 180, "family": 100, "severity": 80, "status": 120, "failed": 260}
+        widths = {
+            "ip": 110,
+            "vuln": 180,
+            "family": 100,
+            "severity": 80,
+            "status": 120,
+            "failed": 260,
+        }
         for column in columns:
             self.tree.heading(column, text=headings[column])
             self.tree.column(column, width=widths[column], anchor="w")
@@ -74,7 +93,19 @@ class ResultsTab(PageFrame):
             self.tree.delete(item)
         for index, result in enumerate(results):
             failed = ", ".join(obj.object_name for obj in result.failed_objects)
-            self.tree.insert("", "end", iid=str(index), values=(result.ip, result.vuln_id, result.stig_family, result.severity, result.status, failed))
+            self.tree.insert(
+                "",
+                "end",
+                iid=str(index),
+                values=(
+                    result.ip,
+                    result.vuln_id,
+                    result.stig_family,
+                    result.severity,
+                    result.status,
+                    failed,
+                ),
+            )
         self._update_metrics()
         if results:
             self.tree.selection_set("0")
@@ -87,7 +118,14 @@ class ResultsTab(PageFrame):
         self.app_controller.update_report_summary([])
 
     def _update_metrics(self) -> None:
-        counts = {"total": len(self.results), "NotAFinding": 0, "Open": 0, "Error": 0, "Skipped": 0, "Not_Reviewed": 0}
+        counts = {
+            "total": len(self.results),
+            "NotAFinding": 0,
+            "Open": 0,
+            "Error": 0,
+            "Skipped": 0,
+            "Not_Reviewed": 0,
+        }
         for result in self.results:
             if result.status in counts:
                 counts[result.status] += 1
@@ -102,8 +140,17 @@ class ResultsTab(PageFrame):
         self._show_result(self.results[index])
 
     def _show_result(self, result: CheckResult) -> None:
-        failed = "\n".join(f"- {obj.object_type}: {obj.object_name} ({obj.details})" for obj in result.failed_objects) or "None"
-        passed = "\n".join(f"- {obj.object_type}: {obj.object_name}" for obj in result.passed_objects) or "None"
+        failed = (
+            "\n".join(
+                f"- {obj.object_type}: {obj.object_name} ({obj.details})"
+                for obj in result.failed_objects
+            )
+            or "None"
+        )
+        passed = (
+            "\n".join(f"- {obj.object_type}: {obj.object_name}" for obj in result.passed_objects)
+            or "None"
+        )
         text = (
             f"{result.vuln_id}\n{result.title}\n\n"
             f"Status: {result.status}\nSeverity: {result.severity}\nDevice: {result.hostname} ({result.ip})\n\n"

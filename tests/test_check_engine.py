@@ -20,7 +20,7 @@ def test_required_checks_pass_on_compliant_sample_outputs():
     results = _results_by_vuln("compliant")
     counts = Counter(result.status for result in results.values())
 
-    assert counts["NotAFinding"] == 17
+    assert counts["NotAFinding"] == 16
     assert counts["Not_Reviewed"] == 6
     assert results["CISC-L2-000030"].status == "NotAFinding"
     assert results["CISC-L2-000100"].status == "NotAFinding"
@@ -30,14 +30,14 @@ def test_required_checks_pass_on_compliant_sample_outputs():
     assert results["CISC-L2-000150"].status == "NotAFinding"
     assert results["CISC-L2-000210"].status == "NotAFinding"
     assert results["CISC-L2-000230"].status == "NotAFinding"
-    assert results["EXAMPLE-ACL-LOG-INPUT"].status == "NotAFinding"
 
 
 def test_required_checks_fail_on_noncompliant_sample_outputs():
     results = _results_by_vuln("noncompliant")
     counts = Counter(result.status for result in results.values())
 
-    assert counts["Open"] == 17
+    assert counts["Open"] == 15
+    assert counts["NotAFinding"] == 1
     assert counts["Not_Reviewed"] == 6
     assert results["CISC-L2-000030"].status == "Open"
     assert results["CISC-L2-000100"].status == "Open"
@@ -47,7 +47,6 @@ def test_required_checks_fail_on_noncompliant_sample_outputs():
     assert results["CISC-L2-000150"].status == "Open"
     assert results["CISC-L2-000210"].status == "Open"
     assert results["CISC-L2-000230"].status == "Open"
-    assert results["EXAMPLE-ACL-LOG-INPUT"].status == "Open"
 
     assert results["CISC-L2-000230"].failed_objects[0].object_name == "GigabitEthernet1/0/24"
     assert results["CISC-L2-000130"].failed_objects

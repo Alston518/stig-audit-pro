@@ -1,4 +1,4 @@
-﻿"""XCCDF metadata importer for DISA STIG sources."""
+"""XCCDF metadata importer for DISA STIG sources."""
 
 from __future__ import annotations
 

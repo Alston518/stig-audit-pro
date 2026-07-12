@@ -1,4 +1,4 @@
-﻿"""Reports tab with summary and export actions."""
+"""Reports tab with summary and export actions."""
 
 from __future__ import annotations
 
@@ -36,16 +36,25 @@ class ReportsTab(PageFrame):
         panel = Panel(self, "Report Output")
         panel.grid(row=1, column=0, sticky="nsew", padx=12, pady=(6, 12))
         panel.grid_columnconfigure((0, 1), weight=1)
-        self.txt_button = ctk.CTkButton(panel, text="Save TXT Summary", command=self._save_txt_report, state="disabled")
+        self.txt_button = ctk.CTkButton(
+            panel, text="Save TXT Summary", command=self._save_txt_report, state="disabled"
+        )
         self.txt_button.grid(row=1, column=0, sticky="ew", padx=(12, 6), pady=(14, 8))
-        self.csv_button = ctk.CTkButton(panel, text="Save CSV Details", command=self._save_csv_report, state="disabled")
+        self.csv_button = ctk.CTkButton(
+            panel, text="Save CSV Details", command=self._save_csv_report, state="disabled"
+        )
         self.csv_button.grid(row=1, column=1, sticky="ew", padx=(6, 12), pady=(14, 8))
         self.summary = ctk.CTkTextbox(panel, height=260)
         self.summary.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=12, pady=(4, 8))
         panel.grid_rowconfigure(2, weight=1)
         self.summary.insert("1.0", "No audit results loaded.")
         self.summary.configure(state="disabled")
-        self.export_status = ctk.CTkLabel(panel, text="Run a scan to enable report export.", anchor="w", text_color=("#475467", "#d0d5dd"))
+        self.export_status = ctk.CTkLabel(
+            panel,
+            text="Run a scan to enable report export.",
+            anchor="w",
+            text_color=("#475467", "#d0d5dd"),
+        )
         self.export_status.grid(row=3, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 12))
 
     def refresh(self, results: list[CheckResult]) -> None:
@@ -64,7 +73,9 @@ class ReportsTab(PageFrame):
         self.metrics["error"].set(error_count)
         self.metrics["skipped"].set(skipped_count)
         self.metrics["not_reviewed"].set(not_reviewed_count)
-        self.set_export_status("Reports are ready to export." if total else "Run a scan to enable report export.")
+        self.set_export_status(
+            "Reports are ready to export." if total else "Run a scan to enable report export."
+        )
         button_state = "normal" if total else "disabled"
         self.txt_button.configure(state=button_state)
         self.csv_button.configure(state=button_state)

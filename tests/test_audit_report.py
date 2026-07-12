@@ -1,9 +1,13 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from stig_audit_pro.core.result_model import CheckResult, FindingObject
-from stig_audit_pro.reports.audit_report import build_text_report, write_csv_report, write_text_report
+from stig_audit_pro.reports.audit_report import (
+    build_text_report,
+    write_csv_report,
+    write_text_report,
+)
 
 
 def sample_results() -> list[CheckResult]:
@@ -16,7 +20,13 @@ def sample_results() -> list[CheckResult]:
             title="Disabled interfaces must be shutdown and assigned to the unused VLAN",
             severity="medium",
             status="Open",
-            failed_objects=[FindingObject(object_type="interface", object_name="GigabitEthernet1/0/2", details="access_vlan=10")],
+            failed_objects=[
+                FindingObject(
+                    object_type="interface",
+                    object_name="GigabitEthernet1/0/2",
+                    details="access_vlan=10",
+                )
+            ],
             finding_details="Failed interface GigabitEthernet1/0/2",
             comments="Open finding.",
             commands_used=["show running-config", "show interfaces status"],
@@ -38,7 +48,7 @@ def sample_results() -> list[CheckResult]:
 def test_build_text_report_includes_summary_and_findings():
     report = build_text_report(
         sample_results(),
-        generated_at=datetime(2026, 7, 6, 12, 0, tzinfo=timezone.utc),
+        generated_at=datetime(2026, 7, 6, 12, 0, tzinfo=UTC),
     )
 
     assert "STIG Audit Pro Scan Report" in report
