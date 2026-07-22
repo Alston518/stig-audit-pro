@@ -11,7 +11,7 @@ def sample_results() -> list[CheckResult]:
         CheckResult(
             ip="10.50.10.26",
             hostname="SW-ACCESS-02",
-            vuln_id="CISC-L2-000210",
+            vuln_id="V-220667",
             stig_family="IOSXE_L2",
             title="Disabled interfaces must be shutdown and assigned to the unused VLAN",
             severity="medium",
@@ -24,7 +24,7 @@ def sample_results() -> list[CheckResult]:
         CheckResult(
             ip="10.50.10.26",
             hostname="SW-ACCESS-02",
-            vuln_id="EXAMPLE-ACL-LOG-INPUT",
+            vuln_id="V-220529",
             stig_family="IOSXE_L2",
             title="ACL deny statements must include log-input",
             severity="medium",
@@ -46,7 +46,7 @@ def test_build_text_report_includes_summary_and_findings():
     assert "Open: 1" in report
     assert "NotAFinding: 1" in report
     assert "GigabitEthernet1/0/2" in report
-    assert "CISC-L2-000210" in report
+    assert "V-220667" in report
 
 
 def test_report_writers_create_txt_and_csv(tmp_path):
@@ -60,4 +60,4 @@ def test_report_writers_create_txt_and_csv(tmp_path):
     csv_text = csv_path.read_text(encoding="utf-8-sig")
     assert "ip,hostname,vuln_id" in csv_text
     assert "10.50.10.26" in csv_text
-    assert "CISC-L2-000210" in csv_text
+    assert "V-220667" in csv_text

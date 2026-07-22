@@ -1,0 +1,350 @@
+# SIMPLIFIED EDITING COPY - this file is not loaded by the application.
+# The active library remains: data/checks/iosxe_l2.yaml
+#
+# Required metadata: vuln_id, title, stig_family, severity, check_type
+# Automated checks also need commands and conditions to do useful work.
+# Optional reporting, evidence, and default result fields were removed here.
+#
+library_name: iosxe_l2_simplified_editing_copy
+checks:
+- vuln_id: V-220649
+  title: The Cisco switch must uniquely identify and authenticate all network-connected endpoint devices before
+    establishing any connection.
+  stig_family: IOSXE_L2
+  severity: cat1
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
+- vuln_id: V-220650
+  title: The Cisco switch must authenticate all VLAN Trunk Protocol (VTP) messages with a hash function using the
+    most secured cryptographic algorithm available.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show vtp status
+  - show running-config
+  conditions:
+    any:
+    - command: show vtp status
+      pattern: ^\s*VTP Operating Mode\s*:\s*Off\s*$
+      description: VTP operating mode is Off
+    - command: show running-config
+      pattern: ^\s*vtp password\s+\S+
+      description: VTP password is configured
+- vuln_id: V-220651
+  title: The Cisco switch must manage excess bandwidth to limit the effects of packet flooding types of denial-of-service
+    (DoS) attacks.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
+- vuln_id: V-220655
+  title: The Cisco switch must have Root Guard enabled on all switch ports connecting to access layer switches.
+  stig_family: IOSXE_L2
+  severity: cat3
+  check_type: root_guard_neighbor_policy
+  commands:
+  - show running-config
+  - show cdp neighbors detail
+  conditions:
+    upstream_profile_key: root_guard.upstream_switches
+    required_string: spanning-tree guard root
+- vuln_id: V-220656
+  title: The Cisco switch must have BPDU Guard enabled on all user-facing or untrusted access switch ports.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: interface_config_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: access
+          status: connected
+  conditions:
+    required_strings:
+    - spanning-tree bpduguard enable
+- vuln_id: V-220657
+  title: The Cisco switch must have STP Loop Guard enabled.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  conditions:
+    all:
+    - strings:
+      - spanning-tree loopguard default
+      command: show running-config
+- vuln_id: V-220658
+  title: The Cisco switch must have Unknown Unicast Flood Blocking (UUFB) enabled.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: interface_config_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: access
+          status: connected
+  conditions:
+    required_strings:
+    - switchport block unicast
+- vuln_id: V-220659
+  title: The Cisco switch must have DHCP snooping for all user VLANs to validate DHCP messages from untrusted sources.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  conditions:
+    all:
+    - command: show running-config
+      pattern: ^\s*ip dhcp snooping\s*$
+      description: global ip dhcp snooping enabled
+    profile_all:
+    - command: show running-config
+      profile_key: dhcp_snooping.vlans
+      object_type: vlan
+      pattern_template: ^\s*ip dhcp snooping vlan\s+.*(?<!\d){{ item }}(?!\d).*$
+      description_template: DHCP snooping VLAN {{ item }}
+- vuln_id: V-220660
+  title: The Cisco switch must have IP Source Guard enabled on all user-facing or untrusted access switch ports.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: interface_config_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: access
+          status: connected
+  conditions:
+    required_strings:
+    - ip verify source
+- vuln_id: V-220661
+  title: The Cisco switch must have Dynamic Address Resolution Protocol (ARP) Inspection (DAI) enabled on all user
+    VLANs.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  conditions:
+    profile_all:
+    - command: show running-config
+      profile_key: arp_inspection.vlans
+      object_type: vlan
+      pattern_template: ^\s*ip arp inspection vlan\s+.*(?<!\d){{ item }}(?!\d).*$
+      description_template: ARP inspection VLAN {{ item }}
+- vuln_id: V-220662
+  title: The Cisco switch must have Storm Control configured on all host-facing switchports.
+  stig_family: IOSXE_L2
+  severity: cat3
+  check_type: interface_config_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: access
+          status: connected
+  conditions:
+    required_strings:
+    - storm-control broadcast level
+- vuln_id: V-220663
+  title: The Cisco switch must have IGMP or MLD Snooping configured on all VLANs.
+  stig_family: IOSXE_L2
+  severity: cat3
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  conditions:
+    none:
+    - strings:
+      - no ip igmp snooping
+      command: show running-config
+    - strings:
+      - no ipv6 mld snooping
+      command: show running-config
+- vuln_id: V-220664
+  title: The Cisco switch must implement Rapid STP where VLANs span multiple switches with redundant links.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  conditions:
+    any:
+    - strings:
+      - spanning-tree mode rapid-pvst
+      command: show running-config
+    - strings:
+      - spanning-tree mode mst
+      command: show running-config
+- vuln_id: V-220665
+  title: The Cisco switch must enable Unidirectional Link Detection (UDLD) to protect against one-way connections.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
+- vuln_id: V-220666
+  title: The Cisco switch must have all trunk links enabled statically.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: interface_config_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: trunk
+  conditions:
+    required_strings:
+    - switchport mode trunk
+    forbidden_strings:
+    - switchport mode dynamic
+    - negotiation auto
+- vuln_id: V-220667
+  title: The Cisco switch must have all disabled switch ports assigned to an unused VLAN.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: interface_config_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          admin_state: disabled_or_notconnect
+  conditions:
+    required_patterns:
+    - pattern: ^shutdown$
+      description: shutdown configured
+    - pattern: ^switchport access vlan\s+{{ unused_vlan }}$
+      description: unused VLAN {{ unused_vlan }} assigned
+- vuln_id: V-220668
+  title: The Cisco switch must not have the default VLAN assigned to any host-facing switch ports.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: interface_config_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: access
+  conditions:
+    required_patterns:
+    - pattern: ^switchport access vlan\s+(?!1\b)\d+$
+      description: non-default access VLAN configured
+    forbidden_patterns:
+    - pattern: ^switchport access vlan\s+1$
+      description: access VLAN 1
+- vuln_id: V-220669
+  title: The Cisco switch must have the default VLAN pruned from all trunk ports that do not require it.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: interface_config_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: trunk
+  conditions:
+    required_patterns:
+    - pattern: ^switchport trunk allowed vlan\s+.+$
+      description: explicit trunk allowed VLAN list
+    forbidden_patterns:
+    - pattern: ^switchport trunk allowed vlan\s+.*(?<!\d)1(?!\d).*$
+      description: VLAN 1 allowed on trunk
+    profile_forbidden_patterns:
+    - profile_key: trunk_policy.additional_pruned_vlans
+      object_type: vlan
+      pattern_template: ^switchport trunk allowed vlan\s+.*(?<!\d){{ item }}(?!\d).*$
+      description_template: profile-pruned VLAN {{ item }} allowed on trunk
+- vuln_id: V-220670
+  title: The Cisco switch must not use the default VLAN for management traffic.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  conditions:
+    none:
+    - command: show running-config
+      pattern: (?ms)^interface\s+Vlan1\b.*?^\s+ip address\b
+      description: interface Vlan1 has an IP address
+- vuln_id: V-220671
+  title: The Cisco switch must have all user-facing or untrusted ports configured as access switch ports.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: manual_review
+- vuln_id: V-220672
+  title: The Cisco switch must have the native VLAN assigned to an ID other than the default VLAN for all 802.1q
+    trunk links.
+  stig_family: IOSXE_L2
+  severity: cat2
+  check_type: interface_config_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: trunk
+  conditions:
+    required_patterns:
+    - pattern: ^switchport trunk native vlan\s+(?!1\b)\d+$
+      description: non-default native VLAN configured
+    forbidden_patterns:
+    - pattern: ^switchport trunk native vlan\s+1$
+      description: native VLAN 1
+- vuln_id: V-220673
+  title: The Cisco switch must not have any switchports assigned to the native VLAN.
+  stig_family: IOSXE_L2
+  severity: cat3
+  check_type: manual_review

@@ -16,6 +16,8 @@ class ChecksTab(PageFrame):
         super().__init__(master)
         self.app_controller = app_controller
         self.checks: list[CheckDefinition] = []
+        self.yaml_paths: list[Path] = []
+        self.current_yaml_path: Path | None = None
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=2)
         self.grid_rowconfigure(0, weight=1)
@@ -46,15 +48,29 @@ class ChecksTab(PageFrame):
         editor_panel = ctk.CTkFrame(self, fg_color="transparent")
         editor_panel.grid(row=0, column=1, sticky="nsew", padx=(6, 12), pady=12)
         editor_panel.grid_columnconfigure(0, weight=1)
-        editor_panel.grid_rowconfigure(0, weight=1)
+        editor_panel.grid_rowconfigure(1, weight=1)
+
+        library_row = ctk.CTkFrame(editor_panel, fg_color="transparent")
+        library_row.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        library_row.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(library_row, text="Library").grid(row=0, column=0, sticky="w", padx=(0, 8))
+        self.library_select = ctk.CTkComboBox(
+            library_row,
+            values=[],
+            command=lambda _value: self._load_selected_yaml(),
+            state="readonly",
+        )
+        self.library_select.grid(row=0, column=1, sticky="ew")
+
         self.editor = YamlEditor(editor_panel, "Check YAML")
-        self.editor.grid(row=0, column=0, sticky="nsew")
+        self.editor.grid(row=1, column=0, sticky="nsew")
 
         actions = ctk.CTkFrame(editor_panel, fg_color="transparent")
-        actions.grid(row=1, column=0, sticky="ew", pady=(8, 0))
-        actions.grid_columnconfigure((0, 1), weight=1)
+        actions.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        actions.grid_columnconfigure((0, 1, 2), weight=1)
         ctk.CTkButton(actions, text="Validate YAML", command=self._validate_yaml).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(actions, text="Reload From Disk", command=app_controller.reload_from_disk).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        ctk.CTkButton(actions, text="Save YAML", command=self._save_yaml).grid(row=0, column=1, sticky="ew", padx=6)
+        ctk.CTkButton(actions, text="Reload From Disk", command=app_controller.reload_from_disk).grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
         tailoring = ctk.CTkLabel(
             editor_panel,
@@ -64,11 +80,21 @@ class ChecksTab(PageFrame):
             wraplength=560,
             text_color=("#475467", "#d0d5dd"),
         )
-        tailoring.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        tailoring.grid(row=3, column=0, sticky="ew", pady=(8, 0))
 
-    def refresh(self, checks: list[CheckDefinition], yaml_path: Path) -> None:
+    def refresh(self, checks: list[CheckDefinition], yaml_paths: list[Path]) -> None:
         self.checks = checks
-        self.editor.set_text(yaml_path.read_text(encoding="utf-8"))
+        self.yaml_paths = yaml_paths
+        values = [path.name for path in yaml_paths]
+        self.library_select.configure(values=values)
+        if self.current_yaml_path not in yaml_paths:
+            self.current_yaml_path = yaml_paths[0] if yaml_paths else None
+        if self.current_yaml_path is not None:
+            self.library_select.set(self.current_yaml_path.name)
+            self.editor.set_text(self.current_yaml_path.read_text(encoding="utf-8"))
+        else:
+            self.library_select.set("")
+            self.editor.set_text("")
         self.editor.set_status(f"{len(checks)} checks loaded")
         self._render_check_rows()
 
@@ -82,7 +108,7 @@ class ChecksTab(PageFrame):
                 continue
             if severity != "All severities" and check.severity != severity:
                 continue
-            haystack = f"{check.vuln_id} {check.title} {check.severity} {check.check_type}".lower()
+            haystack = f"{check.vuln_id} {check.title} {check.looking_for} {check.severity} {check.check_type}".lower()
             if query and query not in haystack:
                 continue
             filtered.append(check)
@@ -96,10 +122,37 @@ class ChecksTab(PageFrame):
             row.grid(row=row_index, column=0, sticky="ew", pady=4)
             row.grid_columnconfigure(0, weight=1)
             ctk.CTkLabel(row, text=check.vuln_id, font=ctk.CTkFont(weight="bold"), anchor="w").grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 0))
-            ctk.CTkLabel(row, text=check.title, anchor="w", wraplength=330, justify="left").grid(row=1, column=0, sticky="ew", padx=10, pady=(2, 4))
-            ctk.CTkLabel(row, text=f"{check.stig_family}  |  {check.severity}  |  {check.check_type}", text_color=("#475467", "#d0d5dd"), anchor="w").grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 8))
+            ctk.CTkLabel(row, text=check.title, anchor="w", wraplength=330, justify="left").grid(row=1, column=0, sticky="ew", padx=10, pady=(2, 2))
+            if check.looking_for:
+                ctk.CTkLabel(row, text=check.looking_for, anchor="w", wraplength=330, justify="left", text_color=("#475467", "#d0d5dd")).grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 4))
+            mode = "Automated" if check.automated and check.check_type != "manual_review" else "Manual"
+            ctk.CTkLabel(row, text=f"{check.stig_family}  |  {check.severity}  |  {mode}  |  {check.check_type}", text_color=("#475467", "#d0d5dd"), anchor="w").grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 8))
 
     def _validate_yaml(self) -> None:
         ok, message = self.app_controller.validate_check_yaml(self.editor.get_text())
+        self.editor.set_status(message, ok=ok)
+
+    def _selected_yaml_path(self) -> Path | None:
+        selected = self.library_select.get()
+        for path in self.yaml_paths:
+            if path.name == selected:
+                return path
+        return None
+
+    def _load_selected_yaml(self) -> None:
+        path = self._selected_yaml_path()
+        if path is None:
+            self.editor.set_status("Choose a check library", ok=False)
+            return
+        self.current_yaml_path = path
+        self.editor.set_text(path.read_text(encoding="utf-8"))
+        self.editor.set_status(f"Loaded {path.name}")
+
+    def _save_yaml(self) -> None:
+        path = self._selected_yaml_path()
+        if path is None:
+            self.editor.set_status("Choose a check library", ok=False)
+            return
+        ok, message = self.app_controller.save_check_yaml(path, self.editor.get_text())
         self.editor.set_status(message, ok=ok)
 

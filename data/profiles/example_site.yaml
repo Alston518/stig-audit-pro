@@ -19,6 +19,10 @@ arp_inspection:
   - 10
   - 20
   - 30
+root_guard:
+  # Replace this example with the actual core/distribution CDP Device ID hostname(s) for the site.
+  upstream_switches:
+  - CORE-DIST-01
 variables:
   site_label: Example site
   required_user_vlans:

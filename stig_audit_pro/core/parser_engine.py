@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 
 from stig_audit_pro.parsers.iosxe_acls import AclParseResult, parse_acls
 from stig_audit_pro.parsers.iosxe_arp_inspection import ArpInspectionInfo, parse_arp_inspection
+from stig_audit_pro.parsers.iosxe_cdp import CdpNeighbor, parse_cdp_neighbors_detail
 from stig_audit_pro.parsers.iosxe_dhcp_snooping import DhcpSnoopingInfo, parse_dhcp_snooping
 from stig_audit_pro.parsers.iosxe_facts import DeviceFacts, parse_facts
 from stig_audit_pro.parsers.iosxe_interfaces import InterfaceStatus, parse_interfaces_status
@@ -50,6 +51,7 @@ class ParsedDeviceData:
     acls: AclParseResult = field(default_factory=AclParseResult)
     dhcp_snooping: DhcpSnoopingInfo = field(default_factory=DhcpSnoopingInfo)
     arp_inspection: ArpInspectionInfo = field(default_factory=ArpInspectionInfo)
+    cdp_neighbors: list[CdpNeighbor] = field(default_factory=list)
     parser_warnings: list[str] = field(default_factory=list)
 
 
@@ -86,4 +88,5 @@ def parse_outputs(outputs: dict[str, str]) -> ParsedDeviceData:
         acls=parse_acls(show_ip_access_lists=acl_text, running_config=running_text),
         dhcp_snooping=parse_dhcp_snooping(show_output=dhcp_text, running_config=running_text),
         arp_inspection=parse_arp_inspection(show_output=arp_text, running_config=running_text),
+        cdp_neighbors=parse_cdp_neighbors_detail(outputs.get("show cdp neighbors detail", "")),
     )

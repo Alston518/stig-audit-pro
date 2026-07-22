@@ -20,6 +20,7 @@ class EvaluationOutcome:
     failed_objects: list[FindingObject] = field(default_factory=list)
     passed_objects: list[FindingObject] = field(default_factory=list)
     details: list[str] = field(default_factory=list)
+    status: str | None = None
 
 
 class CheckEngine:
@@ -69,7 +70,7 @@ class CheckEngine:
 
         try:
             outcome = self._evaluate_by_type(check, outputs, parsed_data)
-            status = check.result.pass_status if outcome.passed else check.result.fail_status
+            status = outcome.status or (check.result.pass_status if outcome.passed else check.result.fail_status)
             return self._result(
                 check,
                 ip,
@@ -122,6 +123,8 @@ class CheckEngine:
             return self._dhcp_snooping_policy(check, parsed)
         if check.check_type == "arp_inspection_policy":
             return self._arp_inspection_policy(check, parsed)
+        if check.check_type == "root_guard_neighbor_policy":
+            return self._root_guard_neighbor_policy(check, parsed)
         raise ValueError(f"Unsupported check type: {check.check_type}")
 
     def _result(
@@ -226,6 +229,7 @@ class CheckEngine:
             "trunk_policy",
             "dhcp_snooping",
             "arp_inspection",
+            "root_guard",
             "comments",
         ):
             parent = getattr(self.profile, parent_name)
@@ -311,11 +315,49 @@ class CheckEngine:
             flags |= re.IGNORECASE
         return bool(re.search(pattern, text, flags=flags))
 
+    def _expand_pattern_configs(self, pattern_configs: Iterable[Any]) -> list[dict[str, Any]]:
+        expanded: list[dict[str, Any]] = []
+        for pattern_config in pattern_configs:
+            if isinstance(pattern_config, str):
+                if pattern_config.strip():
+                    expanded.append({"string": pattern_config, "description": pattern_config})
+                continue
+            if not isinstance(pattern_config, dict):
+                continue
+            strings = pattern_config.get("strings")
+            if strings is not None:
+                for item in strings:
+                    text = str(item).strip()
+                    if not text:
+                        continue
+                    expanded_item = {
+                        key: value
+                        for key, value in pattern_config.items()
+                        if key not in {"strings", "pattern", "value", "description"}
+                    }
+                    expanded_item["string"] = text
+                    expanded_item["description"] = pattern_config.get("description") or text
+                    expanded.append(expanded_item)
+                continue
+            string_value = str(pattern_config.get("string") or "").strip()
+            pattern_value = pattern_config.get("pattern") or pattern_config.get("value")
+            if string_value or pattern_value:
+                expanded.append(pattern_config)
+        return expanded
+
     def _pattern_label(self, pattern_config: dict[str, Any]) -> str:
-        label = str(pattern_config.get("description") or pattern_config.get("pattern") or "")
+        label = str(
+            pattern_config.get("description")
+            or pattern_config.get("string")
+            or pattern_config.get("pattern")
+            or ""
+        )
         return self._render_template(label)
 
     def _pattern_value(self, pattern_config: dict[str, Any]) -> str:
+        string_value = pattern_config.get("string")
+        if string_value is not None:
+            return re.escape(self._render_template(str(string_value)))
         pattern = pattern_config.get("pattern") or pattern_config.get("value")
         if pattern is None:
             raise ValueError("pattern policies require pattern values")
@@ -377,13 +419,19 @@ class CheckEngine:
 
     def _command_pattern_policy(self, check: CheckDefinition, outputs: dict[str, str]) -> EvaluationOutcome:
         default_command = check.conditions.get("command") or (check.commands[0] if check.commands else "")
-        required = check.conditions.get("all", []) + self._profile_pattern_configs(
+        required = self._expand_pattern_configs(check.conditions.get("all", [])) + self._profile_pattern_configs(
             check.conditions.get("profile_all", []),
         )
-        alternatives = check.conditions.get("any", [])
-        forbidden = check.conditions.get("none", []) + self._profile_pattern_configs(
+        alternatives = self._expand_pattern_configs(check.conditions.get("any", []))
+        forbidden = self._expand_pattern_configs(check.conditions.get("none", [])) + self._profile_pattern_configs(
             check.conditions.get("profile_none", []),
         )
+        if not required and not alternatives and not forbidden:
+            return EvaluationOutcome(
+                passed=False,
+                status="Not_Reviewed",
+                details=["No search strings are configured for this check yet."],
+            )
 
         missing_configs = [
             pattern_config
@@ -519,13 +567,27 @@ class CheckEngine:
         raise ValueError(f"Unsupported interface field: {field}")
 
     def _interface_config_policy(self, check: CheckDefinition, parsed: ParsedDeviceData) -> EvaluationOutcome:
-        required = check.conditions.get("required_patterns", []) + self._profile_pattern_configs(
+        required = (
+            self._expand_pattern_configs(check.conditions.get("required_patterns", []))
+            + self._expand_pattern_configs(check.conditions.get("required_strings", []))
+            + self._profile_pattern_configs(
             check.conditions.get("profile_required_patterns", []),
         )
+        )
         alternatives = check.conditions.get("any_patterns", [])
-        forbidden = check.conditions.get("forbidden_patterns", []) + self._profile_pattern_configs(
+        forbidden = (
+            self._expand_pattern_configs(check.conditions.get("forbidden_patterns", []))
+            + self._expand_pattern_configs(check.conditions.get("forbidden_strings", []))
+            + self._profile_pattern_configs(
             check.conditions.get("profile_forbidden_patterns", []),
         )
+        )
+        if not required and not alternatives and not forbidden:
+            return EvaluationOutcome(
+                passed=False,
+                status="Not_Reviewed",
+                details=["No interface search strings are configured for this check yet."],
+            )
         failed: list[FindingObject] = []
         passed: list[FindingObject] = []
 
@@ -552,7 +614,9 @@ class CheckEngine:
             ]
             any_missing: list[str] = []
             for group_index, pattern_group in enumerate(alternatives, start=1):
-                group = pattern_group if isinstance(pattern_group, list) else [pattern_group]
+                group = self._expand_pattern_configs(
+                    pattern_group if isinstance(pattern_group, list) else [pattern_group],
+                )
                 if not any(
                     self._regex_matches(
                         self._pattern_value(pattern_config),
@@ -581,6 +645,132 @@ class CheckEngine:
                 passed.append(obj)
 
         return EvaluationOutcome(passed=not failed, failed_objects=failed, passed_objects=passed)
+
+    @staticmethod
+    def _neighbor_name_variants(value: str) -> set[str]:
+        normalized = value.strip().rstrip(".").lower()
+        if not normalized:
+            return set()
+        return {normalized, normalized.split(".", 1)[0]}
+
+    def _root_guard_neighbor_policy(
+        self,
+        check: CheckDefinition,
+        parsed: ParsedDeviceData,
+    ) -> EvaluationOutcome:
+        upstream_profile_key = str(
+            check.conditions.get("upstream_profile_key") or "root_guard.upstream_switches"
+        )
+        configured_upstreams = sorted(str(value) for value in self._profile_list(upstream_profile_key))
+        required_string = str(
+            check.conditions.get("required_string") or "spanning-tree guard root"
+        ).strip()
+        if not configured_upstreams:
+            return EvaluationOutcome(
+                passed=False,
+                status="Not_Reviewed",
+                details=[
+                    "No core/distribution CDP hostnames are configured in "
+                    f"profile.{upstream_profile_key}."
+                ],
+            )
+
+        upstream_names: set[str] = set()
+        for hostname in configured_upstreams:
+            upstream_names.update(self._neighbor_name_variants(hostname))
+
+        if not parsed.cdp_neighbors:
+            return EvaluationOutcome(
+                passed=False,
+                status="Not_Reviewed",
+                details=["No CDP neighbor entries were available; topology could not be verified."],
+            )
+
+        switch_neighbors = [neighbor for neighbor in parsed.cdp_neighbors if neighbor.is_switch]
+        target_neighbors = []
+        exempted: list[FindingObject] = []
+        unresolved: list[FindingObject] = []
+
+        for neighbor in switch_neighbors:
+            neighbor_names = self._neighbor_name_variants(neighbor.device_id)
+            if neighbor_names & upstream_names:
+                exempted.append(
+                    FindingObject(
+                        object_type="interface",
+                        object_name=neighbor.local_interface or "unknown",
+                        details=f"Root Guard exempt: upstream neighbor {neighbor.device_id}",
+                    )
+                )
+            elif not neighbor.local_interface:
+                unresolved.append(
+                    FindingObject(
+                        object_type="cdp_neighbor",
+                        object_name=neighbor.device_id,
+                        details="CDP entry did not identify the local interface",
+                    )
+                )
+            else:
+                target_neighbors.append(neighbor)
+
+        failed: list[FindingObject] = []
+        passed: list[FindingObject] = list(exempted)
+        for neighbor in target_neighbors:
+            local_name = neighbor.local_interface
+            local_config = parsed.running_config.interfaces.get(local_name)
+            config_names = [local_name]
+            configs = [local_config] if local_config else []
+
+            if local_config and local_config.channel_group:
+                port_channel_name = f"Port-channel{local_config.channel_group}"
+                port_channel_config = parsed.running_config.interfaces.get(port_channel_name)
+                config_names.append(port_channel_name)
+                if port_channel_config:
+                    configs.append(port_channel_config)
+
+            root_guard_present = any(
+                any(line.strip().lower() == required_string.lower() for line in config.raw_lines)
+                for config in configs
+            )
+            details = (
+                f"neighbor={neighbor.device_id}; checked configuration on {', '.join(config_names)}"
+            )
+            obj = FindingObject(
+                object_type="interface",
+                object_name=local_name,
+                details=details if root_guard_present else f"missing {required_string}; {details}",
+            )
+            if root_guard_present:
+                passed.append(obj)
+            else:
+                failed.append(obj)
+
+        if failed:
+            return EvaluationOutcome(
+                passed=False,
+                failed_objects=failed,
+                passed_objects=passed,
+                details=["Root Guard is missing on one or more access-switch-facing interfaces."],
+            )
+        if unresolved:
+            return EvaluationOutcome(
+                passed=False,
+                status="Not_Reviewed",
+                failed_objects=unresolved,
+                passed_objects=passed,
+                details=["One or more switch neighbors could not be mapped to a local interface."],
+            )
+        if not target_neighbors:
+            return EvaluationOutcome(
+                passed=True,
+                status="Not_Applicable",
+                passed_objects=passed,
+                details=["No non-upstream switch neighbors were identified by CDP."],
+            )
+        return EvaluationOutcome(
+            passed=True,
+            passed_objects=passed,
+            details=["Root Guard is configured on every CDP-identified access-switch-facing interface."],
+        )
 
     def _interface_policy(self, check: CheckDefinition, parsed: ParsedDeviceData) -> EvaluationOutcome:
         conditions = check.conditions.get("all", [])

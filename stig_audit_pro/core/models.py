@@ -31,6 +31,7 @@ CheckTypeLiteral = Literal[
     "acl_deny_logging_policy",
     "dhcp_snooping_policy",
     "arp_inspection_policy",
+    "root_guard_neighbor_policy",
     "manual_review",
 ]
 
@@ -60,6 +61,7 @@ class EvidenceConfig(StrictModel):
 class CheckDefinition(StrictModel):
     vuln_id: str
     title: str
+    looking_for: str = ""
     stig_family: str
     severity: str
     check_type: CheckTypeLiteral
@@ -138,6 +140,10 @@ class ArpInspectionPolicy(StrictModel):
     vlans: list[int] = Field(default_factory=list)
 
 
+class RootGuardPolicy(StrictModel):
+    upstream_switches: list[str] = Field(default_factory=list)
+
+
 class ProfileComments(StrictModel):
     default_open_prefix: str = "Automated STIG validation found noncompliant configuration."
     default_pass_prefix: str = "Automated STIG validation found required configuration present."
@@ -155,6 +161,7 @@ class SiteProfile(StrictModel):
     trunk_policy: TrunkPolicy = Field(default_factory=TrunkPolicy)
     dhcp_snooping: DhcpSnoopingPolicy = Field(default_factory=DhcpSnoopingPolicy)
     arp_inspection: ArpInspectionPolicy = Field(default_factory=ArpInspectionPolicy)
+    root_guard: RootGuardPolicy = Field(default_factory=RootGuardPolicy)
     comments: ProfileComments = Field(default_factory=ProfileComments)
 
     @validator("profile_name")

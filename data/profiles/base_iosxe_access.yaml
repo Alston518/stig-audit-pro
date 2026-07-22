@@ -21,6 +21,10 @@ arp_inspection:
   - 10
   - 20
   - 30
+root_guard:
+  # Enter Device ID hostnames from "show cdp neighbors detail". Short names and FQDNs both match.
+  # A matching core/distribution neighbor exempts only the local interface connected to that neighbor.
+  upstream_switches: []
 comments:
   default_open_prefix: Automated STIG validation found noncompliant configuration.
   default_pass_prefix: Automated STIG validation found required configuration present.

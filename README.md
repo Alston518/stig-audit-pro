@@ -12,12 +12,14 @@ Implemented now:
 - Generic check engine driven by YAML checks.
 - Sample IOS-XE command output and unit tests for the first automated policies.
 - GUI workflow for targets, checks, profiles, results, STIG metadata, and reports.
+- Overview dashboard for library status, scan actions, and last-run findings.
+- GUI validation and save actions for check YAML and profile YAML.
 - TXT summary and CSV detail report export from scan results.
 - Starter manual-review check generation from imported STIG ZIP/XML metadata.
+- Cyber.mil lookup for Cisco IOS-XE switch STIG bundles, with direct quarterly package fallback.
 
 Not implemented yet:
 
-- GUI.
 - CKL writer.
 - Excel workbook reports.
 - Multi-device concurrent scan orchestration.
@@ -33,6 +35,8 @@ python -m pytest
 Checks live in `data/checks/*.yaml`. Each check declares metadata, safe show commands, a `check_type`, YAML conditions, result status mapping, and evidence/comment templates.
 
 The engine reads those files at runtime, so changing check logic normally does not require editing Python code.
+
+Most string checks use editable `strings`, `required_strings`, or `forbidden_strings` lists. A blank list leaves the check `Not_Reviewed` until site-specific strings are added.
 
 ## Site Profiles
 
@@ -52,7 +56,7 @@ The loader reads the base profile first, then overlays the site profile.
 python app.py
 ```
 
-The GUI supports target management, sample scans, live SSH scans, STIG metadata viewing, results review, and TXT/CSV report export. CKL writing and Excel workbook reports remain later milestones.
+The GUI supports target management, sample scans, live SSH scans, check/profile YAML editing, STIG metadata viewing, results review, and TXT/CSV report export. CKL writing and Excel workbook reports remain later milestones.
 
 ## Target Workbench
 
@@ -106,7 +110,7 @@ Live SSH runs only planned safe commands from the selected YAML checks. Credenti
 
 ## Reports
 
-After running a sample or live SSH scan, open the Reports tab. The tab shows compliance, Open, NotAFinding, Error, and Skipped counts. Use:
+After running a sample or live SSH scan, open the Reports tab. The tab shows compliance, Open, NotAFinding, NotApplicable, Error, Skipped, and NotReviewed counts. Use:
 
 - `Save TXT Summary` for a readable scan summary with device totals, open findings, failed objects, errors, and skipped devices.
 - `Save CSV Details` for row-level results that can be opened in Excel or filtered by IP, status, STIG family, severity, or Vuln ID.
@@ -117,13 +121,14 @@ These reports are not CKL files. CKL generation remains a separate milestone.
 
 The STIG / CKL tab can import STIG ZIP/XML files and cache parsed XCCDF metadata under `data/stigs/cache/`. It includes:
 
-- `Find Latest`, which tries to discover matching ZIP/XML downloads from the official DoD Cyber Exchange STIG downloads page.
+- `Find Selected`, which downloads the latest reachable Cyber.mil package for the selected family.
+- `Find L2 + NDM`, which downloads and imports both IOS-XE switch L2 and NDM metadata.
 - `Download URL`, which downloads and imports a direct STIG ZIP/XML link copied from the Cyber Exchange page.
 - `Import ZIP/XML`, which imports a package that was downloaded manually.
 
 https://www.cyber.mil/stigs/downloads/
 
-Cyber Exchange may render the download list with JavaScript instead of exposing ZIP links in the first page response. When that happens, use `Download URL` with the direct package link or use `Import ZIP/XML` after downloading the file.
+The downloader first tries Cyber.mil's current catalog path, then falls back to reachable quarterly packages under `https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip/`. The Cisco IOS-XE switch package is a combined bundle; selecting `IOSXE_L2` imports the L2 XCCDF and selecting `IOSXE_NDM` imports the NDM XCCDF.
 
 ## Starter Checks From STIGs
 
@@ -133,4 +138,4 @@ Starter checks return `Not_Reviewed`, so a full scan can show every imported STI
 
 ## Customer Tailoring
 
-Use profiles for site/customer values such as unused VLAN, DHCP snooping VLANs, ARP inspection VLANs, and additional pruned VLANs. Edit check YAML only when the actual requirement logic differs from the default automated check.
+Use profiles for site/customer values such as unused VLAN, DHCP snooping VLANs, ARP inspection VLANs, and additional pruned VLANs. Edit check YAML only when the actual requirement logic differs from the default automated check. The Checks and Profiles tabs can save YAML edits from the GUI.

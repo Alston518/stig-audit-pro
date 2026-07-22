@@ -1,36 +1,37 @@
 library_name: iosxe_l2
 checks:
-- vuln_id: CISC-L2-000020
+- vuln_id: V-220649
+  stig_id: CISC-L2-000020
   title: The Cisco switch must uniquely identify and authenticate all network-connected endpoint devices before establishing
     any connection.
+  looking_for: Looking for list of strings in "show run"
   stig_family: IOSXE_L2
   severity: cat1
-  check_type: manual_review
-  commands: []
-  automated: false
-  stig_id: CISC-L2-000020
-  group_id: V-220649
-  rule_id: SV-220649r863283_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-L2-000030
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220650
+  stig_id: CISC-L2-000030
   title: The Cisco switch must authenticate all VLAN Trunk Protocol (VTP) messages with a hash function using the most secured
     cryptographic algorithm available.
+  looking_for: Looking to see if VTP status is off in "show vtp status"
   stig_family: IOSXE_L2
   severity: cat2
   check_type: command_pattern_policy
@@ -38,13 +39,6 @@ checks:
   - show vtp status
   - show running-config
   automated: true
-  stig_id: CISC-L2-000030
-  group_id: V-220650
-  rule_id: SV-220650r539671_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope: {}
   conditions:
     any:
@@ -61,68 +55,69 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000040
+- vuln_id: V-220651
+  stig_id: CISC-L2-000040
   title: The Cisco switch must manage excess bandwidth to limit the effects of packet flooding types of denial-of-service
     (DoS) attacks.
+  looking_for: Looking for list of strings in "show run"
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
-  stig_id: CISC-L2-000040
-  group_id: V-220651
-  rule_id: SV-220651r1107171_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-L2-000090
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220655
+  stig_id: CISC-L2-000090
   title: The Cisco switch must have Root Guard enabled on all switch ports connecting to access layer switches.
+  looking_for: Use CDP to identify directly connected switches. Exempt configured core/distribution neighbors and require
+    "spanning-tree guard root" on all other switch-facing interfaces.
   stig_family: IOSXE_L2
   severity: cat3
-  check_type: manual_review
-  commands: []
-  automated: false
-  stig_id: CISC-L2-000090
-  group_id: V-220655
-  rule_id: SV-220655r917683_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
+  check_type: root_guard_neighbor_policy
+  commands:
+  - show running-config
+  - show cdp neighbors detail
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    upstream_profile_key: root_guard.upstream_switches
+    required_string: spanning-tree guard root
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
-    include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-L2-000100
+    include_failed_objects: true
+    pass_comment: Root Guard is configured on all CDP-identified access-switch-facing interfaces.
+    fail_comment: Root Guard is missing on one or more CDP-identified access-switch-facing interfaces.
+    error_comment: CDP neighbor and Root Guard validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220656
+  stig_id: CISC-L2-000100
   title: The Cisco switch must have BPDU Guard enabled on all user-facing or untrusted access switch ports.
+  looking_for: Check if "spanning-tree bpduguard enable" is set globally, and if not, make sure it is applied to all access
+    ports
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -130,14 +125,7 @@ checks:
   - show running-config
   - show interfaces status
   automated: true
-  stig_id: CISC-L2-000100
-  group_id: V-220656
-  rule_id: SV-220656r856278_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
-  scope: &id001
+  scope:
     interfaces:
       include:
       - type: physical
@@ -145,9 +133,8 @@ checks:
           switchport_mode: access
           status: connected
   conditions:
-    required_patterns:
-    - pattern: ^spanning-tree bpduguard enable$
-      description: BPDU Guard enabled
+    required_strings:
+    - spanning-tree bpduguard enable
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -155,32 +142,26 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000110
+- vuln_id: V-220657
+  stig_id: CISC-L2-000110
   title: The Cisco switch must have STP Loop Guard enabled.
+  looking_for: Looking for list of strings in "show run"
   stig_family: IOSXE_L2
   severity: cat2
   check_type: command_pattern_policy
   commands:
   - show running-config
   automated: true
-  stig_id: CISC-L2-000110
-  group_id: V-220657
-  rule_id: SV-220657r856279_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope: {}
   conditions:
     all:
-    - command: show running-config
-      pattern: ^\s*spanning-tree loopguard default\s*$
-      description: spanning-tree loopguard default
+    - strings:
+      - spanning-tree loopguard default
+      command: show running-config
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -188,13 +169,14 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000120
+- vuln_id: V-220658
+  stig_id: CISC-L2-000120
   title: The Cisco switch must have Unknown Unicast Flood Blocking (UUFB) enabled.
+  looking_for: Look through all access ports to ensure that "switchport block unicast" is configured on all access ports.
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -202,18 +184,16 @@ checks:
   - show running-config
   - show interfaces status
   automated: true
-  stig_id: CISC-L2-000120
-  group_id: V-220658
-  rule_id: SV-220658r856280_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
-  scope: *id001
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: access
+          status: connected
   conditions:
-    required_patterns:
-    - pattern: ^switchport block unicast$
-      description: UUFB switchport block unicast
+    required_strings:
+    - switchport block unicast
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -221,34 +201,26 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000130
+- vuln_id: V-220659
+  stig_id: CISC-L2-000130
   title: The Cisco switch must have DHCP snooping for all user VLANs to validate DHCP messages from untrusted sources.
+  looking_for: Looking for specific vlan numbers in "show run | inc "ip dhcp snooping"
   stig_family: IOSXE_L2
   severity: cat2
   check_type: command_pattern_policy
   commands:
   - show running-config
   automated: true
-  stig_id: CISC-L2-000130
-  group_id: V-220659
-  rule_id: SV-220659r928999_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope: {}
   conditions:
     all:
     - command: show running-config
       pattern: ^\s*ip dhcp snooping\s*$
       description: global ip dhcp snooping enabled
-      object_type: global
-      object_name: ip dhcp snooping
     profile_all:
     - command: show running-config
       profile_key: dhcp_snooping.vlans
@@ -261,13 +233,15 @@ checks:
     error_status: Error
   evidence:
     include_command_output: false
-    include_failed_objects: true
-    pass_comment: DHCP snooping strings are present for all VLANs required by the selected profile.
-    fail_comment: DHCP snooping is missing required strings from the selected profile.
-    error_comment: DHCP snooping string validation could not be evaluated.
+    include_failed_objects: false
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000140
+- vuln_id: V-220660
+  stig_id: CISC-L2-000140
   title: The Cisco switch must have IP Source Guard enabled on all user-facing or untrusted access switch ports.
+  looking_for: Look through all access ports to ensure that "ip verify source" is configured on all access ports.
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -275,18 +249,16 @@ checks:
   - show running-config
   - show interfaces status
   automated: true
-  stig_id: CISC-L2-000140
-  group_id: V-220660
-  rule_id: SV-220660r929001_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
-  scope: *id001
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: access
+          status: connected
   conditions:
-    required_patterns:
-    - pattern: ^ip verify source(?:\s+\S.*)?$
-      description: IP Source Guard ip verify source
+    required_strings:
+    - ip verify source
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -294,26 +266,20 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000150
+- vuln_id: V-220661
+  stig_id: CISC-L2-000150
   title: The Cisco switch must have Dynamic Address Resolution Protocol (ARP) Inspection (DAI) enabled on all user VLANs.
+  looking_for: Looking for specific vlan numbers in "show run | inc "ip arp inspection"
   stig_family: IOSXE_L2
   severity: cat2
   check_type: command_pattern_policy
   commands:
   - show running-config
   automated: true
-  stig_id: CISC-L2-000150
-  group_id: V-220661
-  rule_id: SV-220661r929003_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope: {}
   conditions:
     profile_all:
@@ -328,13 +294,15 @@ checks:
     error_status: Error
   evidence:
     include_command_output: false
-    include_failed_objects: true
-    pass_comment: ARP inspection strings are present for all VLANs required by the selected profile.
-    fail_comment: ARP inspection is missing required strings from the selected profile.
-    error_comment: ARP inspection string validation could not be evaluated.
+    include_failed_objects: false
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000160
+- vuln_id: V-220662
+  stig_id: CISC-L2-000160
   title: The Cisco switch must have Storm Control configured on all host-facing switchports.
+  looking_for: Loop through all access ports to ensure multiple strings are applied
   stig_family: IOSXE_L2
   severity: cat3
   check_type: interface_config_policy
@@ -342,18 +310,16 @@ checks:
   - show running-config
   - show interfaces status
   automated: true
-  stig_id: CISC-L2-000160
-  group_id: V-220662
-  rule_id: SV-220662r648766_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
-  scope: *id001
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: access
+          status: connected
   conditions:
-    required_patterns:
-    - pattern: ^storm-control broadcast\s+level\s+.+$
-      description: storm-control broadcast level
+    required_strings:
+    - storm-control broadcast level
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -361,35 +327,29 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000170
+- vuln_id: V-220663
+  stig_id: CISC-L2-000170
   title: The Cisco switch must have IGMP or MLD Snooping configured on all VLANs.
+  looking_for: Looking to see if a string is NOT in "show run"
   stig_family: IOSXE_L2
   severity: cat3
   check_type: command_pattern_policy
   commands:
   - show running-config
   automated: true
-  stig_id: CISC-L2-000170
-  group_id: V-220663
-  rule_id: SV-220663r929005_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope: {}
   conditions:
     none:
-    - command: show running-config
-      pattern: ^\s*no ip igmp snooping(?:\s|$)
-      description: IGMP snooping disabled
-    - command: show running-config
-      pattern: ^\s*no ipv6 mld snooping(?:\s|$)
-      description: MLD snooping disabled
+    - strings:
+      - no ip igmp snooping
+      command: show running-config
+    - strings:
+      - no ipv6 mld snooping
+      command: show running-config
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -397,35 +357,29 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000180
+- vuln_id: V-220664
+  stig_id: CISC-L2-000180
   title: The Cisco switch must implement Rapid STP where VLANs span multiple switches with redundant links.
+  looking_for: Looking for list of strings in "show run"
   stig_family: IOSXE_L2
   severity: cat2
   check_type: command_pattern_policy
   commands:
   - show running-config
   automated: true
-  stig_id: CISC-L2-000180
-  group_id: V-220664
-  rule_id: SV-220664r539671_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope: {}
   conditions:
     any:
-    - command: show running-config
-      pattern: ^\s*spanning-tree mode rapid-pvst\s*$
-      description: Rapid PVST configured
-    - command: show running-config
-      pattern: ^\s*spanning-tree mode mst\s*$
-      description: MST configured
+    - strings:
+      - spanning-tree mode rapid-pvst
+      command: show running-config
+    - strings:
+      - spanning-tree mode mst
+      command: show running-config
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -433,40 +387,40 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000190
+- vuln_id: V-220665
+  stig_id: CISC-L2-000190
   title: The Cisco switch must enable Unidirectional Link Detection (UDLD) to protect against one-way connections.
+  looking_for: Looking for list of strings in "show run| inc udld"
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
-  stig_id: CISC-L2-000190
-  group_id: V-220665
-  rule_id: SV-220665r539671_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-L2-000200
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220666
+  stig_id: CISC-L2-000200
   title: The Cisco switch must have all trunk links enabled statically.
+  looking_for: Looking for string "On" to NOT be in "show int switchport | inc Negotiation"
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -474,13 +428,6 @@ checks:
   - show running-config
   - show interfaces status
   automated: true
-  stig_id: CISC-L2-000200
-  group_id: V-220666
-  rule_id: SV-220666r539671_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope:
     interfaces:
       include:
@@ -488,14 +435,11 @@ checks:
         match:
           switchport_mode: trunk
   conditions:
-    required_patterns:
-    - pattern: ^switchport mode trunk$
-      description: static trunk mode
-    forbidden_patterns:
-    - pattern: ^switchport mode dynamic\s+\S+
-      description: dynamic trunk mode
-    - pattern: ^negotiation auto$
-      description: DTP negotiation auto
+    required_strings:
+    - switchport mode trunk
+    forbidden_strings:
+    - switchport mode dynamic
+    - negotiation auto
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -503,13 +447,14 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000210
+- vuln_id: V-220667
+  stig_id: CISC-L2-000210
   title: The Cisco switch must have all disabled switch ports assigned to an unused VLAN.
+  looking_for: '"show int status", ensure ports in the "notconnect" or "disabled" state are in vlan 999'
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -517,13 +462,6 @@ checks:
   - show running-config
   - show interfaces status
   automated: true
-  stig_id: CISC-L2-000210
-  group_id: V-220667
-  rule_id: SV-220667r991904_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope:
     interfaces:
       include:
@@ -543,13 +481,14 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: All disabled/not-connected access interfaces have the required shutdown and unused VLAN strings.
-    fail_comment: One or more disabled/not-connected interfaces are missing the shutdown or unused VLAN strings required by
-      the selected profile.
-    error_comment: Disabled port string validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000220
+- vuln_id: V-220668
+  stig_id: CISC-L2-000220
   title: The Cisco switch must not have the default VLAN assigned to any host-facing switch ports.
+  looking_for: Loop through access ports to make sure none are assigned to vlan 1
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -557,13 +496,6 @@ checks:
   - show running-config
   - show interfaces status
   automated: true
-  stig_id: CISC-L2-000220
-  group_id: V-220668
-  rule_id: SV-220668r991905_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope:
     interfaces:
       include:
@@ -584,13 +516,14 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000230
+- vuln_id: V-220669
+  stig_id: CISC-L2-000230
   title: The Cisco switch must have the default VLAN pruned from all trunk ports that do not require it.
+  looking_for: Loop through trunk ports to ensure all have vlan 1 pruned
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -598,13 +531,6 @@ checks:
   - show running-config
   - show interfaces status
   automated: true
-  stig_id: CISC-L2-000230
-  group_id: V-220669
-  rule_id: SV-220669r991906_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope:
     interfaces:
       include:
@@ -630,25 +556,20 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: Trunk allowed VLAN strings exclude VLAN 1 and any additional VLANs required by the selected profile.
-    fail_comment: One or more trunk interfaces have allowed VLAN strings that include VLAN 1 or another profile-pruned VLAN.
-    error_comment: Trunk VLAN pruning string validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000240
+- vuln_id: V-220670
+  stig_id: CISC-L2-000240
   title: The Cisco switch must not use the default VLAN for management traffic.
+  looking_for: Ensure vlan 1 is not the management vlan, no IP assigned to it
   stig_family: IOSXE_L2
   severity: cat2
   check_type: command_pattern_policy
   commands:
   - show running-config
   automated: true
-  stig_id: CISC-L2-000240
-  group_id: V-220670
-  rule_id: SV-220670r991907_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope: {}
   conditions:
     none:
@@ -662,25 +583,19 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000250
+- vuln_id: V-220671
+  stig_id: CISC-L2-000250
   title: The Cisco switch must have all user-facing or untrusted ports configured as access switch ports.
+  looking_for: ensure all Gigabitethernet ports are set to "switchport mode access"
   stig_family: IOSXE_L2
   severity: cat2
   check_type: manual_review
   commands: []
   automated: false
-  stig_id: CISC-L2-000250
-  group_id: V-220671
-  rule_id: SV-220671r991908_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope: {}
   conditions: {}
   result:
@@ -694,8 +609,10 @@ checks:
     fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
     error_comment: Manual review check could not be prepared.
     finding_details_template: manual_review
-- vuln_id: CISC-L2-000260
+- vuln_id: V-220672
+  stig_id: CISC-L2-000260
   title: The Cisco switch must have the native VLAN assigned to an ID other than the default VLAN for all 802.1q trunk links.
+  looking_for: Need to make sure that the native vlan is NOT vlan 1
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -703,13 +620,6 @@ checks:
   - show running-config
   - show interfaces status
   automated: true
-  stig_id: CISC-L2-000260
-  group_id: V-220672
-  rule_id: SV-220672r991909_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope:
     interfaces:
       include:
@@ -730,25 +640,19 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: Automated L2 validation matched the editable YAML string/config patterns for this requirement.
-    fail_comment: Automated L2 validation found missing required strings or present forbidden strings. Review the YAML patterns
-      and site tailoring.
-    error_comment: Automated L2 string/config validation could not be evaluated.
+    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden strings.
+    error_comment: Automated validation could not be evaluated.
     finding_details_template: default
-- vuln_id: CISC-L2-000270
+- vuln_id: V-220673
+  stig_id: CISC-L2-000270
   title: The Cisco switch must not have any switchports assigned to the native VLAN.
+  looking_for: Need to ensure no ports are assigned to native vlan 333
   stig_family: IOSXE_L2
   severity: cat3
   check_type: manual_review
   commands: []
   automated: false
-  stig_id: CISC-L2-000270
-  group_id: V-220673
-  rule_id: SV-220673r991910_rule
-  source_benchmark: Cisco IOS XE Switch L2S Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 2 Benchmark Date: 02 Jul 2025'
-  parser: {}
   scope: {}
   conditions: {}
   result:
@@ -762,37 +666,3 @@ checks:
     fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
     error_comment: Manual review check could not be prepared.
     finding_details_template: manual_review
-- vuln_id: EXAMPLE-ACL-LOG-INPUT
-  title: ACL deny statements must use log-input.
-  stig_family: IOSXE_L2
-  severity: cat2
-  check_type: command_pattern_policy
-  commands:
-  - show running-config
-  - show ip access-lists
-  automated: true
-  parser: {}
-  scope: {}
-  conditions:
-    none:
-    - command: show running-config
-      pattern: (?im)^\s*(?:access-list\s+\S+\s+)?(?:\d+\s+)?deny\b(?:(?!\blog-input\b).)*$
-      description: deny statement missing log-input in running-config
-      object_type: acl_statement
-      object_name: running-config deny
-    - command: show ip access-lists
-      pattern: (?im)^\s*(?:\d+\s+)?deny\b(?:(?!\blog-input\b).)*$
-      description: deny statement missing log-input in show ip access-lists
-      object_type: acl_statement
-      object_name: show access-list deny
-  result:
-    pass_status: NotAFinding
-    fail_status: Open
-    error_status: Error
-  evidence:
-    include_command_output: false
-    include_failed_objects: true
-    pass_comment: No deny strings were found without log-input.
-    fail_comment: One or more deny strings are missing log-input.
-    error_comment: ACL deny log-input string validation could not be evaluated.
-    finding_details_template: default

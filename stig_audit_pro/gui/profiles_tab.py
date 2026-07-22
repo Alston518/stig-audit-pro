@@ -15,6 +15,7 @@ class ProfilesTab(PageFrame):
     def __init__(self, master: ctk.CTkBaseClass, app_controller: object) -> None:
         super().__init__(master)
         self.app_controller = app_controller
+        self.current_yaml_path: Path | None = None
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=2)
         self.grid_rowconfigure(0, weight=1)
@@ -41,7 +42,8 @@ class ProfilesTab(PageFrame):
             self.value_labels[key] = label_value(left, offset, text, "-")
 
         ctk.CTkButton(left, text="Reload Profile", command=app_controller.reload_from_disk).grid(row=10, column=0, columnspan=2, sticky="ew", padx=12, pady=(18, 6))
-        ctk.CTkButton(left, text="Validate Profile YAML", command=self._validate_yaml).grid(row=11, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 12))
+        ctk.CTkButton(left, text="Validate Profile YAML", command=self._validate_yaml).grid(row=11, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 6))
+        ctk.CTkButton(left, text="Save Profile YAML", command=self._save_yaml).grid(row=12, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 12))
 
         right = ctk.CTkFrame(self, fg_color="transparent")
         right.grid(row=0, column=1, sticky="nsew", padx=(6, 12), pady=12)
@@ -51,6 +53,10 @@ class ProfilesTab(PageFrame):
         self.editor.grid(row=0, column=0, sticky="nsew")
 
     def refresh(self, profile: SiteProfile, yaml_path: Path) -> None:
+        self.current_yaml_path = yaml_path
+        if hasattr(self.app_controller, "available_profile_names"):
+            values = self.app_controller.available_profile_names()
+            self.profile_select.configure(values=values)
         self.profile_select.set(profile.profile_name)
         self.editor.set_text(yaml_path.read_text(encoding="utf-8"))
         self.editor.set_status("Profile loaded")
@@ -66,4 +72,11 @@ class ProfilesTab(PageFrame):
 
     def _validate_yaml(self) -> None:
         ok, message = self.app_controller.validate_profile_yaml(self.editor.get_text())
+        self.editor.set_status(message, ok=ok)
+
+    def _save_yaml(self) -> None:
+        if self.current_yaml_path is None:
+            self.editor.set_status("Choose a profile first", ok=False)
+            return
+        ok, message = self.app_controller.save_profile_yaml(self.current_yaml_path, self.editor.get_text())
         self.editor.set_status(message, ok=ok)

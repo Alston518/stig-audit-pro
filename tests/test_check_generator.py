@@ -14,7 +14,7 @@ def test_build_manual_starter_library_from_stig_metadata():
     assert library.library_name == "generated_stig_manual_starters"
     assert len(library.checks) == 1
     check = library.checks[0]
-    assert check.vuln_id == "CISC-L2-000210"
+    assert check.vuln_id == "V-123456"
     assert check.stig_id == "CISC-L2-000210"
     assert check.group_id == "V-123456"
     assert check.rule_id == "SV-123456r1_rule"
@@ -27,7 +27,7 @@ def test_build_manual_starter_library_from_stig_metadata():
 def test_build_manual_starter_library_skips_existing_automation():
     metadata = parse_xccdf_file(PROJECT_ROOT / "tests" / "fixtures" / "sample_xccdf.xml", family="IOSXE_L2")
     existing = CheckDefinition(
-        vuln_id="CISC-L2-000210",
+        vuln_id="V-123456",
         title="Existing automated check",
         stig_family="IOSXE_L2",
         severity="cat2",
@@ -49,5 +49,5 @@ def test_write_manual_starter_library(tmp_path):
 
     text = path.read_text(encoding="utf-8")
     assert "generated_stig_manual_starters" in text
-    assert "CISC-L2-000210" in text
+    assert "V-123456" in text
     assert "Not_Reviewed" in text

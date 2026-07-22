@@ -38,9 +38,10 @@ class StigTab(PageFrame):
 
         button_row = ctk.CTkFrame(source_panel, fg_color="transparent")
         button_row.grid(row=3, column=0, sticky="ew", padx=12, pady=(4, 8))
-        button_row.grid_columnconfigure((0, 1), weight=1)
-        ctk.CTkButton(button_row, text="Find Latest", command=self._download_latest).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(button_row, text="Import ZIP/XML", command=self._import_source).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        button_row.grid_columnconfigure((0, 1, 2), weight=1)
+        ctk.CTkButton(button_row, text="Find Selected", command=self._download_latest).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(button_row, text="Find L2 + NDM", command=self._download_core_stigs).grid(row=0, column=1, sticky="ew", padx=6)
+        ctk.CTkButton(button_row, text="Import ZIP/XML", command=self._import_source).grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
         ctk.CTkLabel(source_panel, text="Direct ZIP/XML URL").grid(row=4, column=0, sticky="w", padx=12, pady=(6, 4))
         url_row = ctk.CTkFrame(source_panel, fg_color="transparent")
@@ -143,6 +144,9 @@ class StigTab(PageFrame):
 
     def _download_latest(self) -> None:
         self.app_controller.download_latest_stig(self.family_select.get())
+
+    def _download_core_stigs(self) -> None:
+        self.app_controller.download_core_stigs()
 
     def _download_url(self) -> None:
         self.app_controller.download_stig_from_url(self.download_url.get(), self.family_select.get())

@@ -18,11 +18,13 @@ from stig_audit_pro.core.models import CheckDefinition, CheckLibrary, SiteProfil
 from stig_audit_pro.core.result_model import CheckResult
 from stig_audit_pro.core.yaml_loader import ConfigValidationError, deep_merge, load_check_library, load_profile, load_yaml_file
 from stig_audit_pro.gui.checks_tab import ChecksTab
+from stig_audit_pro.gui.overview_tab import OverviewTab
 from stig_audit_pro.gui.profiles_tab import ProfilesTab
 from stig_audit_pro.gui.reports_tab import ReportsTab
 from stig_audit_pro.gui.results_tab import ResultsTab
 from stig_audit_pro.gui.stig_tab import StigTab
 from stig_audit_pro.gui.targets_tab import TargetsTab
+from stig_audit_pro.gui.widgets import configure_treeview_style
 from stig_audit_pro.reports.audit_report import write_csv_report, write_text_report
 from stig_audit_pro.storage.device_groups import DeviceGroup, DeviceGroupStore, DeviceTargetRecord
 from stig_audit_pro.stig.check_generator import build_manual_starter_library, write_manual_starter_library
@@ -36,9 +38,12 @@ COMMAND_FILES = {
     "show vtp status": "show_vtp_status.txt",
     "show interfaces status": "show_interfaces_status.txt",
     "show interfaces trunk": "show_interfaces_trunk.txt",
+    "show cdp neighbors detail": "show_cdp_neighbors_detail.txt",
     "show ip access-lists": "show_ip_access_lists.txt",
     "show ip dhcp snooping": "show_ip_dhcp_snooping.txt",
     "show ip arp inspection": "show_ip_arp_inspection.txt",
+    "show snmp user": "show_snmp_user.txt",
+    "show version": "show_version.txt",
 }
 
 
@@ -47,6 +52,7 @@ class StigAuditProApp(ctk.CTk):
         ctk.set_appearance_mode("System")
         ctk.set_default_color_theme("blue")
         super().__init__()
+        configure_treeview_style()
 
         self.root_dir = Path(__file__).resolve().parents[2]
         self.data_dir = self.root_dir / "data"
@@ -55,6 +61,7 @@ class StigAuditProApp(ctk.CTk):
         self.stig_source_manager = StigSourceManager(self.data_dir / "stigs" / "cache")
         self.check_path = self.data_dir / "checks" / "iosxe_l2.yaml"
         self.ndm_check_path = self.data_dir / "checks" / "iosxe_ndm.yaml"
+        self.check_library_paths: list[Path] = []
         self.profile_name = "example_site"
         self.profile_path = self.data_dir / "profiles" / "example_site.yaml"
         self.checks = []
@@ -76,29 +83,41 @@ class StigAuditProApp(ctk.CTk):
         self.refresh_stig_metadata()
 
     def _build_header(self) -> None:
-        header = ctk.CTkFrame(self, corner_radius=0)
+        header = ctk.CTkFrame(self, corner_radius=0, fg_color=("#eef2f6", "#0f172a"))
         header.grid(row=0, column=0, sticky="ew")
         header.grid_columnconfigure(0, weight=1)
-        title = ctk.CTkLabel(header, text="STIG Audit Pro", font=ctk.CTkFont(size=22, weight="bold"))
+        title = ctk.CTkLabel(header, text="STIG Audit Pro", font=ctk.CTkFont(size=24, weight="bold"))
         title.grid(row=0, column=0, sticky="w", padx=18, pady=(12, 2))
-        subtitle = ctk.CTkLabel(header, text="Cisco IOS-XE switch audit workspace", text_color=("#475467", "#d0d5dd"))
+        subtitle = ctk.CTkLabel(header, text="Cisco IOS-XE switch audit workspace", text_color=("#344054", "#d0d5dd"))
         subtitle.grid(row=1, column=0, sticky="w", padx=18, pady=(0, 12))
-        self.version_label = ctk.CTkLabel(header, text=APP_VERSION, font=ctk.CTkFont(weight="bold"))
+        self.version_label = ctk.CTkLabel(
+            header,
+            text=APP_VERSION,
+            font=ctk.CTkFont(weight="bold"),
+            corner_radius=8,
+            fg_color=("#dbeafe", "#1e3a8a"),
+            text_color=("#1e3a8a", "#eff6ff"),
+            width=64,
+            height=28,
+        )
         self.version_label.grid(row=0, column=1, rowspan=2, sticky="e", padx=18)
 
     def _build_tabs(self) -> None:
         self.tabs = ctk.CTkTabview(self)
         self.tabs.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
+        tab_overview = self.tabs.add("Overview")
         tab_targets = self.tabs.add("Targets")
         tab_stig = self.tabs.add("STIG / CKL")
         tab_checks = self.tabs.add("Checks")
         tab_profiles = self.tabs.add("Profiles")
         tab_results = self.tabs.add("Results")
         tab_reports = self.tabs.add("Reports")
-        for tab in (tab_targets, tab_stig, tab_checks, tab_profiles, tab_results, tab_reports):
+        for tab in (tab_overview, tab_targets, tab_stig, tab_checks, tab_profiles, tab_results, tab_reports):
             tab.grid_columnconfigure(0, weight=1)
             tab.grid_rowconfigure(0, weight=1)
 
+        self.overview_tab = OverviewTab(tab_overview, self)
+        self.overview_tab.grid(row=0, column=0, sticky="nsew")
         self.targets_tab = TargetsTab(tab_targets, self)
         self.targets_tab.grid(row=0, column=0, sticky="nsew")
         self.stig_tab = StigTab(tab_stig, self)
@@ -122,14 +141,19 @@ class StigAuditProApp(ctk.CTk):
     def set_status(self, message: str) -> None:
         self.status_label.configure(text=message)
 
+    def show_tab(self, tab_name: str) -> None:
+        self.tabs.set(tab_name)
+
     def reload_from_disk(self) -> None:
         try:
-            libraries = [load_check_library(path) for path in self._check_library_paths()]
+            self.check_library_paths = self._check_library_paths()
+            libraries = [load_check_library(path) for path in self.check_library_paths]
             checks = [check for library in libraries for check in library.checks]
             self._raise_on_duplicate_checks(checks)
             self.checks = checks
             self._set_active_profile(self.profile_name, announce=False)
-            self.checks_tab.refresh(self.checks, self.check_path)
+            self.checks_tab.refresh(self.checks, self.check_library_paths)
+            self.overview_tab.refresh_inventory(self.checks, self.profile)
             self.refresh_device_groups()
             self.set_status(f"Loaded {len(self.checks)} checks using profile {self.profile.profile_name if self.profile else self.profile_name}.")
         except ConfigValidationError as exc:
@@ -175,6 +199,22 @@ class StigAuditProApp(ctk.CTk):
             self.set_status(f"Downloaded {metadata.display_name}.")
         except Exception as exc:
             self.stig_tab.set_status("Automatic lookup failed. Paste a direct ZIP/XML URL or import the downloaded file.")
+            self.set_status("STIG lookup failed.")
+            self._show_error(str(exc))
+
+    def download_core_stigs(self) -> None:
+        try:
+            downloaded: list[StigBenchmarkMetadata] = []
+            for family in ("IOSXE_L2", "IOSXE_NDM"):
+                self.set_status(f"Finding latest {family} STIG metadata from Cyber Exchange...")
+                self.update_idletasks()
+                downloaded.append(self.stig_source_manager.download_latest(family))
+            self.refresh_stig_metadata()
+            summary = ", ".join(f"{item.family} {item.version}" for item in downloaded)
+            self.stig_tab.set_status(f"Downloaded {summary}.")
+            self.set_status(f"Downloaded {summary}.")
+        except Exception as exc:
+            self.stig_tab.set_status("Automatic L2/NDM lookup failed. Paste a direct ZIP/XML URL or import the downloaded file.")
             self.set_status("STIG lookup failed.")
             self._show_error(str(exc))
 
@@ -284,6 +324,7 @@ class StigAuditProApp(ctk.CTk):
 
     def update_report_summary(self, results: list[CheckResult]) -> None:
         self.reports_tab.refresh(results)
+        self.overview_tab.refresh_results(results)
 
     def export_text_report(self, path: Path) -> None:
         try:
@@ -315,6 +356,17 @@ class StigAuditProApp(ctk.CTk):
         except (ValidationError, yaml.YAMLError, ValueError) as exc:
             return False, self._short_error(exc)
 
+    def save_check_yaml(self, path: Path, text: str) -> tuple[bool, str]:
+        try:
+            ok, message = self.validate_check_yaml(text)
+            if not ok:
+                return False, message
+            path.write_text(text, encoding="utf-8")
+            self.reload_from_disk()
+            return True, f"Saved {path.name}"
+        except OSError as exc:
+            return False, self._short_error(exc)
+
     def validate_profile_yaml(self, text: str) -> tuple[bool, str]:
         try:
             data = yaml.safe_load(text) or {}
@@ -327,6 +379,18 @@ class StigAuditProApp(ctk.CTk):
             profile = self._validate_model(SiteProfile, data)
             return True, f"{profile.profile_name} valid"
         except (ValidationError, yaml.YAMLError, ValueError) as exc:
+            return False, self._short_error(exc)
+
+    def save_profile_yaml(self, path: Path, text: str) -> tuple[bool, str]:
+        try:
+            ok, message = self.validate_profile_yaml(text)
+            if not ok:
+                return False, message
+            path.write_text(text, encoding="utf-8")
+            self.profile_name = path.stem
+            self.reload_from_disk()
+            return True, f"Saved {path.name}"
+        except (OSError, yaml.YAMLError) as exc:
             return False, self._short_error(exc)
 
     def _set_active_profile(self, profile_name: str, announce: bool = True) -> None:
@@ -363,6 +427,7 @@ class StigAuditProApp(ctk.CTk):
         except Exception as exc:
             self.set_status("Sample target run failed.")
             self._show_error(str(exc))
+
     def _run_live_for_targets(
         self,
         targets: list[DeviceTargetRecord],
@@ -471,5 +536,3 @@ class StigAuditProApp(ctk.CTk):
 def run_gui() -> None:
     app = StigAuditProApp()
     app.mainloop()
-
-

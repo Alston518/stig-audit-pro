@@ -8,7 +8,7 @@ from tkinter import filedialog
 import customtkinter as ctk
 
 from stig_audit_pro.core.result_model import CheckResult
-from stig_audit_pro.gui.widgets import Metric, PageFrame, Panel
+from stig_audit_pro.gui.widgets import DANGER, Metric, PageFrame, Panel, PRIMARY, SUCCESS, WARNING
 
 
 class ReportsTab(PageFrame):
@@ -21,14 +21,15 @@ class ReportsTab(PageFrame):
 
         metrics = ctk.CTkFrame(self, fg_color="transparent")
         metrics.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 6))
-        metrics.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
+        metrics.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
         self.metrics = {
-            "compliance": Metric(metrics, "Compliance", "0%"),
-            "open": Metric(metrics, "Open"),
-            "not_a_finding": Metric(metrics, "NotAFinding"),
-            "error": Metric(metrics, "Error"),
-            "skipped": Metric(metrics, "Skipped"),
-            "not_reviewed": Metric(metrics, "NotReviewed"),
+            "compliance": Metric(metrics, "Compliance", "0%", accent=PRIMARY),
+            "open": Metric(metrics, "Open", accent=DANGER),
+            "not_a_finding": Metric(metrics, "NotAFinding", accent=SUCCESS),
+            "not_applicable": Metric(metrics, "NotApplicable", accent="#667085"),
+            "error": Metric(metrics, "Error", accent="#c2410c"),
+            "skipped": Metric(metrics, "Skipped", accent="#667085"),
+            "not_reviewed": Metric(metrics, "NotReviewed", accent=WARNING),
         }
         for column, metric in enumerate(self.metrics.values()):
             metric.grid(row=0, column=column, sticky="ew", padx=4)
@@ -53,6 +54,7 @@ class ReportsTab(PageFrame):
         total = len(results)
         open_count = sum(1 for result in results if result.status == "Open")
         pass_count = sum(1 for result in results if result.status == "NotAFinding")
+        not_applicable_count = sum(1 for result in results if result.status == "Not_Applicable")
         error_count = sum(1 for result in results if result.status == "Error")
         skipped_count = sum(1 for result in results if result.status == "Skipped")
         not_reviewed_count = sum(1 for result in results if result.status == "Not_Reviewed")
@@ -61,6 +63,7 @@ class ReportsTab(PageFrame):
         self.metrics["compliance"].set(f"{compliance}%")
         self.metrics["open"].set(open_count)
         self.metrics["not_a_finding"].set(pass_count)
+        self.metrics["not_applicable"].set(not_applicable_count)
         self.metrics["error"].set(error_count)
         self.metrics["skipped"].set(skipped_count)
         self.metrics["not_reviewed"].set(not_reviewed_count)
@@ -75,6 +78,7 @@ class ReportsTab(PageFrame):
             f"Compliance: {compliance}%",
             f"NotAFinding: {pass_count}",
             f"Open: {open_count}",
+            f"NotApplicable: {not_applicable_count}",
             f"Error: {error_count}",
             f"Skipped: {skipped_count}",
             f"NotReviewed: {not_reviewed_count}",

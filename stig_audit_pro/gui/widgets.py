@@ -3,6 +3,23 @@
 from __future__ import annotations
 
 import customtkinter as ctk
+import tkinter as tk
+from tkinter import ttk
+
+SURFACE_LIGHT = "#f5f7fa"
+SURFACE_DARK = "#111827"
+PANEL_LIGHT = "#ffffff"
+PANEL_DARK = "#172033"
+BORDER_LIGHT = "#d0d5dd"
+BORDER_DARK = "#344054"
+TEXT_MUTED = ("#475467", "#d0d5dd")
+PRIMARY = "#246bfe"
+PRIMARY_HOVER = "#1d56d6"
+DANGER = "#b42318"
+DANGER_HOVER = "#912018"
+SUCCESS = "#16803c"
+WARNING = "#b54708"
+NEUTRAL = "#667085"
 
 STATUS_COLORS = {
     "NotAFinding": ("#d9f2e5", "#1f6f45"),
@@ -11,6 +28,15 @@ STATUS_COLORS = {
     "Not_Reviewed": ("#fff2cc", "#8a6116"),
     "Error": ("#ffe4cc", "#9a3412"),
     "Skipped": ("#e5e7eb", "#374151"),
+}
+
+STATUS_ACCENTS = {
+    "NotAFinding": SUCCESS,
+    "Open": DANGER,
+    "Not_Applicable": NEUTRAL,
+    "Not_Reviewed": WARNING,
+    "Error": "#c2410c",
+    "Skipped": NEUTRAL,
 }
 
 
@@ -23,7 +49,14 @@ class PageFrame(ctk.CTkFrame):
 
 class Panel(ctk.CTkFrame):
     def __init__(self, master: ctk.CTkBaseClass, title: str | None = None, **kwargs: object) -> None:
-        super().__init__(master, corner_radius=8, border_width=1, **kwargs)
+        super().__init__(
+            master,
+            corner_radius=8,
+            border_width=1,
+            fg_color=(PANEL_LIGHT, PANEL_DARK),
+            border_color=(BORDER_LIGHT, BORDER_DARK),
+            **kwargs,
+        )
         self.grid_columnconfigure(0, weight=1)
         self._row = 0
         if title:
@@ -38,13 +71,27 @@ class Panel(ctk.CTkFrame):
 
 
 class Metric(ctk.CTkFrame):
-    def __init__(self, master: ctk.CTkBaseClass, label: str, value: str = "0") -> None:
-        super().__init__(master, corner_radius=8, border_width=1)
-        self.grid_columnconfigure(0, weight=1)
+    def __init__(
+        self,
+        master: ctk.CTkBaseClass,
+        label: str,
+        value: str = "0",
+        accent: str = PRIMARY,
+    ) -> None:
+        super().__init__(
+            master,
+            corner_radius=8,
+            border_width=1,
+            fg_color=(PANEL_LIGHT, PANEL_DARK),
+            border_color=(BORDER_LIGHT, BORDER_DARK),
+        )
+        self.grid_columnconfigure(1, weight=1)
+        self.accent = ctk.CTkFrame(self, width=4, corner_radius=2, fg_color=accent)
+        self.accent.grid(row=0, column=0, rowspan=2, sticky="nsw", padx=(0, 0), pady=8)
         self.value_label = ctk.CTkLabel(self, text=value, font=ctk.CTkFont(size=22, weight="bold"))
-        self.value_label.grid(row=0, column=0, sticky="w", padx=12, pady=(8, 0))
-        self.label = ctk.CTkLabel(self, text=label, text_color=("#475467", "#d0d5dd"))
-        self.label.grid(row=1, column=0, sticky="w", padx=12, pady=(0, 8))
+        self.value_label.grid(row=0, column=1, sticky="w", padx=12, pady=(8, 0))
+        self.label = ctk.CTkLabel(self, text=label, text_color=TEXT_MUTED)
+        self.label.grid(row=1, column=1, sticky="w", padx=12, pady=(0, 8))
 
     def set(self, value: int | str) -> None:
         self.value_label.configure(text=str(value))
@@ -55,3 +102,36 @@ def label_value(parent: ctk.CTkBaseClass, row: int, label: str, value: str) -> c
     value_label = ctk.CTkLabel(parent, text=value, anchor="e", font=ctk.CTkFont(weight="bold"))
     value_label.grid(row=row, column=1, sticky="e", padx=12, pady=4)
     return value_label
+
+
+def configure_treeview_style() -> None:
+    style = ttk.Style()
+    try:
+        style.theme_use("clam")
+    except tk.TclError:  # type: ignore[name-defined]
+        pass
+    style.configure(
+        "Treeview",
+        rowheight=28,
+        borderwidth=0,
+        background=PANEL_LIGHT,
+        fieldbackground=PANEL_LIGHT,
+        foreground="#101828",
+        font=("Segoe UI", 10),
+    )
+    style.configure(
+        "Treeview.Heading",
+        background="#eef2f6",
+        foreground="#344054",
+        font=("Segoe UI", 10, "bold"),
+        relief="flat",
+    )
+    style.map(
+        "Treeview",
+        background=[("selected", "#dbeafe")],
+        foreground=[("selected", "#101828")],
+    )
+
+
+def status_accent(status: str) -> str:
+    return STATUS_ACCENTS.get(status, PRIMARY)

@@ -90,7 +90,7 @@ def _existing_rule_keys(checks: Iterable[CheckDefinition]) -> set[str]:
 
 
 def _rule_key(rule: StigRuleMetadata) -> str:
-    return rule.stig_id or rule.vuln_id or rule.rule_id
+    return rule.vuln_id or rule.group_id or rule.stig_id or rule.rule_id
 
 
 def _severity_to_category(severity: str) -> str:

@@ -14,6 +14,7 @@ DEFAULT_SHOW_COMMANDS: tuple[str, ...] = (
     "show vlan brief",
     "show interfaces status",
     "show interfaces trunk",
+    "show cdp neighbors detail",
     "show ip access-lists",
     "show ip dhcp snooping",
     "show ip arp inspection",
@@ -39,6 +40,7 @@ SUPPORTED_CHECK_TYPES: tuple[str, ...] = (
     "acl_deny_logging_policy",
     "dhcp_snooping_policy",
     "arp_inspection_policy",
+    "root_guard_neighbor_policy",
     "manual_review",
 )
 
