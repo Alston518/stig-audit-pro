@@ -1,4 +1,4 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import sys
 from pathlib import Path
@@ -14,10 +14,14 @@ COMMAND_FILES = {
     "show running-config": "show_running_config.txt",
     "show vtp status": "show_vtp_status.txt",
     "show interfaces status": "show_interfaces_status.txt",
+    "show interfaces switchport | include Negotiation of Trunking": "show_interfaces_switchport_negotiation.txt",
     "show interfaces trunk": "show_interfaces_trunk.txt",
+    "show cdp neighbors detail": "show_cdp_neighbors_detail.txt",
     "show ip access-lists": "show_ip_access_lists.txt",
     "show ip dhcp snooping": "show_ip_dhcp_snooping.txt",
     "show ip arp inspection": "show_ip_arp_inspection.txt",
+    "show snmp user": "show_snmp_user.txt",
+    "show version": "show_version.txt",
 }
 
 

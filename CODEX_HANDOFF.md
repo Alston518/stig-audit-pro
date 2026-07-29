@@ -10,24 +10,24 @@ When cloned with GitHub Desktop, the repo is expected to be named:
 stig-audit-pro
 ```
 
-On Jimmy's current PC, the working folder is:
+On this PC/thread, the working folder is:
 
 ```powershell
-C:\Users\Jimmy\Documents\Codex\stig-audit-pro
+C:\Users\AWC\Documents\Stig_audit_pro
 ```
 
 Run the app with:
 
 ```powershell
-cd "C:\Users\Jimmy\Documents\Codex\stig-audit-pro"
-& "C:\Users\Jimmy\AppData\Local\Programs\Python\Python313\python.exe" app.py
+cd "C:\Users\AWC\Documents\Stig_audit_pro"
+python app.py
 ```
 
 Run tests with:
 
 ```powershell
-cd "C:\Users\Jimmy\Documents\Codex\stig-audit-pro"
-& "C:\Users\Jimmy\AppData\Local\Programs\Python\Python313\python.exe" -m pytest
+cd "C:\Users\AWC\Documents\Stig_audit_pro"
+python -m pytest
 ```
 
 ## Where We Are
@@ -36,13 +36,19 @@ cd "C:\Users\Jimmy\Documents\Codex\stig-audit-pro"
 - Device groups and site profiles exist.
 - Report export exists.
 - STIG import/viewing exists.
-- L2 check file has 23 checks.
-- 17 L2 checks are automated.
-- 6 L2 checks are still manual review.
+- Cyber.mil Find Selected and Find L2 + NDM now fall back to the public quarterly IOS-XE switch bundle URL pattern on `dl.dod.cyber.mil`.
+- The combined Cisco IOS-XE switch Cyber.mil ZIP contains L2, NDM, and RTR XML files; import now chooses the L2 or NDM XCCDF based on the selected family.
+- Overview tab exists for library/run status.
+- Checks tab can pick and save individual YAML check files.
+- Profiles tab can save profile YAML.
+- L2 check file has 22 checks from `STIG_CHECKS_L2_NDM.xlsx`.
+- 19 L2 checks are automated.
+- 3 L2 checks are still manual review.
 - All automated L2 checks are editable string/pattern checks:
   - `command_pattern_policy`
   - `interface_config_policy`
-- NDM checks are loaded as manual-review placeholders.
+- NDM check file has 42 checks from `STIG_CHECKS_L2_NDM.xlsx`.
+- NDM has 33 editable string-search placeholders, 1 automated ACL deny logging check, and 8 manual/fixed-status entries.
 - CKL generation is not built yet.
 - Excel report generation is not built yet.
 
@@ -78,15 +84,20 @@ For profile lists, checks can expand one pattern per profile value using `profil
 
 ## Current Scan Behavior
 
-Compliant sample output currently gives:
+L2 sample output currently gives:
 
-- 17 `NotAFinding`
+- 16 `NotAFinding`
 - 6 `Not_Reviewed`
 
-Noncompliant sample output currently gives:
+L2 noncompliant sample output currently gives:
 
-- 17 `Open`
+- 16 `Open`
 - 6 `Not_Reviewed`
+
+The GUI currently loads L2 and NDM together from `data/checks/*.yaml`. Combined sample behavior is:
+
+- Compliant sample: 18 `NotAFinding`, 1 `Open`, 3 `Not_Applicable`, 42 `Not_Reviewed`
+- Noncompliant sample: 1 `NotAFinding`, 18 `Open`, 3 `Not_Applicable`, 42 `Not_Reviewed`
 
 Useful object-level findings are already shown for examples like:
 
@@ -103,6 +114,8 @@ Build a Profile Variables GUI:
 - Edit common variables without opening YAML.
 - Save profile changes.
 - Show what checks use those variables.
+- Later, add a check-string editor in the GUI so users can edit `strings`, `required_strings`, and `forbidden_strings` without opening YAML.
+- Remember: the user asked us to keep this direction noted. When making future changes, remind them that we kept the GUI string/profile editor direction in the handoff.
 
 After that, convert more manual L2 checks into automated checks where the profile can provide missing context.
 
@@ -114,10 +127,10 @@ spanning-tree guard root
 
 ## GitHub Workflow
 
-The GitHub repo is:
+The GitHub repository URL follows this format:
 
 ```text
-https://github.com/Alston518/stig-audit-pro
+https://github.com/<owner>/stig-audit-pro
 ```
 
 Typical sync steps from GitHub Desktop:

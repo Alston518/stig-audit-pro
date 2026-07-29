@@ -1,4 +1,4 @@
-"""Shared IOS-XE parsing helpers."""
+﻿"""Shared IOS-XE parsing helpers."""
 
 from __future__ import annotations
 

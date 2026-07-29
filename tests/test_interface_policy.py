@@ -1,13 +1,13 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from stig_audit_pro.core.check_engine import CheckEngine
 from tests.conftest import check_by_vuln, load_outputs, load_profile
+from stig_audit_pro.core.check_engine import CheckEngine
 
 
 def test_disabled_notconnect_ports_must_be_shutdown_and_unused_vlan_passes():
     engine = CheckEngine(load_profile())
     result = engine.evaluate(
-        check_by_vuln("CISC-L2-000210"),
+        check_by_vuln("V-220667"),
         outputs=load_outputs("compliant"),
         ip="10.50.10.25",
     )
@@ -23,7 +23,7 @@ def test_disabled_notconnect_ports_must_be_shutdown_and_unused_vlan_passes():
 def test_disabled_notconnect_ports_must_be_shutdown_and_unused_vlan_fails():
     engine = CheckEngine(load_profile())
     result = engine.evaluate(
-        check_by_vuln("CISC-L2-000210"),
+        check_by_vuln("V-220667"),
         outputs=load_outputs("noncompliant"),
         ip="10.50.10.26",
     )

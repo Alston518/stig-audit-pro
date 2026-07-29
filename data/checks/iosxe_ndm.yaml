@@ -1,23 +1,16 @@
 library_name: iosxe_ndm
-check_pack_version: 2.0.0
-schema_version: 1
-minimum_app_version: 0.2.0
 checks:
-- vuln_id: CISC-ND-000010
-  title: The Cisco switch must be configured to limit the number of concurrent management sessions to an organization-defined
-    number.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+- vuln_id: V-220518
   stig_id: CISC-ND-000010
-  group_id: V-220518
-  rule_id: SV-220518r960735_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to limit the number of concurrent management
+    sessions to an organization-defined number.
+  looking_for: Ensure that no more thant 15 concurrent management connections are
+    allowed
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
   scope: {}
   conditions: {}
   result:
@@ -28,132 +21,135 @@ checks:
     include_command_output: false
     include_failed_objects: false
     pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
+    fail_comment: Manual review required. Review the STIG requirement and customer/site
+      tailoring.
     error_comment: Manual review check could not be prepared.
     finding_details_template: manual_review
-- vuln_id: CISC-ND-000090
-  title: The Cisco switch must be configured to automatically audit account creation.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+- vuln_id: V-220519
   stig_id: CISC-ND-000090
-  group_id: V-220519
-  rule_id: SV-220519r1186338_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to automatically audit account creation.
+  looking_for: Looking for list of strings in "show run | sec archive"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000100
-  title: The Cisco switch must be configured to automatically audit account modification.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220520
   stig_id: CISC-ND-000100
-  group_id: V-220520
-  rule_id: SV-220520r1186340_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to automatically audit account modification.
+  looking_for: Looking for list of strings in "show run | sec archive"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000110
-  title: The Cisco switch must be configured to automatically audit account disabling actions.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220521
   stig_id: CISC-ND-000110
-  group_id: V-220521
-  rule_id: SV-220521r1186342_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to automatically audit account disabling
+    actions.
+  looking_for: Looking for list of strings in "show run | sec archive"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000120
-  title: The Cisco switch must be configured to automatically audit account removal actions.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220522
   stig_id: CISC-ND-000120
-  group_id: V-220522
-  rule_id: SV-220522r1186344_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to automatically audit account removal
+    actions.
+  looking_for: Looking for list of strings in "show run | sec archive"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000140
-  title: The Cisco switch must be configured to enforce approved authorizations for controlling the flow of management information
-    within the device based on control policies.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220523
   stig_id: CISC-ND-000140
-  group_id: V-220523
-  rule_id: SV-220523r1137875_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to enforce approved authorizations for
+    controlling the flow of management information within the device based on control
+    policies.
+  looking_for: Loop through VTY lines and look for a string on each
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
   scope: {}
   conditions: {}
   result:
@@ -164,518 +160,528 @@ checks:
     include_command_output: false
     include_failed_objects: false
     pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
+    fail_comment: Manual review required. Review the STIG requirement and customer/site
+      tailoring.
     error_comment: Manual review check could not be prepared.
     finding_details_template: manual_review
-- vuln_id: CISC-ND-000150
-  title: The Cisco switch must be configured to enforce the limit of three consecutive invalid logon attempts, after which
-    time it must lock out the user account from accessing the device for 15 minutes.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+- vuln_id: V-220524
   stig_id: CISC-ND-000150
-  group_id: V-220524
-  rule_id: SV-220524r960840_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to enforce the limit of three consecutive
+    invalid logon attempts, after which time it must lock out the user account from
+    accessing the device for 15 minutes.
+  looking_for: Looking for list of strings in "show run | inc login"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000160
-  title: The Cisco switch must be configured to display the Standard Mandatory DoD Notice and Consent Banner before granting
-    access to the device.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220525
   stig_id: CISC-ND-000160
-  group_id: V-220525
-  rule_id: SV-220525r960843_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to display the Standard Mandatory DoD
+    Notice and Consent Banner before granting access to the device.
+  looking_for: Looking for list of strings in "show run | inc banner"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000210
-  title: The Cisco device must be configured to audit all administrator activity.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220526
   stig_id: CISC-ND-000210
-  group_id: V-220526
-  rule_id: SV-220526r1186346_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco device must be configured to audit all administrator activity.
+  looking_for: Looking for list of strings in "show run | inc logging"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000280
-  title: The Cisco switch must produce audit records containing information to establish when (date and time) the events occurred.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220528
   stig_id: CISC-ND-000280
-  group_id: V-220528
-  rule_id: SV-220528r960894_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must produce audit records containing information to establish
+    when (date and time) the events occurred.
+  looking_for: Looking for list of strings in "show run | inc service"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000290
-  title: The Cisco switch must produce audit records containing information to establish where the events occurred.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220529
   stig_id: CISC-ND-000290
-  group_id: V-220529
-  rule_id: SV-220529r960897_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must produce audit records containing information to establish
+    where the events occurred.
+  looking_for: Loops through ACL deny statements and ensure that "log-input" is at
+    the end of them all
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: acl_deny_logging_policy
+  commands:
+  - show ip access-lists
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    deny_statements:
+      include_standard_acls: true
+      include_extended_acls: true
+      include_ipv6_acls: false
+      require_keyword: log-input
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
-    include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000330
-  title: The Cisco switch must be configured to generate audit records containing the full-text recording of privileged commands.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    include_failed_objects: true
+    pass_comment: All in-scope ACL deny statements include log-input.
+    fail_comment: One or more ACL deny statements are missing log-input.
+    error_comment: ACL deny logging check could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220530
   stig_id: CISC-ND-000330
-  group_id: V-220530
-  rule_id: SV-220530r1186348_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to generate audit records containing
+    the full-text recording of privileged commands.
+  looking_for: Looking for list of strings in "show run | sec archive"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000380
-  title: The Cisco switch must be configured to protect audit information from unauthorized modification.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220531
   stig_id: CISC-ND-000380
-  group_id: V-220531
-  rule_id: SV-220531r960933_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
-  scope: {}
-  conditions: {}
-  result:
-    pass_status: NotAFinding
-    fail_status: Not_Reviewed
-    error_status: Error
-  evidence:
-    include_command_output: false
-    include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000390
-  title: The Cisco switch must be configured to protect audit information from unauthorized deletion.
+  title: The Cisco switch must be configured to protect audit information from unauthorized
+    modification.
+  looking_for: Going to need marked as n/a for now, we don't use logging persistant
   stig_family: IOSXE_NDM
   severity: cat2
   check_type: manual_review
   commands: []
   automated: false
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Applicable
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Marked Not Applicable because logging persistent is not used in
+      this environment.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: V-220532
   stig_id: CISC-ND-000390
-  group_id: V-220532
-  rule_id: SV-220532r960936_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
-  scope: {}
-  conditions: {}
-  result:
-    pass_status: NotAFinding
-    fail_status: Not_Reviewed
-    error_status: Error
-  evidence:
-    include_command_output: false
-    include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000460
-  title: The Cisco switch must be configured to limit privileges to change the software resident within software libraries.
+  title: The Cisco switch must be configured to protect audit information from unauthorized
+    deletion.
+  looking_for: Going to need marked as n/a for now, we don't use logging persistant
   stig_family: IOSXE_NDM
   severity: cat2
   check_type: manual_review
   commands: []
   automated: false
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: Not_Applicable
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Manual review completed and requirement was marked NotAFinding.
+    fail_comment: Marked Not Applicable because logging persistent is not used in
+      this environment.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: V-220533
   stig_id: CISC-ND-000460
-  group_id: V-220533
-  rule_id: SV-220533r960960_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to limit privileges to change the software
+    resident within software libraries.
+  looking_for: Going to need marked as n/a for now, we don't use logging persistant
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
   scope: {}
   conditions: {}
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Not_Applicable
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
     pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
+    fail_comment: Marked Not Applicable because logging persistent is not used in
+      this environment.
     error_comment: Manual review check could not be prepared.
     finding_details_template: manual_review
-- vuln_id: CISC-ND-000470
-  title: The Cisco switch must be configured to prohibit the use of all unnecessary and nonsecure functions and services.
-  stig_family: IOSXE_NDM
-  severity: cat1
-  check_type: manual_review
-  commands: []
-  automated: false
+- vuln_id: V-220534
   stig_id: CISC-ND-000470
-  group_id: V-220534
-  rule_id: SV-220534r1043177_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to prohibit the use of all unnecessary
+    and nonsecure functions and services.
+  looking_for: Looking for list of strings to ensure they are NOT in the config in
+    "show run"
+  stig_family: IOSXE_NDM
+  severity: cat1
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    none:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000490
-  title: The Cisco switch must be configured with only one local account to be used as the account of last resort in the event
-    the authentication server is unavailable.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220535
   stig_id: CISC-ND-000490
-  group_id: V-220535
-  rule_id: SV-220535r1051115_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured with only one local account to be used
+    as the account of last resort in the event the authentication server is unavailable.
+  looking_for: Looking for a string in "show run | inc username"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000550
-  title: The Cisco switch must be configured to enforce a minimum 15-character password length.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220537
   stig_id: CISC-ND-000550
-  group_id: V-220537
-  rule_id: SV-220537r991912_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to enforce a minimum 15-character password
+    length.
+  looking_for: Looking for strings in "sh run | sec aaa common-criteria policy"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000570
-  title: The Cisco switch must be configured to enforce password complexity by requiring that at least one uppercase character
-    be used.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220538
   stig_id: CISC-ND-000570
-  group_id: V-220538
-  rule_id: SV-220538r991915_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to enforce password complexity by requiring
+    that at least one uppercase character be used.
+  looking_for: Looking for strings in "sh run | sec aaa common-criteria policy"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000580
-  title: The Cisco switch must be configured to enforce password complexity by requiring that at least one lowercase character
-    be used.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220539
   stig_id: CISC-ND-000580
-  group_id: V-220539
-  rule_id: SV-220539r991918_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to enforce password complexity by requiring
+    that at least one lowercase character be used.
+  looking_for: Looking for strings in "sh run | sec aaa common-criteria policy"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000590
-  title: The Cisco switch must be configured to enforce password complexity by requiring that at least one numeric character
-    be used.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220540
   stig_id: CISC-ND-000590
-  group_id: V-220540
-  rule_id: SV-220540r991919_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to enforce password complexity by requiring
+    that at least one numeric character be used.
+  looking_for: Looking for strings in "sh run | sec aaa common-criteria policy"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000600
-  title: The Cisco switch must be configured to enforce password complexity by requiring that at least one special character
-    be used.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220541
   stig_id: CISC-ND-000600
-  group_id: V-220541
-  rule_id: SV-220541r991920_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to enforce password complexity by requiring
+    that at least one special character be used.
+  looking_for: Looking for strings in "sh run | sec aaa common-criteria policy"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000610
-  title: The Cisco switch must be configured to require that when a password is changed, the characters are changed in at
-    least eight of the positions within the password.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220542
   stig_id: CISC-ND-000610
-  group_id: V-220542
-  rule_id: SV-220542r1043189_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to require that when a password is changed,
+    the characters are changed in at least eight of the positions within the password.
+  looking_for: Looking for strings in "sh run | sec aaa common-criteria policy"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000620
-  title: The Cisco switch must only store cryptographic representations of passwords.
-  stig_family: IOSXE_NDM
-  severity: cat1
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220543
   stig_id: CISC-ND-000620
-  group_id: V-220543
-  rule_id: SV-220543r991922_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must only store cryptographic representations of passwords.
+  looking_for: Looking for list of strings in "show run | inc service"
+  stig_family: IOSXE_NDM
+  severity: cat1
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000720
-  title: The Cisco switch must be configured to terminate all network connections associated with device management after
-    five minutes of inactivity.
-  stig_family: IOSXE_NDM
-  severity: cat1
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220544
   stig_id: CISC-ND-000720
-  group_id: V-220544
-  rule_id: SV-220544r961068_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to terminate all network connections
+    associated with device management after five minutes of inactivity.
+  looking_for: Loop through VTY and Console lines to look for a string
+  stig_family: IOSXE_NDM
+  severity: cat1
+  check_type: manual_review
+  commands: []
+  automated: false
   scope: {}
   conditions: {}
   result:
@@ -686,475 +692,492 @@ checks:
     include_command_output: false
     include_failed_objects: false
     pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
+    fail_comment: Manual review required. Review the STIG requirement and customer/site
+      tailoring.
     error_comment: Manual review check could not be prepared.
     finding_details_template: manual_review
-- vuln_id: CISC-ND-000880
-  title: The Cisco switch must be configured to automatically audit account enabling actions.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+- vuln_id: V-220545
   stig_id: CISC-ND-000880
-  group_id: V-220545
-  rule_id: SV-220545r1186350_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to automatically audit account enabling
+    actions.
+  looking_for: Looking for list of strings in "show run | sec archive"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-000980
-  title: The Cisco switch must be configured to allocate audit record storage capacity in accordance with organization-defined
-    audit record storage requirements.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220547
   stig_id: CISC-ND-000980
-  group_id: V-220547
-  rule_id: SV-220547r961392_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to allocate audit record storage capacity
+    in accordance with organization-defined audit record storage requirements.
+  looking_for: Looking for list of strings in "show run | inc logging"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001000
-  title: The Cisco switch must be configured to generate an alert for all audit failure events.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220548
   stig_id: CISC-ND-001000
-  group_id: V-220548
-  rule_id: SV-220548r991923_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to generate an alert for all audit failure
+    events.
+  looking_for: Looking for list of strings in "show run | inc logging"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001030
-  title: The Cisco switch must be configured to synchronize its clock with the primary and secondary time sources using redundant
-    authoritative time sources.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220549
   stig_id: CISC-ND-001030
-  group_id: V-220549
-  rule_id: SV-220549r991924_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to synchronize its clock with the primary
+    and secondary time sources using redundant authoritative time sources.
+  looking_for: Looking for list of strings in "show run| inc ntp"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001130
-  title: The Cisco switch must be configured to authenticate SNMP messages using a FIPS-validated Keyed-Hash Message Authentication
-    Code (HMAC).
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220552
   stig_id: CISC-ND-001130
-  group_id: V-220552
-  rule_id: SV-220552r1107175_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to authenticate SNMP messages using a
+    FIPS-validated Keyed-Hash Message Authentication Code (HMAC).
+  looking_for: '"show snmp user" and ensure that authentication protocol is SHA'
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show snmp user
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show snmp user
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001140
-  title: The Cisco switch must be configured to encrypt SNMP messages using a FIPS 140-2 approved algorithm.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220553
   stig_id: CISC-ND-001140
-  group_id: V-220553
-  rule_id: SV-220553r961506_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to encrypt SNMP messages using a FIPS
+    140-2 approved algorithm.
+  looking_for: '"show snmp user" and ensure that privacy protocol is AES256'
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show snmp user
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show snmp user
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001150
-  title: The Cisco switch must be configured to authenticate Network Time Protocol (NTP) sources using authentication that
-    is cryptographically based.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220554
   stig_id: CISC-ND-001150
-  group_id: V-220554
-  rule_id: SV-220554r1107160_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to authenticate Network Time Protocol
+    (NTP) sources using authentication that is cryptographically based.
+  looking_for: Looking for list of strings in "show run| inc ntp"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001200
-  title: The Cisco switch must be configured to use FIPS-validated Keyed-Hash Message Authentication Code (HMAC) to protect
-    the integrity of remote maintenance sessions.
-  stig_family: IOSXE_NDM
-  severity: cat1
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220555
   stig_id: CISC-ND-001200
-  group_id: V-220555
-  rule_id: SV-220555r961554_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to use FIPS-validated Keyed-Hash Message
+    Authentication Code (HMAC) to protect the integrity of remote maintenance sessions.
+  looking_for: Looking for list of strings in "show run"
+  stig_family: IOSXE_NDM
+  severity: cat1
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001210
-  title: The Cisco switch must be configured to implement cryptographic mechanisms to protect the confidentiality of remote
-    maintenance sessions.
-  stig_family: IOSXE_NDM
-  severity: cat1
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220556
   stig_id: CISC-ND-001210
-  group_id: V-220556
-  rule_id: SV-220556r961557_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to implement cryptographic mechanisms
+    to protect the confidentiality of remote maintenance sessions.
+  looking_for: Looking for list of strings in "show run"
+  stig_family: IOSXE_NDM
+  severity: cat1
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001250
-  title: The Cisco switch must be configured to generate log records when administrator privileges are deleted.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220559
   stig_id: CISC-ND-001250
-  group_id: V-220559
-  rule_id: SV-220559r1186352_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to generate log records when administrator
+    privileges are deleted.
+  looking_for: Looking for list of strings in "show run | sec archive"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001260
-  title: The Cisco switch must be configured to generate audit records when successful/unsuccessful logon attempts occur.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220560
   stig_id: CISC-ND-001260
-  group_id: V-220560
-  rule_id: SV-220560r961824_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to generate audit records when successful/unsuccessful
+    logon attempts occur.
+  looking_for: Looking for list of strings in "show run | inc login"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001270
-  title: The Cisco switch must be configured to generate log records for privileged activities.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220561
   stig_id: CISC-ND-001270
-  group_id: V-220561
-  rule_id: SV-220561r1186354_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to generate log records for privileged
+    activities.
+  looking_for: Looking for list of strings in "show run | sec archive"
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001370
-  title: The Cisco switch must be configured to use at least two authentication servers for the purpose of authenticating
-    users prior to granting administrative access.
-  stig_family: IOSXE_NDM
-  severity: cat1
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220565
   stig_id: CISC-ND-001370
-  group_id: V-220565
-  rule_id: SV-220565r1195273_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to use at least two authentication servers
+    for the purpose of authenticating users prior to granting administrative access.
+  looking_for: Looking for list of strings in "show run"
+  stig_family: IOSXE_NDM
+  severity: cat1
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001410
-  title: The Cisco switch must be configured to support organizational requirements to conduct backups of the configuration
-    when changes occur.
-  stig_family: IOSXE_NDM
-  severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220566
   stig_id: CISC-ND-001410
-  group_id: V-220566
-  rule_id: SV-220566r1186357_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
-  scope: {}
-  conditions: {}
-  result:
-    pass_status: NotAFinding
-    fail_status: Not_Reviewed
-    error_status: Error
-  evidence:
-    include_command_output: false
-    include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001440
-  title: The Cisco switch must be configured to obtain its public key certificates from an appropriate certificate policy
-    through an approved service provider.
+  title: The Cisco switch must be configured to support organizational requirements
+    to conduct backups of the configuration when changes occur.
+  looking_for: Mark not a finding and put a comment that Backups are done on Cisco
+    Catalyst Center
   stig_family: IOSXE_NDM
   severity: cat2
   check_type: manual_review
   commands: []
   automated: false
+  scope: {}
+  conditions: {}
+  result:
+    pass_status: NotAFinding
+    fail_status: NotAFinding
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Backups are performed in Cisco Catalyst Center.
+    fail_comment: Manual review required. Review the STIG requirement and customer/site
+      tailoring.
+    error_comment: Manual review check could not be prepared.
+    finding_details_template: manual_review
+- vuln_id: V-220567
   stig_id: CISC-ND-001440
-  group_id: V-220567
-  rule_id: SV-220567r991926_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  title: The Cisco switch must be configured to obtain its public key certificates
+    from an appropriate certificate policy through an approved service provider.
+  looking_for: Open because we cannot delete the default certifiates
+  stig_family: IOSXE_NDM
+  severity: cat2
+  check_type: manual_review
+  commands: []
+  automated: false
   scope: {}
   conditions: {}
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
     pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
+    fail_comment: Marked Open because default certificates cannot be deleted in this
+      environment.
     error_comment: Manual review check could not be prepared.
     finding_details_template: manual_review
-- vuln_id: CISC-ND-001450
-  title: The Cisco switch must be configured to send log data to at least two central log servers for the purpose of forwarding
-    alerts to the administrators and the information system security officer (ISSO).
-  stig_family: IOSXE_NDM
-  severity: cat1
-  check_type: manual_review
-  commands: []
-  automated: false
+- vuln_id: V-220568
   stig_id: CISC-ND-001450
-  group_id: V-220568
-  rule_id: SV-220568r1137890_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
-  scope: {}
-  conditions: {}
-  result:
-    pass_status: NotAFinding
-    fail_status: Not_Reviewed
-    error_status: Error
-  evidence:
-    include_command_output: false
-    include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
-- vuln_id: CISC-ND-001470
-  title: The Cisco switch must be running an IOS release that is currently supported by Cisco Systems.
+  title: The Cisco switch must be configured to send log data to at least two central
+    log servers for the purpose of forwarding alerts to the administrators and the
+    information system security officer (ISSO).
+  looking_for: Looking for list of strings in "show run | inc logging"
   stig_family: IOSXE_NDM
   severity: cat1
-  check_type: manual_review
-  commands: []
-  automated: false
-  stig_id: CISC-ND-001470
-  group_id: V-220569
-  rule_id: SV-220569r961863_rule
-  source_benchmark: Cisco IOS XE Switch NDM Security Technical Implementation Guide
-  source_version: '3'
-  source_release: 'Release: 6 Benchmark Date: 01 Apr 2026'
-  parser: {}
+  check_type: command_pattern_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
-  conditions: {}
+  conditions:
+    all:
+    - command: show running-config
+      strings: []
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default
+- vuln_id: V-220569
+  stig_id: CISC-ND-001470
+  title: The Cisco switch must be running an IOS release that is currently supported
+    by Cisco Systems.
+  looking_for: Looking for a string in "show version"
+  stig_family: IOSXE_NDM
+  severity: cat1
+  check_type: command_pattern_policy
+  commands:
+  - show version
+  automated: true
+  scope: {}
+  conditions:
+    all:
+    - command: show version
+      strings: []
+  result:
+    pass_status: NotAFinding
+    fail_status: Open
+    error_status: Error
+  evidence:
+    include_command_output: false
+    include_failed_objects: false
+    pass_comment: Automated validation matched the configured strings/patterns for
+      this requirement.
+    fail_comment: Automated validation found missing required strings or present forbidden
+      strings.
+    error_comment: Automated validation could not be evaluated.
+    finding_details_template: default

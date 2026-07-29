@@ -8,7 +8,7 @@ from tkinter import ttk
 import customtkinter as ctk
 
 from stig_audit_pro.core.result_model import CheckResult
-from stig_audit_pro.gui.widgets import Metric, PageFrame
+from stig_audit_pro.gui.widgets import DANGER, Metric, PageFrame, PRIMARY, STATUS_COLORS, SUCCESS, WARNING
 
 
 class ResultsTab(PageFrame):
@@ -16,19 +16,21 @@ class ResultsTab(PageFrame):
         super().__init__(master)
         self.app_controller = app_controller
         self.results: list[CheckResult] = []
+        self.filtered_results: list[CheckResult] = []
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(3, weight=1)
 
         actions = ctk.CTkFrame(self, fg_color="transparent")
         actions.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 6))
-        actions.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
+        actions.grid_columnconfigure((0, 1, 2, 3, 4, 5, 6), weight=1)
         self.metrics = {
-            "total": Metric(actions, "Total"),
-            "NotAFinding": Metric(actions, "NotAFinding"),
-            "Open": Metric(actions, "Open"),
-            "Error": Metric(actions, "Error"),
-            "Skipped": Metric(actions, "Skipped"),
-            "Not_Reviewed": Metric(actions, "NotReviewed"),
+            "total": Metric(actions, "Total", accent=PRIMARY),
+            "NotAFinding": Metric(actions, "NotAFinding", accent=SUCCESS),
+            "Open": Metric(actions, "Open", accent=DANGER),
+            "Not_Applicable": Metric(actions, "NotApplicable", accent="#667085"),
+            "Error": Metric(actions, "Error", accent="#c2410c"),
+            "Skipped": Metric(actions, "Skipped", accent="#667085"),
+            "Not_Reviewed": Metric(actions, "NotReviewed", accent=WARNING),
         }
         for column, metric in enumerate(self.metrics.values()):
             metric.grid(row=0, column=column, sticky="ew", padx=4)
@@ -36,24 +38,28 @@ class ResultsTab(PageFrame):
         run_row = ctk.CTkFrame(self, fg_color="transparent")
         run_row.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
         run_row.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkButton(
-            run_row,
-            text="Run Compliant Sample",
-            command=lambda: app_controller.run_sample_audit("compliant"),
-        ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(
-            run_row,
-            text="Run Noncompliant Sample",
-            command=lambda: app_controller.run_sample_audit("noncompliant"),
-            fg_color="#9f1d1d",
-            hover_color="#7f1d1d",
-        ).grid(row=0, column=1, sticky="ew", padx=6)
-        ctk.CTkButton(run_row, text="Clear", command=self.clear).grid(
-            row=0, column=2, sticky="ew", padx=(6, 0)
+        ctk.CTkButton(run_row, text="Run Compliant Sample", command=lambda: app_controller.run_sample_audit("compliant")).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(run_row, text="Run Noncompliant Sample", command=lambda: app_controller.run_sample_audit("noncompliant"), fg_color="#9f1d1d", hover_color="#7f1d1d").grid(row=0, column=1, sticky="ew", padx=6)
+        ctk.CTkButton(run_row, text="Clear", command=self.clear).grid(row=0, column=2, sticky="ew", padx=(6, 0))
+
+        filter_row = ctk.CTkFrame(self, fg_color="transparent")
+        filter_row.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
+        filter_row.grid_columnconfigure(1, weight=1)
+        self.status_filter = ctk.CTkComboBox(
+            filter_row,
+            values=["All statuses", "Open", "NotAFinding", "Not_Reviewed", "Not_Applicable", "Error", "Skipped"],
+            command=lambda _value: self._render_tree(),
+            state="readonly",
+            width=160,
         )
+        self.status_filter.set("All statuses")
+        self.status_filter.grid(row=0, column=0, sticky="w", padx=(0, 8))
+        self.search = ctk.CTkEntry(filter_row, placeholder_text="Search IP, Vuln ID, family, title")
+        self.search.grid(row=0, column=1, sticky="ew")
+        self.search.bind("<KeyRelease>", lambda _event: self._render_tree())
 
         content = ctk.CTkFrame(self, corner_radius=8, border_width=1)
-        content.grid(row=2, column=0, sticky="nsew", padx=12, pady=(0, 12))
+        content.grid(row=3, column=0, sticky="nsew", padx=12, pady=(0, 12))
         content.grid_columnconfigure(0, weight=3)
         content.grid_columnconfigure(1, weight=2)
         content.grid_rowconfigure(0, weight=1)
@@ -68,17 +74,12 @@ class ResultsTab(PageFrame):
             "status": "Status",
             "failed": "Failed Objects",
         }
-        widths = {
-            "ip": 110,
-            "vuln": 180,
-            "family": 100,
-            "severity": 80,
-            "status": 120,
-            "failed": 260,
-        }
+        widths = {"ip": 110, "vuln": 180, "family": 100, "severity": 80, "status": 120, "failed": 260}
         for column in columns:
             self.tree.heading(column, text=headings[column])
             self.tree.column(column, width=widths[column], anchor="w")
+        for status, colors in STATUS_COLORS.items():
+            self.tree.tag_configure(status, background=colors[0], foreground=colors[1])
         self.tree.grid(row=0, column=0, sticky="nsew", padx=(10, 6), pady=10)
         self.tree.bind("<<TreeviewSelect>>", self._selection_changed)
 
@@ -89,29 +90,42 @@ class ResultsTab(PageFrame):
 
     def refresh(self, results: list[CheckResult]) -> None:
         self.results = results
+        self._update_metrics()
+        self._render_tree()
+
+    def _render_tree(self) -> None:
         for item in self.tree.get_children():
             self.tree.delete(item)
-        for index, result in enumerate(results):
+        self.filtered_results = self._filtered_results()
+        for index, result in enumerate(self.filtered_results):
             failed = ", ".join(obj.object_name for obj in result.failed_objects)
             self.tree.insert(
                 "",
                 "end",
                 iid=str(index),
-                values=(
-                    result.ip,
-                    result.vuln_id,
-                    result.stig_family,
-                    result.severity,
-                    result.status,
-                    failed,
-                ),
+                values=(result.ip, result.vuln_id, result.stig_family, result.severity, result.status, failed),
+                tags=(result.status,),
             )
-        self._update_metrics()
-        if results:
+        if self.filtered_results:
             self.tree.selection_set("0")
-            self._show_result(results[0])
+            self._show_result(self.filtered_results[0])
+        elif self.results:
+            self._set_details("No results match the current filter.")
         else:
             self._set_details("No results.")
+
+    def _filtered_results(self) -> list[CheckResult]:
+        status = self.status_filter.get()
+        query = self.search.get().strip().lower()
+        filtered: list[CheckResult] = []
+        for result in self.results:
+            if status != "All statuses" and result.status != status:
+                continue
+            haystack = f"{result.ip} {result.hostname} {result.vuln_id} {result.title} {result.stig_family} {result.severity} {result.status}".lower()
+            if query and query not in haystack:
+                continue
+            filtered.append(result)
+        return filtered
 
     def clear(self) -> None:
         self.refresh([])
@@ -122,6 +136,7 @@ class ResultsTab(PageFrame):
             "total": len(self.results),
             "NotAFinding": 0,
             "Open": 0,
+            "Not_Applicable": 0,
             "Error": 0,
             "Skipped": 0,
             "Not_Reviewed": 0,
@@ -137,20 +152,11 @@ class ResultsTab(PageFrame):
         if not selected:
             return
         index = int(selected[0])
-        self._show_result(self.results[index])
+        self._show_result(self.filtered_results[index])
 
     def _show_result(self, result: CheckResult) -> None:
-        failed = (
-            "\n".join(
-                f"- {obj.object_type}: {obj.object_name} ({obj.details})"
-                for obj in result.failed_objects
-            )
-            or "None"
-        )
-        passed = (
-            "\n".join(f"- {obj.object_type}: {obj.object_name}" for obj in result.passed_objects)
-            or "None"
-        )
+        failed = "\n".join(f"- {obj.object_type}: {obj.object_name} ({obj.details})" for obj in result.failed_objects) or "None"
+        passed = "\n".join(f"- {obj.object_type}: {obj.object_name}" for obj in result.passed_objects) or "None"
         text = (
             f"{result.vuln_id}\n{result.title}\n\n"
             f"Status: {result.status}\nSeverity: {result.severity}\nDevice: {result.hostname} ({result.ip})\n\n"

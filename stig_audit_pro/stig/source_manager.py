@@ -2,23 +2,29 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
-import os
 import re
 import shutil
+import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
-from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Iterable
+
+from pydantic.json import pydantic_encoder
 
 from stig_audit_pro.stig.stig_metadata import StigBenchmarkMetadata
 from stig_audit_pro.stig.xccdf_importer import parse_xccdf_file
 
 CYBER_MIL_STIG_DOWNLOADS_URL = "https://www.cyber.mil/stigs/downloads/"
+CYBER_MIL_APEX_BASE_URL = "https://www.cyber.mil/lwr/apex/v67.0"
+CYBER_MIL_DOWNLOAD_BASE_URL = "https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip"
+CYBER_DOCUMENT_CONTROLLER = "@udd/01pRw0000002mOj"
+S3_FILE_DOWNLOAD_CONTROLLER = "@udd/01pRw00000030Y9"
 USER_AGENT = "STIG-Audit-Pro/0.1 (+https://www.cyber.mil/stigs/downloads/)"
 
 DEFAULT_STIG_SOURCES = {
@@ -31,6 +37,10 @@ DEFAULT_STIG_SOURCES = {
 class StigDownloadCandidate:
     title: str
     url: str
+    upload_date: str = ""
+    download_type: str = ""
+    classification: str = ""
+    source: str = ""
 
 
 class StigSourceError(RuntimeError):
@@ -49,13 +59,29 @@ class StigSourceManager:
 
     def discover_downloads(self, search_terms: Iterable[str]) -> list[StigDownloadCandidate]:
         terms = [term.lower() for term in search_terms]
-        html = self._read_url_text(self.download_page)
-        candidates = self._extract_candidates(html, terms)
-        if not candidates and self._looks_like_dynamic_shell(html):
+
+        candidates = self._discover_downloads_from_catalog(terms)
+        if candidates:
+            return candidates
+
+        html = ""
+        try:
+            html = self._read_url_text(self.download_page)
+            candidates = self._extract_candidates(html, terms)
+        except OSError:
+            candidates = []
+        if candidates:
+            return candidates
+
+        candidates = self._guess_direct_package_candidates(terms)
+        if candidates:
+            return candidates
+
+        if html and self._looks_like_dynamic_shell(html):
             raise StigSourceError(
-                "Cyber Exchange loaded its downloads page as a JavaScript application, so no STIG ZIP/XML links "
-                "were visible to the automatic finder. Open the Cyber Exchange STIG downloads page in a browser, "
-                "copy the direct ZIP/XML download link, and use Download URL or Import ZIP/XML."
+                "Cyber Exchange loaded its downloads page as a JavaScript application, and the automatic finder "
+                "could not resolve a matching Cyber.mil ZIP/XML package. Use Download URL with a direct ZIP/XML "
+                "package link, or use Import ZIP/XML after downloading the STIG package."
             )
         return candidates
 
@@ -90,57 +116,44 @@ class StigSourceManager:
             raise StigSourceError("STIG download URL must be HTTP, HTTPS, file, or a local path.")
 
         family_name = family or self._family_from_filename(Path(parsed.path).name)
+        family_dir = self.cache_dir / family_name
+        family_dir.mkdir(parents=True, exist_ok=True)
+
         request = urllib.request.Request(address, headers={"User-Agent": USER_AGENT})
-        with TemporaryDirectory() as temp_dir:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                final_url = response.geturl()
-                filename = self._filename_from_response(
-                    final_url, response.headers.get("Content-Disposition"), family_name
-                )
-                destination = Path(temp_dir) / filename
-                with destination.open("wb") as handle:
-                    shutil.copyfileobj(response, handle)
-            metadata = self.import_source(destination, family=family_name)
-            metadata.source_url = address
-            self._write_metadata(Path(metadata.source_path).parent, metadata)
-            return metadata
+        with urllib.request.urlopen(request, timeout=60) as response:
+            final_url = response.geturl()
+            filename = self._filename_from_response(final_url, response.headers.get("Content-Disposition"), family_name)
+            destination = family_dir / filename
+            with destination.open("wb") as handle:
+                shutil.copyfileobj(response, handle)
+        return self.import_source(destination, family=family_name)
 
     def import_source(self, source_path: str | Path, family: str = "") -> StigBenchmarkMetadata:
         source = Path(source_path)
         if not source.exists():
             raise StigSourceError(f"STIG source does not exist: {source}")
         family_name = family or self._family_from_filename(source.name)
-        with TemporaryDirectory() as temp_dir:
-            stage = Path(temp_dir)
-            staged_source = stage / source.name
-            shutil.copy2(source, staged_source)
-            xml_path = self._extract_xccdf(staged_source, stage)
-            metadata = parse_xccdf_file(xml_path, family=family_name)
-        benchmark = self._safe_component(
-            metadata.benchmark_id or metadata.title or "unknown-benchmark"
-        )
-        release = self._version_release(metadata)
-        version_dir = self.cache_dir / family_name / benchmark / release
-        version_dir.mkdir(parents=True, exist_ok=True)
-        cached_source = version_dir / source.name
+        family_dir = self.cache_dir / family_name
+        family_dir.mkdir(parents=True, exist_ok=True)
+        cached_source = family_dir / source.name
         if source.resolve() != cached_source.resolve():
             shutil.copy2(source, cached_source)
-        self._extract_xccdf(cached_source, version_dir)
+
+        xml_path = self._extract_xccdf(cached_source, family_dir, family_name)
+        metadata = parse_xccdf_file(xml_path, family=family_name)
         metadata.source_path = str(cached_source)
         metadata.source_filename = cached_source.name
-        metadata.imported_path = str(source.resolve())
-        metadata.source_sha256 = self._sha256(cached_source)
-        self._write_metadata(version_dir, metadata)
+        self._write_metadata(family_dir, metadata)
         return metadata
 
     def load_cached_metadata(self) -> list[StigBenchmarkMetadata]:
         metadata_items: list[StigBenchmarkMetadata] = []
-        for path in sorted(self.cache_dir.glob("**/metadata.json")):
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-                metadata_items.append(StigBenchmarkMetadata.model_validate(data))
-            except Exception as exc:
-                raise StigSourceError(f"Corrupted or partial STIG metadata {path}: {exc}") from exc
+        for path in sorted(self.cache_dir.glob("*/metadata.json")):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if hasattr(StigBenchmarkMetadata, "model_validate"):
+                metadata_items.append(StigBenchmarkMetadata.model_validate(data))  # type: ignore[attr-defined]
+            else:
+                metadata_items.append(StigBenchmarkMetadata.parse_obj(data))
         return metadata_items
 
     def _read_url_text(self, url: str) -> str:
@@ -148,25 +161,108 @@ class StigSourceManager:
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.read().decode("utf-8", errors="ignore")
 
+    def _discover_downloads_from_catalog(self, terms: list[str]) -> list[StigDownloadCandidate]:
+        try:
+            payload = self._call_cyber_apex(
+                CYBER_DOCUMENT_CONTROLLER,
+                "getCyberDocumentCatalogByDocumentLibrary",
+                {"documentLibrary": "STIGs"},
+            )
+        except (OSError, json.JSONDecodeError, StigSourceError):
+            return []
+
+        candidates: list[StigDownloadCandidate] = []
+        seen: set[str] = set()
+        for item in self._catalog_records(payload):
+            candidate = self._candidate_from_catalog_record(item, terms)
+            if candidate and candidate.url not in seen:
+                seen.add(candidate.url)
+                candidates.append(candidate)
+        return sorted(candidates, key=self._catalog_sort_key, reverse=True)
+
+    def _call_cyber_apex(self, apex_class: str, method: str, params: dict[str, object]) -> object:
+        encoded_class = urllib.parse.quote(apex_class, safe="")
+        encoded_method = urllib.parse.quote(method, safe="")
+        url = f"{CYBER_MIL_APEX_BASE_URL}/{encoded_class}/{encoded_method}"
+        body = json.dumps(params).encode("utf-8")
+        headers = {
+            "User-Agent": USER_AGENT,
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+            "Origin": "https://www.cyber.mil",
+            "Referer": self.download_page,
+            "X-SFDC-Allow-Continuation": "false",
+        }
+        request = urllib.request.Request(url, data=body, headers=headers, method="POST")
+        with urllib.request.urlopen(request, timeout=30) as response:
+            text = response.read().decode("utf-8", errors="ignore")
+        return json.loads(text)
+
+    def _catalog_records(self, payload: object) -> list[dict[str, object]]:
+        if isinstance(payload, list):
+            return [item for item in payload if isinstance(item, dict)]
+        if not isinstance(payload, dict):
+            return []
+        if "FileName" in payload or "DownloadLink" in payload:
+            return [payload]
+        for key in ("records", "items", "data", "result", "returnValue", "body"):
+            value = payload.get(key)
+            records = self._catalog_records(value)
+            if records:
+                return records
+        return []
+
+    def _candidate_from_catalog_record(
+        self,
+        item: dict[str, object],
+        terms: list[str],
+    ) -> StigDownloadCandidate | None:
+        filename = str(item.get("FileName") or item.get("Name") or "").strip()
+        link = str(item.get("DownloadLink") or item.get("Url") or item.get("url") or "").strip()
+        download_type = str(item.get("DownloadType") or "").strip()
+        document_library = str(item.get("DocumentLibrary") or "").strip()
+        upload_date = str(item.get("UploadDate") or "").strip()
+        classification = str(item.get("Classification") or "").strip()
+        haystack = f"{filename} {download_type} {document_library} {link}".lower()
+        if not link or not self._matches_terms(haystack, terms):
+            return None
+        if ".zip" not in haystack and ".xml" not in haystack:
+            return None
+        if classification and classification.lower() != "unclassified":
+            link = self._resolve_signed_url(link) or link
+        return StigDownloadCandidate(
+            title=filename or Path(urllib.parse.urlparse(link).path).name,
+            url=link,
+            upload_date=upload_date,
+            download_type=download_type,
+            classification=classification,
+            source="cyber.mil catalog",
+        )
+
+    def _resolve_signed_url(self, s3_link: str) -> str:
+        payload = self._call_cyber_apex(S3_FILE_DOWNLOAD_CONTROLLER, "getSignedUrl", {"s3Link": s3_link})
+        if isinstance(payload, dict):
+            value = payload.get("url") or payload.get("Url")
+            if isinstance(value, str):
+                return value
+        return ""
+
+    def _catalog_sort_key(self, candidate: StigDownloadCandidate) -> tuple[str, str]:
+        return (candidate.upload_date, candidate.title)
+
     def _extract_candidates(self, html: str, terms: list[str]) -> list[StigDownloadCandidate]:
         candidates: list[StigDownloadCandidate] = []
         seen: set[str] = set()
 
-        anchor_pattern = re.compile(
-            r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', re.IGNORECASE | re.DOTALL
-        )
+        anchor_pattern = re.compile(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', re.IGNORECASE | re.DOTALL)
         for href, label_html in anchor_pattern.findall(html):
             label = re.sub(r"<[^>]+>", " ", label_html)
             label = " ".join(label.split())
             self._add_candidate(candidates, seen, href, label, terms)
 
-        direct_url_pattern = re.compile(
-            r"https?://[^\s\"'<>]+(?:\.zip|\.xml)(?:\?[^\s\"'<>]*)?", re.IGNORECASE
-        )
+        direct_url_pattern = re.compile(r"https?://[^\s\"'<>]+(?:\.zip|\.xml)(?:\?[^\s\"'<>]*)?", re.IGNORECASE)
         for url in direct_url_pattern.findall(html):
-            self._add_candidate(
-                candidates, seen, url, Path(urllib.parse.urlparse(url).path).name, terms
-            )
+            self._add_candidate(candidates, seen, url, Path(urllib.parse.urlparse(url).path).name, terms)
 
         return candidates
 
@@ -182,31 +278,80 @@ class StigSourceManager:
         haystack = f"{label} {url}".lower()
         if ".zip" not in haystack and ".xml" not in haystack:
             return
-        if not all(term in haystack for term in terms):
+        if not self._matches_terms(haystack, terms):
             return
         if url in seen:
             return
         seen.add(url)
         candidates.append(
             StigDownloadCandidate(
-                title=label or Path(urllib.parse.urlparse(url).path).name, url=url
+                title=label or Path(urllib.parse.urlparse(url).path).name,
+                url=url,
+                source="download page",
             )
         )
 
+    def _matches_terms(self, haystack: str, terms: list[str]) -> bool:
+        return all(term in haystack for term in terms)
+
+    def _guess_direct_package_candidates(self, terms: list[str]) -> list[StigDownloadCandidate]:
+        if not self._is_iosxe_switch_search(terms):
+            return []
+        candidates: list[StigDownloadCandidate] = []
+        for yy, mm in self._quarterly_release_codes():
+            release_code = f"Y{yy}M{mm}"
+            filename = f"U_Cisco_IOS-XE_Switch_{release_code}_STIG.zip"
+            url = f"{CYBER_MIL_DOWNLOAD_BASE_URL}/{filename}"
+            if self._url_exists(url):
+                candidates.append(
+                    StigDownloadCandidate(
+                        title=f"Cisco IOS-XE Switch L2/NDM/RTR STIG bundle {release_code}",
+                        url=url,
+                        upload_date=f"20{yy}-{mm}-01",
+                        download_type="STIG",
+                        classification="Unclassified",
+                        source="direct Cyber.mil package",
+                    )
+                )
+        return candidates
+
+    def _is_iosxe_switch_search(self, terms: list[str]) -> bool:
+        required = {"cisco", "ios", "xe", "switch"}
+        return required.issubset(set(terms)) and bool({"l2", "l2s", "ndm", "rtr"} & set(terms))
+
+    def _quarterly_release_codes(self) -> list[tuple[str, str]]:
+        current_year = date.today().year
+        years = range(current_year, current_year - 3, -1)
+        months = ("10", "07", "04", "01")
+        return [(str(year)[2:], month) for year in years for month in months]
+
+    def _url_exists(self, url: str) -> bool:
+        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT}, method="HEAD")
+        try:
+            with urllib.request.urlopen(request, timeout=20) as response:
+                return 200 <= response.status < 400
+        except urllib.error.HTTPError as exc:
+            if exc.code != 405:
+                return False
+        except OSError:
+            return False
+        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Range": "bytes=0-0"})
+        try:
+            with urllib.request.urlopen(request, timeout=20) as response:
+                return 200 <= response.status < 400
+        except OSError:
+            return False
+
     def _looks_like_dynamic_shell(self, html: str) -> bool:
         lowered = html.lower()
-        return (
-            "lwc" in lowered or "salesforce" in lowered or "welcome to lwc communities" in lowered
-        )
+        return "lwc" in lowered or "salesforce" in lowered or "welcome to lwc communities" in lowered
 
     def _path_from_local_address(self, address: str, parsed: urllib.parse.ParseResult) -> Path:
         if parsed.scheme == "file":
             return Path(urllib.request.url2pathname(parsed.path))
         return Path(address)
 
-    def _filename_from_response(
-        self, url: str, content_disposition: str | None, family: str
-    ) -> str:
+    def _filename_from_response(self, url: str, content_disposition: str | None, family: str) -> str:
         if content_disposition:
             match = re.search(r'filename="?([^";]+)"?', content_disposition, flags=re.IGNORECASE)
             if match:
@@ -216,7 +361,7 @@ class StigSourceManager:
             return filename
         return f"{family}_STIG.zip"
 
-    def _extract_xccdf(self, source: Path, family_dir: Path) -> Path:
+    def _extract_xccdf(self, source: Path, family_dir: Path, family: str) -> Path:
         if source.suffix.lower() == ".xml":
             return source
         if source.suffix.lower() != ".zip":
@@ -227,34 +372,37 @@ class StigSourceManager:
                 archive.extractall(temp_root)
             xml_files = sorted(temp_root.rglob("*.xml"))
             xccdf_files = [path for path in xml_files if "xccdf" in path.name.lower()]
-            selected = xccdf_files[0] if xccdf_files else (xml_files[0] if xml_files else None)
+            selected = self._select_xccdf_for_family(xccdf_files or xml_files, family)
             if selected is None:
                 raise StigSourceError("No XML/XCCDF file found in STIG ZIP")
             extracted = family_dir / selected.name
             shutil.copy2(selected, extracted)
             return extracted
 
+    def _select_xccdf_for_family(self, xml_files: list[Path], family: str) -> Path | None:
+        if not xml_files:
+            return None
+        lowered_family = family.lower()
+        family_markers: list[str] = []
+        if "ndm" in lowered_family:
+            family_markers = ["ndm"]
+        elif "l2" in lowered_family:
+            family_markers = ["l2s", "_l2", "-l2"]
+        elif "rtr" in lowered_family:
+            family_markers = ["rtr"]
+        if family_markers:
+            matching = [
+                path
+                for path in xml_files
+                if any(marker in path.as_posix().lower() for marker in family_markers)
+            ]
+            if matching:
+                return sorted(matching)[0]
+        return sorted(xml_files)[0]
+
     def _write_metadata(self, family_dir: Path, metadata: StigBenchmarkMetadata) -> None:
-        payload = json.dumps(metadata.model_dump(mode="json"), indent=2, sort_keys=True)
-        destination = family_dir / "metadata.json"
-        temporary = destination.with_suffix(".json.tmp")
-        temporary.write_text(payload, encoding="utf-8")
-        os.replace(temporary, destination)
-
-    def _safe_component(self, value: str) -> str:
-        return re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip("-_") or "unknown"
-
-    def _version_release(self, metadata: StigBenchmarkMetadata) -> str:
-        release_match = re.search(r"release\s*:?\s*([\w.-]+)", metadata.release_info, re.I)
-        release = release_match.group(1) if release_match else "release-unknown"
-        return self._safe_component(f"{metadata.version or 'version-unknown'}-{release}")
-
-    def _sha256(self, path: Path) -> str:
-        digest = hashlib.sha256()
-        with path.open("rb") as handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
+        payload = json.dumps(metadata, default=pydantic_encoder, indent=2)
+        (family_dir / "metadata.json").write_text(payload, encoding="utf-8")
 
     def _family_from_filename(self, filename: str) -> str:
         lowered = filename.lower()

@@ -1,9 +1,8 @@
-"""Single-device Netmiko SSH runner for safe IOS-XE show commands."""
+﻿"""Single-device Netmiko SSH runner for safe IOS-XE show commands."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, cast
 
 from stig_audit_pro.core.command_planner import validate_safe_commands
 from stig_audit_pro.core.output_cache import CommandOutputCache
@@ -43,7 +42,6 @@ class NetmikoSshRunner:
         target: DeviceTarget,
         credentials: DeviceCredentials,
         commands: list[str],
-        run_id: str | None = None,
     ) -> DeviceCommandRun:
         validate_safe_commands(commands)
         try:
@@ -51,7 +49,7 @@ class NetmikoSshRunner:
         except ImportError as exc:
             raise RuntimeError("netmiko is required for live SSH scans") from exc
 
-        connection_params: dict[str, Any] = {
+        connection_params = {
             "device_type": target.device_type,
             "host": target.ip,
             "username": credentials.username,
@@ -73,9 +71,9 @@ class NetmikoSshRunner:
                     connection.send_command("terminal length 0")
                 for command in commands:
                     output = connection.send_command(command, read_timeout=target.timeout)
-                    outputs[command] = cast(str, output)
+                    outputs[command] = output
             if self.cache:
-                self.cache.save_device_outputs(target.ip, outputs, run_id=run_id)
+                self.cache.save_device_outputs(target.ip, outputs)
             return DeviceCommandRun(ip=target.ip, status="scanned", outputs=outputs)
         except Exception as exc:  # Netmiko exposes several transport/auth exception types.
             return DeviceCommandRun(

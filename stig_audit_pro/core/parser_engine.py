@@ -1,4 +1,4 @@
-"""Combine command outputs into a parsed IOS-XE device view."""
+﻿"""Combine command outputs into a parsed IOS-XE device view."""
 
 from __future__ import annotations
 
@@ -6,14 +6,11 @@ from dataclasses import dataclass, field
 
 from stig_audit_pro.parsers.iosxe_acls import AclParseResult, parse_acls
 from stig_audit_pro.parsers.iosxe_arp_inspection import ArpInspectionInfo, parse_arp_inspection
+from stig_audit_pro.parsers.iosxe_cdp import CdpNeighbor, parse_cdp_neighbors_detail
 from stig_audit_pro.parsers.iosxe_dhcp_snooping import DhcpSnoopingInfo, parse_dhcp_snooping
 from stig_audit_pro.parsers.iosxe_facts import DeviceFacts, parse_facts
 from stig_audit_pro.parsers.iosxe_interfaces import InterfaceStatus, parse_interfaces_status
-from stig_audit_pro.parsers.iosxe_running_config import (
-    InterfaceConfig,
-    RunningConfig,
-    parse_running_config,
-)
+from stig_audit_pro.parsers.iosxe_running_config import InterfaceConfig, RunningConfig, parse_running_config
 from stig_audit_pro.parsers.iosxe_trunks import TrunkInfo, parse_interfaces_trunk
 
 
@@ -29,7 +26,14 @@ class InterfaceView:
 
     @property
     def switchport_mode(self) -> str | None:
-        return self.config.switchport_mode if self.config else None
+        if self.config and self.config.switchport_mode:
+            return self.config.switchport_mode
+        # IOS-XE reports a numeric VLAN for access ports in "show interfaces
+        # status". Use that as a fallback when the running config relies on the
+        # default access mode and has no explicit "switchport mode access".
+        if self.status and self.status.vlan is not None:
+            return "access"
+        return None
 
     @property
     def access_vlan(self) -> int | None:
@@ -54,6 +58,7 @@ class ParsedDeviceData:
     acls: AclParseResult = field(default_factory=AclParseResult)
     dhcp_snooping: DhcpSnoopingInfo = field(default_factory=DhcpSnoopingInfo)
     arp_inspection: ArpInspectionInfo = field(default_factory=ArpInspectionInfo)
+    cdp_neighbors: list[CdpNeighbor] = field(default_factory=list)
     parser_warnings: list[str] = field(default_factory=list)
 
 
@@ -67,9 +72,6 @@ def parse_outputs(outputs: dict[str, str]) -> ParsedDeviceData:
 
     running_config = parse_running_config(running_text)
     status_interfaces = parse_interfaces_status(status_text)
-    warnings: list[str] = []
-    if status_text.strip() and not status_interfaces:
-        warnings.append("show interfaces status parser produced no interface rows")
     names = set(running_config.interfaces) | set(status_interfaces)
     interfaces = {
         name: InterfaceView(
@@ -93,5 +95,5 @@ def parse_outputs(outputs: dict[str, str]) -> ParsedDeviceData:
         acls=parse_acls(show_ip_access_lists=acl_text, running_config=running_text),
         dhcp_snooping=parse_dhcp_snooping(show_output=dhcp_text, running_config=running_text),
         arp_inspection=parse_arp_inspection(show_output=arp_text, running_config=running_text),
-        parser_warnings=warnings,
+        cdp_neighbors=parse_cdp_neighbors_detail(outputs.get("show cdp neighbors detail", "")),
     )

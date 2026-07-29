@@ -1,7 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from stig_audit_pro.core.yaml_loader import load_check_library, load_exceptions, load_profile
 from tests.conftest import DATA_DIR
+from stig_audit_pro.core.yaml_loader import load_check_library, load_exceptions, load_profile
 
 
 def test_check_library_and_profile_validate():
@@ -10,13 +10,10 @@ def test_check_library_and_profile_validate():
     profile = load_profile(DATA_DIR / "profiles" / "example_site.yaml")
     exceptions = load_exceptions(DATA_DIR / "exceptions" / "exceptions.yaml")
 
-    example_library = load_check_library(DATA_DIR / "checks" / "examples_custom.yaml")
     assert len(library.checks) == 22
-    assert example_library.checks[0].control_origin == "example"
-    assert example_library.checks[0].include_in_official_totals is False
     assert len(ndm_library.checks) == 42
-    assert any(check.vuln_id == "CISC-L2-000130" for check in library.checks)
-    assert any(check.vuln_id == "CISC-ND-001470" for check in ndm_library.checks)
+    assert any(check.vuln_id == "V-220659" for check in library.checks)
+    assert any(check.vuln_id == "V-220569" for check in ndm_library.checks)
     assert profile.profile_name == "example_site"
     assert profile.unused_vlan == 999
     assert profile.dhcp_snooping.vlans == [10, 20, 30]
@@ -35,16 +32,12 @@ def test_building_profiles_override_site_specific_vlans():
     assert building_2.dhcp_snooping.vlans == [210, 220, 230]
     assert building_2.arp_inspection.vlans == [210, 220, 230]
 
-
-def test_l2_automated_checks_use_validated_supported_policies():
+def test_l2_automated_checks_use_editable_string_policies():
     library = load_check_library(DATA_DIR / "checks" / "iosxe_l2.yaml")
     editable_policy_types = {
         "command_pattern_policy",
         "interface_config_policy",
-        "dhcp_snooping_policy",
-        "arp_inspection_policy",
-        "trunk_vlan_policy",
-        "section_not_contains",
+        "root_guard_neighbor_policy",
     }
 
     non_editable = [
@@ -54,3 +47,15 @@ def test_l2_automated_checks_use_validated_supported_policies():
     ]
 
     assert non_editable == []
+
+
+def test_ndm_string_checks_have_editable_placeholders():
+    library = load_check_library(DATA_DIR / "checks" / "iosxe_ndm.yaml")
+    checks = {check.vuln_id: check for check in library.checks}
+
+    assert checks["V-220519"].check_type == "command_pattern_policy"
+    assert checks["V-220519"].conditions["all"][0]["strings"] == []
+    assert checks["V-220529"].check_type == "acl_deny_logging_policy"
+    assert checks["V-220531"].result.fail_status == "Not_Applicable"
+    assert checks["V-220566"].result.fail_status == "NotAFinding"
+    assert checks["V-220567"].result.fail_status == "Open"

@@ -1,11 +1,10 @@
-"""Checks tab showing YAML-backed check definitions."""
+﻿"""Checks tab showing YAML-backed check definitions."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import customtkinter as ctk
-import yaml
 
 from stig_audit_pro.core.models import CheckDefinition
 from stig_audit_pro.gui.widgets import PageFrame, Panel
@@ -17,8 +16,8 @@ class ChecksTab(PageFrame):
         super().__init__(master)
         self.app_controller = app_controller
         self.checks: list[CheckDefinition] = []
-        self.sources: dict[str, Path] = {}
-        self.selected: CheckDefinition | None = None
+        self.yaml_paths: list[Path] = []
+        self.current_yaml_path: Path | None = None
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=2)
         self.grid_rowconfigure(0, weight=1)
@@ -28,29 +27,17 @@ class ChecksTab(PageFrame):
         list_panel.grid_columnconfigure(0, weight=1)
         list_panel.grid_rowconfigure(3, weight=1)
 
-        self.search = ctk.CTkEntry(
-            list_panel, placeholder_text="Filter by Vuln ID, title, severity"
-        )
+        self.search = ctk.CTkEntry(list_panel, placeholder_text="Filter by Vuln ID, title, severity")
         self.search.grid(row=1, column=0, sticky="ew", padx=12, pady=(8, 6))
         self.search.bind("<KeyRelease>", lambda _event: self._render_check_rows())
 
         filter_row = ctk.CTkFrame(list_panel, fg_color="transparent")
         filter_row.grid(row=2, column=0, sticky="ew", padx=12, pady=(2, 8))
         filter_row.grid_columnconfigure((0, 1), weight=1)
-        self.family_filter = ctk.CTkComboBox(
-            filter_row,
-            values=["All families", "IOSXE_L2", "IOSXE_NDM"],
-            command=lambda _value: self._render_check_rows(),
-            state="readonly",
-        )
+        self.family_filter = ctk.CTkComboBox(filter_row, values=["All families", "IOSXE_L2", "IOSXE_NDM"], command=lambda _value: self._render_check_rows(), state="readonly")
         self.family_filter.set("All families")
         self.family_filter.grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        self.severity_filter = ctk.CTkComboBox(
-            filter_row,
-            values=["All severities", "cat1", "cat2", "cat3"],
-            command=lambda _value: self._render_check_rows(),
-            state="readonly",
-        )
+        self.severity_filter = ctk.CTkComboBox(filter_row, values=["All severities", "cat1", "cat2", "cat3"], command=lambda _value: self._render_check_rows(), state="readonly")
         self.severity_filter.set("All severities")
         self.severity_filter.grid(row=0, column=1, sticky="ew", padx=(6, 0))
 
@@ -61,22 +48,29 @@ class ChecksTab(PageFrame):
         editor_panel = ctk.CTkFrame(self, fg_color="transparent")
         editor_panel.grid(row=0, column=1, sticky="nsew", padx=(6, 12), pady=12)
         editor_panel.grid_columnconfigure(0, weight=1)
-        editor_panel.grid_rowconfigure(0, weight=1)
+        editor_panel.grid_rowconfigure(1, weight=1)
+
+        library_row = ctk.CTkFrame(editor_panel, fg_color="transparent")
+        library_row.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        library_row.grid_columnconfigure(1, weight=1)
+        ctk.CTkLabel(library_row, text="Library").grid(row=0, column=0, sticky="w", padx=(0, 8))
+        self.library_select = ctk.CTkComboBox(
+            library_row,
+            values=[],
+            command=lambda _value: self._load_selected_yaml(),
+            state="readonly",
+        )
+        self.library_select.grid(row=0, column=1, sticky="ew")
+
         self.editor = YamlEditor(editor_panel, "Check YAML")
-        self.editor.grid(row=0, column=0, sticky="nsew")
+        self.editor.grid(row=1, column=0, sticky="nsew")
 
         actions = ctk.CTkFrame(editor_panel, fg_color="transparent")
-        actions.grid(row=1, column=0, sticky="ew", pady=(8, 0))
+        actions.grid(row=2, column=0, sticky="ew", pady=(8, 0))
         actions.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkButton(actions, text="Validate YAML", command=self._validate_yaml).grid(
-            row=0, column=0, sticky="ew", padx=(0, 6)
-        )
-        ctk.CTkButton(actions, text="Save Check", command=self._save).grid(
-            row=0, column=1, sticky="ew", padx=6
-        )
-        ctk.CTkButton(
-            actions, text="Reload From Disk", command=app_controller.reload_from_disk
-        ).grid(row=0, column=2, sticky="ew", padx=(6, 0))
+        ctk.CTkButton(actions, text="Validate YAML", command=self._validate_yaml).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(actions, text="Save YAML", command=self._save_yaml).grid(row=0, column=1, sticky="ew", padx=6)
+        ctk.CTkButton(actions, text="Reload From Disk", command=app_controller.reload_from_disk).grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
         tailoring = ctk.CTkLabel(
             editor_panel,
@@ -86,13 +80,21 @@ class ChecksTab(PageFrame):
             wraplength=560,
             text_color=("#475467", "#d0d5dd"),
         )
-        tailoring.grid(row=2, column=0, sticky="ew", pady=(8, 0))
+        tailoring.grid(row=3, column=0, sticky="ew", pady=(8, 0))
 
-    def refresh(self, checks: list[CheckDefinition], sources: dict[str, Path]) -> None:
+    def refresh(self, checks: list[CheckDefinition], yaml_paths: list[Path]) -> None:
         self.checks = checks
-        self.sources = sources
-        self.selected = None
-        self.editor.set_text("# Select a check to view only its structured definition.\n")
+        self.yaml_paths = yaml_paths
+        values = [path.name for path in yaml_paths]
+        self.library_select.configure(values=values)
+        if self.current_yaml_path not in yaml_paths:
+            self.current_yaml_path = yaml_paths[0] if yaml_paths else None
+        if self.current_yaml_path is not None:
+            self.library_select.set(self.current_yaml_path.name)
+            self.editor.set_text(self.current_yaml_path.read_text(encoding="utf-8"))
+        else:
+            self.library_select.set("")
+            self.editor.set_text("")
         self.editor.set_status(f"{len(checks)} checks loaded")
         self._render_check_rows()
 
@@ -106,7 +108,7 @@ class ChecksTab(PageFrame):
                 continue
             if severity != "All severities" and check.severity != severity:
                 continue
-            haystack = f"{check.vuln_id} {check.title} {check.severity} {check.check_type}".lower()
+            haystack = f"{check.vuln_id} {check.title} {check.looking_for} {check.severity} {check.check_type}".lower()
             if query and query not in haystack:
                 continue
             filtered.append(check)
@@ -119,47 +121,38 @@ class ChecksTab(PageFrame):
             row = ctk.CTkFrame(self.scroll, corner_radius=8, border_width=1)
             row.grid(row=row_index, column=0, sticky="ew", pady=4)
             row.grid_columnconfigure(0, weight=1)
-            ctk.CTkButton(
-                row,
-                text=check.vuln_id,
-                font=ctk.CTkFont(weight="bold"),
-                anchor="w",
-                fg_color="transparent",
-                command=lambda item=check: self._select(item),
-            ).grid(row=0, column=0, sticky="ew", padx=6, pady=(4, 0))
-            ctk.CTkLabel(row, text=check.title, anchor="w", wraplength=330, justify="left").grid(
-                row=1, column=0, sticky="ew", padx=10, pady=(2, 4)
-            )
-            ctk.CTkLabel(
-                row,
-                text=f"{check.stig_family}  |  {check.severity}  |  {check.check_type}",
-                text_color=("#475467", "#d0d5dd"),
-                anchor="w",
-            ).grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 8))
+            ctk.CTkLabel(row, text=check.vuln_id, font=ctk.CTkFont(weight="bold"), anchor="w").grid(row=0, column=0, sticky="ew", padx=10, pady=(8, 0))
+            ctk.CTkLabel(row, text=check.title, anchor="w", wraplength=330, justify="left").grid(row=1, column=0, sticky="ew", padx=10, pady=(2, 2))
+            if check.looking_for:
+                ctk.CTkLabel(row, text=check.looking_for, anchor="w", wraplength=330, justify="left", text_color=("#475467", "#d0d5dd")).grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 4))
+            mode = "Automated" if check.automated and check.check_type != "manual_review" else "Manual"
+            ctk.CTkLabel(row, text=f"{check.stig_family}  |  {check.severity}  |  {mode}  |  {check.check_type}", text_color=("#475467", "#d0d5dd"), anchor="w").grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 8))
 
     def _validate_yaml(self) -> None:
-        ok, message = self.app_controller.validate_single_check_yaml(self.editor.get_text())
+        ok, message = self.app_controller.validate_check_yaml(self.editor.get_text())
         self.editor.set_status(message, ok=ok)
 
-    def _select(self, check: CheckDefinition) -> None:
-        if self.editor.is_dirty:
-            self.editor.set_status(
-                "Save or reload unsaved changes before selecting another check.", ok=False
-            )
-            return
-        self.selected = check
-        source = self.sources.get(check.vuln_id)
-        payload = check.model_dump(mode="python", by_alias=True, exclude_none=True)
-        self.editor.set_text(yaml.safe_dump(payload, sort_keys=False))
-        self.editor.set_status(f"Source: {source.name if source else 'unknown'}")
+    def _selected_yaml_path(self) -> Path | None:
+        selected = self.library_select.get()
+        for path in self.yaml_paths:
+            if path.name == selected:
+                return path
+        return None
 
-    def _save(self) -> None:
-        if not self.selected:
-            self.editor.set_status("Select a check first.", ok=False)
+    def _load_selected_yaml(self) -> None:
+        path = self._selected_yaml_path()
+        if path is None:
+            self.editor.set_status("Choose a check library", ok=False)
             return
-        ok, message = self.app_controller.save_single_check_yaml(
-            self.selected.vuln_id, self.editor.get_text(), self.sources[self.selected.vuln_id]
-        )
+        self.current_yaml_path = path
+        self.editor.set_text(path.read_text(encoding="utf-8"))
+        self.editor.set_status(f"Loaded {path.name}")
+
+    def _save_yaml(self) -> None:
+        path = self._selected_yaml_path()
+        if path is None:
+            self.editor.set_status("Choose a check library", ok=False)
+            return
+        ok, message = self.app_controller.save_check_yaml(path, self.editor.get_text())
         self.editor.set_status(message, ok=ok)
-        if ok:
-            self.editor.mark_clean()
+
