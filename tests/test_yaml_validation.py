@@ -19,6 +19,13 @@ def test_check_library_and_profile_validate():
     assert profile.dhcp_snooping.vlans == [10, 20, 30]
     assert exceptions.exceptions[0].force_status == "NotAFinding"
 
+    base_profile = load_profile(DATA_DIR / "profiles" / "base_iosxe_access.yaml")
+    assert int(base_profile.variables["max_concurrent_management_sessions"]) > 0
+    assert len(base_profile.variables["ntp_servers"]) >= 2
+    assert set(base_profile.endpoint_authentication.radius_server_addresses) == set(
+        base_profile.endpoint_authentication.radius_servers
+    )
+
 
 def test_building_profiles_override_site_specific_vlans():
     building_1 = load_profile(DATA_DIR / "profiles" / "building_1.yaml")
@@ -49,12 +56,33 @@ def test_l2_automated_checks_use_editable_string_policies():
     assert non_editable == []
 
 
-def test_ndm_string_checks_have_editable_placeholders():
+def test_ndm_archive_checks_use_completed_hierarchy_policy():
     library = load_check_library(DATA_DIR / "checks" / "iosxe_ndm.yaml")
     checks = {check.vuln_id: check for check in library.checks}
 
-    assert checks["V-220519"].check_type == "command_pattern_policy"
-    assert checks["V-220519"].conditions["all"][0]["strings"] == []
+    archive_check_ids = {
+        "V-220519",
+        "V-220520",
+        "V-220521",
+        "V-220522",
+        "V-220530",
+        "V-220545",
+        "V-220559",
+        "V-220561",
+    }
+    expected_descriptions = [
+        "archive configuration section",
+        "log config subsection under archive",
+        "logging enable under archive log config",
+    ]
+
+    for vuln_id in archive_check_ids:
+        check = checks[vuln_id]
+        assert check.check_type == "command_pattern_policy"
+        assert [item["description"] for item in check.conditions["all"]] == expected_descriptions
+        assert all(item.get("pattern") for item in check.conditions["all"])
+        assert check.evidence.include_failed_objects is True
+
     assert checks["V-220529"].check_type == "acl_deny_logging_policy"
     assert checks["V-220531"].result.fail_status == "Not_Applicable"
     assert checks["V-220566"].result.fail_status == "NotAFinding"

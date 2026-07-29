@@ -26,5 +26,10 @@ dist/
 
 *.log
 *.tmp
+*-private.pem
+private_keys/
+license-admin-data/
+issued-licenses/
+*.license.json
 
 stig-audit-pro/

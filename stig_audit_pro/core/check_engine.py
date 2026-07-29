@@ -123,8 +123,12 @@ class CheckEngine:
             return self._dhcp_snooping_policy(check, parsed)
         if check.check_type == "arp_inspection_policy":
             return self._arp_inspection_policy(check, parsed)
+        if check.check_type == "radius_server_policy":
+            return self._radius_server_policy(check, parsed)
         if check.check_type == "root_guard_neighbor_policy":
             return self._root_guard_neighbor_policy(check, parsed)
+        if check.check_type == "vty_session_limit_policy":
+            return self._vty_session_limit_policy(check, outputs)
         raise ValueError(f"Unsupported check type: {check.check_type}")
 
     def _result(
@@ -371,6 +375,11 @@ class CheckEngine:
             if not profile_key:
                 continue
             for item in sorted(self._profile_list(str(profile_key))):
+                pattern_item = (
+                    re.escape(str(item))
+                    if bool(pattern_config.get("escape_item", False))
+                    else item
+                )
                 rendered = {
                     key: value
                     for key, value in pattern_config.items()
@@ -383,7 +392,10 @@ class CheckEngine:
                 )
                 if pattern_template is None:
                     raise ValueError("profile pattern policies require pattern_template or pattern")
-                rendered["pattern"] = self._render_template(str(pattern_template), {"item": item})
+                rendered["pattern"] = self._render_template(
+                    str(pattern_template),
+                    {"item": pattern_item},
+                )
                 description_template = (
                     pattern_config.get("description_template")
                     or pattern_config.get("description")
@@ -423,7 +435,11 @@ class CheckEngine:
         required = self._expand_pattern_configs(check.conditions.get("all", [])) + self._profile_pattern_configs(
             check.conditions.get("profile_all", []),
         )
-        alternatives = self._expand_pattern_configs(check.conditions.get("any", []))
+        alternatives = self._expand_pattern_configs(
+            check.conditions.get("any", [])
+        ) + self._profile_pattern_configs(
+            check.conditions.get("profile_any", []),
+        )
         forbidden = self._expand_pattern_configs(check.conditions.get("none", [])) + self._profile_pattern_configs(
             check.conditions.get("profile_none", []),
         )
@@ -736,6 +752,335 @@ class CheckEngine:
         if not normalized:
             return set()
         return {normalized, normalized.split(".", 1)[0]}
+
+    def _radius_server_policy(
+        self,
+        check: CheckDefinition,
+        parsed: ParsedDeviceData,
+    ) -> EvaluationOutcome:
+        group_profile_key = str(
+            check.conditions.get("radius_group_profile_key")
+            or "endpoint_authentication.radius_group"
+        )
+        servers_profile_key = str(
+            check.conditions.get("radius_servers_profile_key")
+            or "endpoint_authentication.radius_servers"
+        )
+        addresses_profile_key = str(
+            check.conditions.get("radius_addresses_profile_key")
+            or "endpoint_authentication.radius_server_addresses"
+        )
+
+        group_name = str(self._profile_value(group_profile_key) or "").strip()
+        raw_servers = self._profile_value(servers_profile_key)
+        raw_addresses = self._profile_value(addresses_profile_key)
+        if not group_name:
+            raise ValueError(f"profile.{group_profile_key} must define a RADIUS group")
+        if not isinstance(raw_servers, list):
+            raise ValueError(f"profile.{servers_profile_key} must be a list")
+        server_names = [str(value).strip() for value in raw_servers if str(value).strip()]
+        normalized_names = {name.casefold() for name in server_names}
+        if len(normalized_names) < 2:
+            raise ValueError(
+                f"profile.{servers_profile_key} must define at least two unique RADIUS servers"
+            )
+        if len(normalized_names) != len(server_names):
+            raise ValueError(f"profile.{servers_profile_key} contains duplicate RADIUS servers")
+        if not isinstance(raw_addresses, dict):
+            raise ValueError(
+                f"profile.{addresses_profile_key} must map RADIUS server names to IPv4 addresses"
+            )
+
+        normalized_addresses = {
+            str(name).strip().casefold(): str(address).strip()
+            for name, address in raw_addresses.items()
+            if str(name).strip() and str(address).strip()
+        }
+        missing_addresses = [
+            name for name in server_names if not normalized_addresses.get(name.casefold())
+        ]
+        if missing_addresses:
+            raise ValueError(
+                f"profile.{addresses_profile_key} is missing address mappings for: "
+                + ", ".join(missing_addresses)
+            )
+
+        def positive_port(condition_key: str, default: int) -> int:
+            value = check.conditions.get(condition_key, default)
+            if isinstance(value, bool):
+                raise ValueError(f"{condition_key} must be a valid TCP/UDP port")
+            if isinstance(value, int):
+                port = value
+            elif isinstance(value, str) and value.strip().isdigit():
+                port = int(value.strip())
+            else:
+                raise ValueError(f"{condition_key} must be a valid TCP/UDP port")
+            if port < 1 or port > 65535:
+                raise ValueError(f"{condition_key} must be between 1 and 65535")
+            return port
+
+        auth_port = positive_port("auth_port", 1812)
+        acct_port = positive_port("acct_port", 1813)
+
+        radius_sections: dict[str, tuple[str, list[str]]] = {}
+        radius_group_sections: dict[str, tuple[str, list[str]]] = {}
+        for header, lines in parsed.running_config.sections.items():
+            radius_match = re.fullmatch(
+                r"radius[ \t]+server[ \t]+(\S+)",
+                header,
+                flags=re.IGNORECASE,
+            )
+            if radius_match:
+                radius_sections[radius_match.group(1).casefold()] = (header, lines)
+                continue
+            group_match = re.fullmatch(
+                r"aaa[ \t]+group[ \t]+server[ \t]+radius[ \t]+(\S+)",
+                header,
+                flags=re.IGNORECASE,
+            )
+            if group_match:
+                radius_group_sections[group_match.group(1).casefold()] = (header, lines)
+
+        failed: list[FindingObject] = []
+        passed: list[FindingObject] = []
+        for server_name in server_names:
+            expected_address = normalized_addresses[server_name.casefold()]
+            section = radius_sections.get(server_name.casefold())
+            failure_reasons: list[str] = []
+            if section is None:
+                failure_reasons.append("named RADIUS server section is missing")
+            else:
+                _, lines = section
+                address_pattern = re.compile(
+                    rf"^address[ \t]+ipv4[ \t]+{re.escape(expected_address)}"
+                    rf"[ \t]+auth-port[ \t]+{auth_port}"
+                    rf"[ \t]+acct-port[ \t]+{acct_port}[ \t]*$",
+                    flags=re.IGNORECASE,
+                )
+                if not any(address_pattern.fullmatch(line.strip()) for line in lines):
+                    failure_reasons.append(
+                        f"expected address {expected_address} with auth-port {auth_port} "
+                        f"and acct-port {acct_port} is missing"
+                    )
+                if not any(
+                    re.fullmatch(r"key(?:[ \t]+\S+)+", line.strip(), flags=re.IGNORECASE)
+                    for line in lines
+                ):
+                    failure_reasons.append("key command with at least one value is missing")
+
+            server_object = FindingObject(
+                object_type="radius_server",
+                object_name=server_name,
+                details="; ".join(failure_reasons)
+                or (
+                    f"address {expected_address}, auth-port {auth_port}, acct-port "
+                    f"{acct_port}, and key are configured"
+                ),
+            )
+            if failure_reasons:
+                failed.append(server_object)
+            else:
+                passed.append(server_object)
+
+        group_section = radius_group_sections.get(group_name.casefold())
+        group_failures: list[str] = []
+        if group_section is None:
+            group_failures.append("required AAA RADIUS group section is missing")
+        else:
+            _, group_lines = group_section
+            configured_members: set[str] = set()
+            for line in group_lines:
+                member_match = re.fullmatch(
+                    r"server[ \t]+name[ \t]+(\S+)",
+                    line.strip(),
+                    flags=re.IGNORECASE,
+                )
+                if member_match:
+                    configured_members.add(member_match.group(1).casefold())
+            missing_members = [
+                name for name in server_names if name.casefold() not in configured_members
+            ]
+            if missing_members:
+                group_failures.append(
+                    "missing server name entries: " + ", ".join(missing_members)
+                )
+
+        group_object = FindingObject(
+            object_type="radius_group",
+            object_name=group_name,
+            details="; ".join(group_failures)
+            or f"contains all {len(server_names)} profile-defined RADIUS servers",
+        )
+        if group_failures:
+            failed.append(group_object)
+        else:
+            passed.append(group_object)
+
+        return EvaluationOutcome(
+            passed=not failed,
+            failed_objects=failed,
+            passed_objects=passed,
+            details=[
+                f"Validated {len(server_names)} profile-defined RADIUS servers and "
+                f"AAA group {group_name}."
+            ],
+        )
+
+    def _vty_session_limit_policy(
+        self,
+        check: CheckDefinition,
+        outputs: dict[str, str],
+    ) -> EvaluationOutcome:
+        command = str(
+            check.conditions.get("command")
+            or (check.commands[0] if check.commands else "show running-config")
+        )
+        profile_key = str(
+            check.conditions.get("maximum_sessions_profile_key")
+            or "max_concurrent_management_sessions"
+        )
+        raw_maximum = self._profile_value(profile_key)
+        if isinstance(raw_maximum, bool):
+            raise ValueError(
+                f"profile.{profile_key} must be a positive whole number, not a boolean"
+            )
+        if isinstance(raw_maximum, int):
+            maximum = raw_maximum
+        elif isinstance(raw_maximum, str) and re.fullmatch(r"\d+", raw_maximum.strip()):
+            maximum = int(raw_maximum.strip())
+        else:
+            raise ValueError(
+                f"profile.{profile_key} must be configured as a positive whole number"
+            )
+        if maximum < 1:
+            raise ValueError(f"profile.{profile_key} must be greater than zero")
+
+        vty_block_pattern = re.compile(
+            r"^[ \t]*line[ \t]+vty[ \t]+(\d+)(?:[ \t]+(\d+))?[ \t]*\r?\n"
+            r"((?:[ \t]+[^\r\n]*(?:\r?\n|$))*)",
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        session_limit_pattern = re.compile(
+            r"^[ \t]+session-limit(?:[ \t]+([^\r\n]*?))?[ \t]*$",
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+
+        blocks: list[tuple[str, int, int, list[str | None]]] = []
+        invalid_ranges: list[FindingObject] = []
+        for match in vty_block_pattern.finditer(outputs.get(command, "")):
+            start = int(match.group(1))
+            end = int(match.group(2) or match.group(1))
+            name = f"line vty {start}" if start == end else f"line vty {start} {end}"
+            if end < start:
+                invalid_ranges.append(
+                    FindingObject(
+                        object_type="vty_section",
+                        object_name=name,
+                        details="VTY range ends before it starts",
+                    )
+                )
+                continue
+            session_limits = [
+                limit.strip() if limit is not None else None
+                for limit in session_limit_pattern.findall(match.group(3))
+            ]
+            blocks.append((name, start, end, session_limits))
+
+        uses_session_limit = any(limits for _, _, _, limits in blocks)
+        failed = list(invalid_ranges)
+        passed: list[FindingObject] = []
+
+        if uses_session_limit:
+            for name, _, _, limits in blocks:
+                if not limits:
+                    failed.append(
+                        FindingObject(
+                            object_type="vty_section",
+                            object_name=name,
+                            details=(
+                                "session-limit is missing while other VTY sections "
+                                "use session-limit"
+                            ),
+                        )
+                    )
+                    continue
+
+                section_failed = False
+                for limit_text in limits:
+                    if limit_text is None or not re.fullmatch(r"\d+", limit_text):
+                        failed.append(
+                            FindingObject(
+                                object_type="vty_section",
+                                object_name=name,
+                                details="session-limit does not contain a valid whole number",
+                            )
+                        )
+                        section_failed = True
+                        continue
+                    configured_limit = int(limit_text)
+                    if configured_limit > maximum:
+                        failed.append(
+                            FindingObject(
+                                object_type="vty_section",
+                                object_name=name,
+                                details=(
+                                    f"session-limit {configured_limit} exceeds the "
+                                    f"organization-defined maximum of {maximum}"
+                                ),
+                            )
+                        )
+                        section_failed = True
+
+                if not section_failed:
+                    passed.append(
+                        FindingObject(
+                            object_type="vty_section",
+                            object_name=name,
+                            details=(
+                                "configured session-limit does not exceed the "
+                                f"organization-defined maximum of {maximum}"
+                            ),
+                        )
+                    )
+
+            details = [
+                "VTY session-limit mode evaluated against organization-defined "
+                f"maximum {maximum}."
+            ]
+            return EvaluationOutcome(
+                passed=not failed,
+                failed_objects=failed,
+                passed_objects=passed,
+                details=details,
+            )
+
+        configured_vty_lines: set[int] = set()
+        for _, start, end, _ in blocks:
+            configured_vty_lines.update(range(start, end + 1))
+        configured_count = len(configured_vty_lines)
+
+        capacity = FindingObject(
+            object_type="vty_capacity",
+            object_name=f"{configured_count} configured VTY line(s)",
+            details=(
+                f"session-limit is not configured; available VTY line count is "
+                f"{configured_count}, organization-defined maximum is {maximum}"
+            ),
+        )
+        if configured_count > maximum:
+            failed.append(capacity)
+        else:
+            passed.append(capacity)
+
+        return EvaluationOutcome(
+            passed=not failed,
+            failed_objects=failed,
+            passed_objects=passed,
+            details=[
+                "No VTY session-limit command was found; counted "
+                f"{configured_count} unique VTY line(s) against maximum {maximum}."
+            ],
+        )
 
     def _root_guard_neighbor_policy(
         self,

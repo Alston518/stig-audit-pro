@@ -19,6 +19,7 @@ from stig_audit_pro.core.models import CheckDefinition, CheckLibrary, SiteProfil
 from stig_audit_pro.core.result_model import CheckResult
 from stig_audit_pro.core.yaml_loader import ConfigValidationError, deep_merge, load_check_library, load_profile, load_yaml_file
 from stig_audit_pro.gui.checks_tab import ChecksTab
+from stig_audit_pro.gui.license_tab import LicenseTab
 from stig_audit_pro.gui.overview_tab import OverviewTab
 from stig_audit_pro.gui.profiles_tab import ProfilesTab
 from stig_audit_pro.gui.reports_tab import ReportsTab
@@ -26,6 +27,12 @@ from stig_audit_pro.gui.results_tab import ResultsTab
 from stig_audit_pro.gui.stig_tab import StigTab
 from stig_audit_pro.gui.targets_tab import TargetsTab
 from stig_audit_pro.gui.widgets import configure_treeview_style
+from stig_audit_pro.licensing import (
+    LicenseImportError,
+    LicenseManager,
+    LicensePolicyError,
+    LicenseStatus,
+)
 from stig_audit_pro.reports.audit_report import write_csv_report, write_text_report
 from stig_audit_pro.storage.device_groups import DeviceGroup, DeviceGroupStore, DeviceTargetRecord
 from stig_audit_pro.stig.check_generator import build_manual_starter_library, write_manual_starter_library
@@ -78,6 +85,8 @@ class StigAuditProApp(ctk.CTk):
         self.results: list[CheckResult] = []
         self.last_artifacts: list[Path] = []
         self.stig_metadata: list[StigBenchmarkMetadata] = []
+        self.license_manager = LicenseManager()
+        self.license_manager.load()
 
         self.title(f"STIG Audit Pro {APP_VERSION}")
         self.geometry("1280x820")
@@ -91,6 +100,15 @@ class StigAuditProApp(ctk.CTk):
         self.reload_from_disk()
         self.refresh_device_groups()
         self.refresh_stig_metadata()
+        self.refresh_license_status(announce=False)
+        if self.license_manager.status is LicenseStatus.INVALID:
+            self.after(
+                250,
+                lambda: self._show_error(
+                    "The installed license is invalid. STIG Audit Pro is running in "
+                    "Free mode. Open the License tab to import a valid license."
+                ),
+            )
 
     def _build_header(self) -> None:
         header = ctk.CTkFrame(self, corner_radius=0, fg_color=("#eef2f6", "#0f172a"))
@@ -111,6 +129,17 @@ class StigAuditProApp(ctk.CTk):
             height=28,
         )
         self.version_label.grid(row=0, column=1, rowspan=2, sticky="e", padx=18)
+        self.license_badge = ctk.CTkLabel(
+            header,
+            text="Free",
+            font=ctk.CTkFont(weight="bold"),
+            corner_radius=8,
+            fg_color=("#fef3c7", "#78350f"),
+            text_color=("#92400e", "#fef3c7"),
+            width=82,
+            height=28,
+        )
+        self.license_badge.grid(row=0, column=2, rowspan=2, sticky="e", padx=(0, 18))
 
     def _build_tabs(self) -> None:
         self.tabs = ctk.CTkTabview(self)
@@ -122,7 +151,8 @@ class StigAuditProApp(ctk.CTk):
         tab_profiles = self.tabs.add("Profiles")
         tab_results = self.tabs.add("Results")
         tab_reports = self.tabs.add("Reports")
-        for tab in (tab_overview, tab_targets, tab_stig, tab_checks, tab_profiles, tab_results, tab_reports):
+        tab_license = self.tabs.add("License")
+        for tab in (tab_overview, tab_targets, tab_stig, tab_checks, tab_profiles, tab_results, tab_reports, tab_license):
             tab.grid_columnconfigure(0, weight=1)
             tab.grid_rowconfigure(0, weight=1)
 
@@ -140,6 +170,8 @@ class StigAuditProApp(ctk.CTk):
         self.results_tab.grid(row=0, column=0, sticky="nsew")
         self.reports_tab = ReportsTab(tab_reports, self)
         self.reports_tab.grid(row=0, column=0, sticky="nsew")
+        self.license_tab = LicenseTab(tab_license, self)
+        self.license_tab.grid(row=0, column=0, sticky="nsew")
 
     def _build_status_bar(self) -> None:
         footer = ctk.CTkFrame(self, corner_radius=0)
@@ -153,6 +185,44 @@ class StigAuditProApp(ctk.CTk):
 
     def show_tab(self, tab_name: str) -> None:
         self.tabs.set(tab_name)
+
+    def refresh_license_status(self, announce: bool = True) -> None:
+        self.license_manager.reload()
+        self.license_tab.refresh(self.license_manager)
+        self.license_badge.configure(
+            text=self.license_manager.edition,
+            fg_color=(
+                ("#dcfce7", "#14532d")
+                if self.license_manager.is_valid
+                else ("#fef3c7", "#78350f")
+            ),
+            text_color=(
+                ("#166534", "#dcfce7")
+                if self.license_manager.is_valid
+                else ("#92400e", "#fef3c7")
+            ),
+        )
+        if announce:
+            self.set_status(
+                f"License status: {self.license_manager.mode_summary}."
+            )
+
+    def import_license_file(self, path: Path) -> None:
+        try:
+            destination = self.license_manager.import_license(path)
+            self.refresh_license_status(announce=False)
+            self.license_tab.set_message(
+                f"License imported and verified. Installed at {destination}."
+            )
+            self.tabs.set("License")
+            self.set_status(
+                f"License {self.license_manager.license_id} imported successfully."
+            )
+        except LicenseImportError as exc:
+            self.refresh_license_status(announce=False)
+            self.tabs.set("License")
+            self.set_status("License import failed; Free mode remains active.")
+            self._show_error(str(exc))
 
     def reload_from_disk(self) -> None:
         try:
@@ -291,6 +361,7 @@ class StigAuditProApp(ctk.CTk):
         profile_name: str | None = None,
     ) -> None:
         try:
+            self.license_manager.require_feature("saved_presets")
             resolved_profile = profile_name or (self.profile.profile_name if self.profile else self.profile_name)
             group = DeviceGroup(
                 group_name=group_name,
@@ -321,16 +392,30 @@ class StigAuditProApp(ctk.CTk):
         if not targets:
             self.set_status(f"No targets available for {scope} run.")
             return
-        settings = self.targets_tab.get_scan_settings()
-        if settings.get("mode") == "Live SSH":
-            self._run_live_for_targets(targets, settings, scope)
-        else:
-            self._run_sample_for_targets(targets, scope)
+        try:
+            targets = self._licensed_targets(targets)
+            checks = self._licensed_checks(self.checks)
+            settings = self.targets_tab.get_scan_settings()
+            if settings.get("mode") == "Live SSH":
+                self._run_live_for_targets(targets, settings, scope, checks)
+            else:
+                self._run_sample_for_targets(targets, scope, checks)
+        except LicensePolicyError as exc:
+            self.refresh_license_status(announce=False)
+            self.set_status("Scan blocked by the current license.")
+            self._show_error(str(exc))
 
     def run_sample_audit(self, sample_name: str) -> None:
         ip = "10.50.10.25" if sample_name == "compliant" else "10.50.10.26"
         target = DeviceTargetRecord(ip=ip, checked=True)
-        self._run_sample_for_targets([target], sample_name)
+        try:
+            targets = self._licensed_targets([target])
+            checks = self._licensed_checks(self.checks)
+            self._run_sample_for_targets(targets, sample_name, checks)
+        except LicensePolicyError as exc:
+            self.refresh_license_status(announce=False)
+            self.set_status("Demo scan blocked by the current license.")
+            self._show_error(str(exc))
 
     def update_report_summary(self, results: list[CheckResult]) -> None:
         self.reports_tab.refresh(results)
@@ -338,6 +423,7 @@ class StigAuditProApp(ctk.CTk):
 
     def export_text_report(self, path: Path) -> None:
         try:
+            self.license_manager.require_feature("advanced_reporting")
             if not self.results:
                 raise ValueError("Run a scan before exporting a report.")
             destination = write_text_report(self.results, path)
@@ -349,6 +435,7 @@ class StigAuditProApp(ctk.CTk):
 
     def export_csv_report(self, path: Path) -> None:
         try:
+            self.license_manager.require_feature("advanced_reporting")
             if not self.results:
                 raise ValueError("Run a scan before exporting a report.")
             destination = write_csv_report(self.results, path)
@@ -370,6 +457,14 @@ class StigAuditProApp(ctk.CTk):
         """Run only the IOS-XE L2 library and optionally write CKL/TXT artifacts."""
 
         try:
+            self.license_manager.reload()
+            self.license_manager.require_feature("l2_checks", refresh=False)
+            if create_ckl:
+                self.license_manager.require_feature("ckl_export", refresh=False)
+            if create_text:
+                self.license_manager.require_feature(
+                    "advanced_reporting", refresh=False
+                )
             if not create_ckl and not create_text:
                 raise ValueError("Select Fill CKL, Create text report, or both.")
             if output_dir is None:
@@ -393,6 +488,7 @@ class StigAuditProApp(ctk.CTk):
             targets = self.targets_tab.get_targets("checked")
             if not targets:
                 raise ValueError("Check at least one target on the Targets tab.")
+            targets = self._licensed_targets(targets, refresh=False)
             settings = self.targets_tab.get_scan_settings()
             if settings.get("mode") != "Live SSH":
                 raise ValueError(
@@ -580,7 +676,12 @@ class StigAuditProApp(ctk.CTk):
         if announce:
             self.set_status(f"Selected site profile {self.profile.profile_name}.")
 
-    def _run_sample_for_targets(self, targets: list[DeviceTargetRecord], label: str) -> None:
+    def _run_sample_for_targets(
+        self,
+        targets: list[DeviceTargetRecord],
+        label: str,
+        checks: list[CheckDefinition],
+    ) -> None:
         if self.profile is None:
             self.reload_from_disk()
         if self.profile is None:
@@ -592,7 +693,7 @@ class StigAuditProApp(ctk.CTk):
                 engine = CheckEngine(profile)
                 sample_name = self._sample_name_for_target(target)
                 outputs = self._load_sample_outputs(sample_name)
-                results.extend(engine.evaluate_all(self.checks, outputs=outputs, ip=target.ip))
+                results.extend(engine.evaluate_all(checks, outputs=outputs, ip=target.ip))
             self.results = results
             self.results_tab.refresh(self.results)
             self.update_report_summary(self.results)
@@ -612,6 +713,7 @@ class StigAuditProApp(ctk.CTk):
         targets: list[DeviceTargetRecord],
         settings: dict[str, object],
         label: str,
+        checks: list[CheckDefinition],
     ) -> None:
         username = str(settings.get("username") or "")
         password = str(settings.get("password") or "")
@@ -624,7 +726,7 @@ class StigAuditProApp(ctk.CTk):
             password=password,
             secret=settings.get("secret") if isinstance(settings.get("secret"), str) else None,
         )
-        commands = plan_commands(self.checks, run_all=False)
+        commands = plan_commands(checks, run_all=False)
         runner = NetmikoSshRunner(CommandOutputCache(self.root_dir / "work" / "cache" / "ssh"))
         results: list[CheckResult] = []
         for index, target in enumerate(targets, start=1):
@@ -640,7 +742,7 @@ class StigAuditProApp(ctk.CTk):
                 continue
             profile = self._profile_for_target(target)
             engine = CheckEngine(profile)
-            results.extend(engine.evaluate_all(self.checks, outputs=run.outputs, ip=target.ip))
+            results.extend(engine.evaluate_all(checks, outputs=run.outputs, ip=target.ip))
         self.results = results
         self.results_tab.refresh(self.results)
         self.update_report_summary(self.results)
@@ -677,6 +779,46 @@ class StigAuditProApp(ctk.CTk):
         if self.profile is None:
             raise ValueError("No site profile loaded")
         return self.profile
+
+    def _licensed_targets(
+        self,
+        targets: list[DeviceTargetRecord],
+        *,
+        refresh: bool = True,
+    ) -> list[DeviceTargetRecord]:
+        normalized = self.license_manager.require_scan_targets(
+            (target.ip for target in targets),
+            refresh=refresh,
+        )
+        first_by_ip: dict[str, DeviceTargetRecord] = {}
+        for target in targets:
+            target_ip = self.license_manager.normalize_unique_targets([target.ip])[0]
+            if target_ip not in first_by_ip:
+                if hasattr(target, "model_copy"):
+                    normalized_target = target.model_copy(update={"ip": target_ip})
+                else:
+                    normalized_target = target.copy(update={"ip": target_ip})
+                first_by_ip[target_ip] = normalized_target
+        return [first_by_ip[ip] for ip in normalized]
+
+    def _licensed_checks(
+        self, checks: list[CheckDefinition]
+    ) -> list[CheckDefinition]:
+        allowed: list[CheckDefinition] = []
+        for check in checks:
+            if check.stig_family == "IOSXE_L2":
+                if self.license_manager.feature_enabled("l2_checks"):
+                    allowed.append(check)
+            elif check.stig_family == "IOSXE_NDM":
+                if self.license_manager.feature_enabled("ndm_checks"):
+                    allowed.append(check)
+            else:
+                allowed.append(check)
+        if not allowed:
+            raise LicensePolicyError(
+                "The current license does not enable any of the selected L2 or NDM checks."
+            )
+        return allowed
 
     def _sample_name_for_target(self, target: DeviceTargetRecord) -> str:
         return "noncompliant" if target.ip.endswith(".26") else "compliant"

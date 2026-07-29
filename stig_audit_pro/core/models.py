@@ -31,7 +31,9 @@ CheckTypeLiteral = Literal[
     "acl_deny_logging_policy",
     "dhcp_snooping_policy",
     "arp_inspection_policy",
+    "radius_server_policy",
     "root_guard_neighbor_policy",
+    "vty_session_limit_policy",
     "manual_review",
 ]
 
@@ -147,6 +149,7 @@ class RootGuardPolicy(StrictModel):
 class EndpointAuthenticationPolicy(StrictModel):
     radius_group: str = "ISE-RADIUS"
     radius_servers: list[str] = Field(default_factory=list)
+    radius_server_addresses: dict[str, str] = Field(default_factory=dict)
 
 
 class ProfileComments(StrictModel):

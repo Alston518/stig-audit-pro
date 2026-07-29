@@ -19,6 +19,8 @@ Implemented now:
 - L2 checklist workflow with optional combined text report and selectable destination.
 - Starter manual-review check generation from imported STIG ZIP/XML metadata.
 - Cyber.mil lookup for Cisco IOS-XE switch STIG bundles, with direct quarterly package fallback.
+- Offline Ed25519 licensing with centralized feature/device enforcement, a
+  customer License tab, and a publisher-only administration CLI.
 
 Not implemented yet:
 
@@ -30,6 +32,24 @@ Not implemented yet:
 
 ```powershell
 python -m pytest
+```
+
+## Offline Licensing
+
+Without an installed license, STIG Audit Pro runs in Free mode with a
+one-unique-device scan limit. Signed licenses are verified locally; the
+customer application contains public keys only and never requires a network
+connection or database.
+
+Publisher key generation, license issuance, per-platform customer locations,
+public-key registration/rotation, build verification, and the manual acceptance
+test are documented in
+[`docs/OFFLINE_LICENSING.md`](docs/OFFLINE_LICENSING.md).
+
+The publisher CLI is intentionally outside the customer package:
+
+```powershell
+python -m tools.license_admin --help
 ```
 
 ## Add Or Edit Checks

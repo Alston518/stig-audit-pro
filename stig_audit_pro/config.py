@@ -4,6 +4,7 @@ from __future__ import annotations
 
 APP_NAME = "stig-audit-pro"
 APP_VERSION = "0.1.0"
+LICENSE_FILENAME = "stig-audit-pro.license.json"
 
 DEFAULT_SHOW_COMMANDS: tuple[str, ...] = (
     "terminal length 0",
@@ -40,7 +41,9 @@ SUPPORTED_CHECK_TYPES: tuple[str, ...] = (
     "acl_deny_logging_policy",
     "dhcp_snooping_policy",
     "arp_inspection_policy",
+    "radius_server_policy",
     "root_guard_neighbor_policy",
+    "vty_session_limit_policy",
     "manual_review",
 )
 

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 
 def main() -> None:
+    from stig_audit_pro.logging_config import configure_logging
+
+    configure_logging()
     try:
         from stig_audit_pro.gui import run_gui
     except ImportError as exc:

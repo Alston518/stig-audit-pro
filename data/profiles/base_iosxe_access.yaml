@@ -33,6 +33,11 @@ endpoint_authentication:
   radius_servers:
   - ISE1-EDU-01
   - ISE2-EDU-02
+  # Map each required RADIUS server name to the IPv4 address expected in
+  # its "radius server <name>" configuration section.
+  radius_server_addresses:
+    ISE1-EDU-01: 172.16.100.18
+    ISE2-EDU-02: 172.16.100.19
 comments:
   default_open_prefix: Automated STIG validation found noncompliant configuration.
   default_pass_prefix: Automated STIG validation found required configuration present.
@@ -42,3 +47,26 @@ variables:
   required_user_vlans:
   - 556
   - 565
+  # List the exact hostname or IP address that follows each required
+  # "logging host" command. At least two servers must be listed.
+  logging_servers:
+  - 172.16.100.5
+  - 172.16.100.6
+  # List at least two exact hostnames or IP addresses that follow
+  # "ntp server" in the running configuration.
+  ntp_servers:
+  - 172.16.100.28
+  - 172.16.100.22
+  # List every IOS-XE release currently approved by the organization and
+  # confirmed to remain supported by Cisco. Use the exact "show version" value.
+  supported_iosxe_versions:
+  - 17.12.07a
+  # Name referenced after "common-criteria-policy" on the one permitted
+  # local username command.
+  local_password_policy: PASSWORD_POLICY
+  # AAA TACACS+ server-group name used before "local" in the default
+  # login authentication method list.
+  tacacs_group: ISE-TACACS
+  # Organization-defined maximum number of concurrent management sessions.
+  # When session-limit is unavailable, the check counts configured VTY lines.
+  max_concurrent_management_sessions: 16

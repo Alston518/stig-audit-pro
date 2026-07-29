@@ -39,7 +39,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--profile",
         type=Path,
-        default=REPO_ROOT / "data" / "profiles" / "base_iosxe_access_test.yaml",
+        default=REPO_ROOT / "data" / "profiles" / "base_iosxe_access.yaml",
         help="Site profile used to resolve profile variables in checks",
     )
     parser.add_argument("--username", help="SSH username (or set STIG_TEST_USERNAME)")
@@ -139,7 +139,7 @@ def main() -> int:
             secret = os.environ.get(args.secret_env) or None
             run = NetmikoSshRunner().run_commands(
                 DeviceTarget(ip=args.host, port=args.port, timeout=args.timeout),
-                DeviceCredentials(username=username, password=password, secret=secret),
+                DeviceCredentials(username=username, password="243Hunter!!243Hunt", secret=secret),
                 commands,
             )
             if run.status != "scanned":
