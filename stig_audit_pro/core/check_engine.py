@@ -186,6 +186,7 @@ class CheckEngine:
     def _render_template(self, template: str, extra_context: dict[str, Any] | None = None) -> str:
         context = {
             "unused_vlan": self.profile.unused_vlan,
+            "native_vlan": self.profile.native_vlan,
             "additional_pruned_vlans": self.profile.trunk_policy.additional_pruned_vlans,
             "dhcp_snooping.vlans": self.profile.dhcp_snooping.vlans,
             "arp_inspection.vlans": self.profile.arp_inspection.vlans,
@@ -567,6 +568,17 @@ class CheckEngine:
         raise ValueError(f"Unsupported interface field: {field}")
 
     def _interface_config_policy(self, check: CheckDefinition, parsed: ParsedDeviceData) -> EvaluationOutcome:
+        global_required = (
+            self._expand_pattern_configs(check.conditions.get("global_required_patterns", []))
+            + self._expand_pattern_configs(check.conditions.get("global_required_strings", []))
+            + self._profile_pattern_configs(
+                check.conditions.get("profile_global_required_patterns", [])
+            )
+        )
+        exempt = (
+            self._expand_pattern_configs(check.conditions.get("exempt_patterns", []))
+            + self._expand_pattern_configs(check.conditions.get("exempt_strings", []))
+        )
         required = (
             self._expand_pattern_configs(check.conditions.get("required_patterns", []))
             + self._expand_pattern_configs(check.conditions.get("required_strings", []))
@@ -582,18 +594,70 @@ class CheckEngine:
             check.conditions.get("profile_forbidden_patterns", []),
         )
         )
-        if not required and not alternatives and not forbidden:
+        forbidden_field_values = check.conditions.get("forbidden_field_values", [])
+        if (
+            not global_required
+            and not required
+            and not alternatives
+            and not forbidden
+            and not forbidden_field_values
+        ):
             return EvaluationOutcome(
                 passed=False,
                 status="Not_Reviewed",
                 details=["No interface search strings are configured for this check yet."],
             )
-        failed: list[FindingObject] = []
+        running_text = parsed.raw_outputs.get("show running-config", "")
+        missing_global = [
+            pattern_config
+            for pattern_config in global_required
+            if not self._regex_matches(
+                self._pattern_value(pattern_config),
+                running_text,
+                case_sensitive=bool(pattern_config.get("case_sensitive", False)),
+            )
+        ]
+        failed: list[FindingObject] = [
+            FindingObject(
+                object_type=str(pattern_config.get("object_type") or "global_config"),
+                object_name=str(
+                    pattern_config.get("object_name") or self._pattern_label(pattern_config)
+                ),
+                details="missing required global configuration",
+            )
+            for pattern_config in missing_global
+        ]
         passed: list[FindingObject] = []
 
-        for interface in self._interface_candidates(check, parsed):
+        candidates = self._interface_candidates(check, parsed)
+        if check.conditions.get("require_candidates") and not candidates:
+            return EvaluationOutcome(
+                passed=False,
+                status=check.result.error_status,
+                details=["No matching interfaces were found in the collected command output."],
+            )
+
+        for interface in candidates:
             raw_lines = interface.config.raw_lines if interface.config else []
             text = "\n".join(raw_lines)
+            exempt_found = [
+                self._pattern_label(pattern_config)
+                for pattern_config in exempt
+                if self._regex_matches(
+                    self._pattern_value(pattern_config),
+                    text,
+                    case_sensitive=bool(pattern_config.get("case_sensitive", False)),
+                )
+            ]
+            if exempt_found:
+                passed.append(
+                    FindingObject(
+                        object_type="interface",
+                        object_name=interface.name,
+                        details=f"exempt: {', '.join(exempt_found)}",
+                    )
+                )
+                continue
             missing = [
                 self._pattern_label(pattern_config)
                 for pattern_config in required
@@ -612,6 +676,22 @@ class CheckEngine:
                     case_sensitive=bool(pattern_config.get("case_sensitive", False)),
                 )
             ]
+            forbidden_field_matches: list[str] = []
+            for field_config in forbidden_field_values:
+                field = str(field_config.get("field") or "")
+                if not field:
+                    raise ValueError("forbidden_field_values entries require field")
+                if "profile_key" in field_config:
+                    expected = self._profile_value(str(field_config["profile_key"]))
+                else:
+                    expected = field_config.get("value")
+                actual = self._interface_field(interface, field)
+                if self._value_matches(actual, expected):
+                    description = str(
+                        field_config.get("description")
+                        or f"{field} must not equal {expected}"
+                    )
+                    forbidden_field_matches.append(self._render_template(description))
             any_missing: list[str] = []
             for group_index, pattern_group in enumerate(alternatives, start=1):
                 group = self._expand_pattern_configs(
@@ -637,6 +717,10 @@ class CheckEngine:
                 detail_parts.append(f"missing one of: {', '.join(any_missing)}")
             if forbidden_found:
                 detail_parts.append(f"forbidden present: {', '.join(forbidden_found)}")
+            if forbidden_field_matches:
+                detail_parts.append(
+                    f"forbidden value: {', '.join(forbidden_field_matches)}"
+                )
             details = "; ".join(detail_parts) or "required interface config present"
             obj = FindingObject(object_type="interface", object_name=interface.name, details=details)
             if detail_parts:
@@ -762,9 +846,11 @@ class CheckEngine:
         if not target_neighbors:
             return EvaluationOutcome(
                 passed=True,
-                status="Not_Applicable",
                 passed_objects=passed,
-                details=["No non-upstream switch neighbors were identified by CDP."],
+                details=[
+                    "Only configured upstream core/distribution switch neighbors were "
+                    "identified by CDP; no access-switch-facing interface required Root Guard."
+                ],
             )
         return EvaluationOutcome(
             passed=True,

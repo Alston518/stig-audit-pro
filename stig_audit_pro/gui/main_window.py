@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 from typing import Any, TypeVar
 
@@ -28,6 +29,13 @@ from stig_audit_pro.gui.widgets import configure_treeview_style
 from stig_audit_pro.reports.audit_report import write_csv_report, write_text_report
 from stig_audit_pro.storage.device_groups import DeviceGroup, DeviceGroupStore, DeviceTargetRecord
 from stig_audit_pro.stig.check_generator import build_manual_starter_library, write_manual_starter_library
+from stig_audit_pro.stig.ckl_writer import (
+    CklAsset,
+    checklist_vuln_ids,
+    extract_ckl_asset,
+    safe_device_filename,
+    write_completed_ckl,
+)
 from stig_audit_pro.stig.source_manager import StigSourceError, StigSourceManager
 from stig_audit_pro.stig.stig_metadata import StigBenchmarkMetadata
 
@@ -37,6 +45,7 @@ COMMAND_FILES = {
     "show running-config": "show_running_config.txt",
     "show vtp status": "show_vtp_status.txt",
     "show interfaces status": "show_interfaces_status.txt",
+    "show interfaces switchport | include Negotiation of Trunking": "show_interfaces_switchport_negotiation.txt",
     "show interfaces trunk": "show_interfaces_trunk.txt",
     "show cdp neighbors detail": "show_cdp_neighbors_detail.txt",
     "show ip access-lists": "show_ip_access_lists.txt",
@@ -67,6 +76,7 @@ class StigAuditProApp(ctk.CTk):
         self.checks = []
         self.profile: SiteProfile | None = None
         self.results: list[CheckResult] = []
+        self.last_artifacts: list[Path] = []
         self.stig_metadata: list[StigBenchmarkMetadata] = []
 
         self.title(f"STIG Audit Pro {APP_VERSION}")
@@ -347,6 +357,175 @@ class StigAuditProApp(ctk.CTk):
         except Exception as exc:
             self.set_status("CSV report export failed.")
             self._show_error(str(exc))
+
+    def run_l2_checklist_audit(
+        self,
+        *,
+        ckl_path: Path | None,
+        output_dir: Path | None,
+        create_ckl: bool,
+        create_text: bool,
+        append_comments: bool,
+    ) -> None:
+        """Run only the IOS-XE L2 library and optionally write CKL/TXT artifacts."""
+
+        try:
+            if not create_ckl and not create_text:
+                raise ValueError("Select Fill CKL, Create text report, or both.")
+            if output_dir is None:
+                raise ValueError("Select a destination folder for the completed files.")
+            output_dir.mkdir(parents=True, exist_ok=True)
+            if create_ckl:
+                if ckl_path is None:
+                    raise ValueError("Select the L2 CKL template to populate.")
+                template_ids = checklist_vuln_ids(ckl_path)
+            else:
+                template_ids = set()
+
+            checks = [check for check in self.checks if check.stig_family == "IOSXE_L2"]
+            if not checks:
+                raise ValueError("No IOSXE_L2 checks are loaded.")
+            if create_ckl and not (template_ids & {check.vuln_id for check in checks}):
+                raise ValueError(
+                    "The selected CKL does not contain vulnerability IDs from the IOS-XE L2 library."
+                )
+
+            targets = self.targets_tab.get_targets("checked")
+            if not targets:
+                raise ValueError("Check at least one target on the Targets tab.")
+            settings = self.targets_tab.get_scan_settings()
+            if settings.get("mode") != "Live SSH":
+                raise ValueError(
+                    "The CKL workflow requires Live SSH. On the Targets tab, "
+                    "change Scan Mode from Sample outputs to Live SSH."
+                )
+            results, assets = self._run_l2_targets(targets, settings, checks)
+
+            artifacts: list[Path] = []
+            unmatched_count = 0
+            if create_ckl and ckl_path is not None:
+                for target in targets:
+                    asset = assets.get(target.ip)
+                    device_results = [
+                        result
+                        for result in results
+                        if result.ip == target.ip and result.stig_family == "IOSXE_L2"
+                    ]
+                    if asset is None or not device_results:
+                        continue
+                    filename = (
+                        f"{safe_device_filename(asset.hostname)}_"
+                        f"{safe_device_filename(target.ip)}_IOSXE_L2_completed.ckl"
+                    )
+                    summary = write_completed_ckl(
+                        ckl_path,
+                        output_dir / filename,
+                        device_results,
+                        asset,
+                        append_comments=append_comments,
+                    )
+                    artifacts.append(summary.path)
+                    unmatched_count += len(summary.unmatched_result_ids)
+
+            if create_text:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                report_path = output_dir / f"IOSXE_L2_audit_{timestamp}.txt"
+                artifacts.append(write_text_report(results, report_path))
+
+            self.last_artifacts = artifacts
+            self.results = results
+            self.results_tab.refresh(results)
+            self.update_report_summary(results)
+            self.tabs.set("Results")
+            open_count = sum(result.status == "Open" for result in results)
+            pass_count = sum(result.status == "NotAFinding" for result in results)
+            message = (
+                f"L2 audit complete for {len(targets)} target(s): "
+                f"{pass_count} NotAFinding, {open_count} Open; "
+                f"created {len(artifacts)} file(s) in {output_dir}."
+            )
+            if unmatched_count:
+                message += f" {unmatched_count} result(s) had no matching CKL vulnerability."
+            self.stig_tab.set_checklist_status(message)
+            self.set_status(message)
+        except Exception as exc:
+            self.stig_tab.set_checklist_status(f"L2 checklist audit failed: {exc}")
+            self.set_status("L2 checklist audit failed.")
+            self._show_error(str(exc))
+
+    def _run_l2_targets(
+        self,
+        targets: list[DeviceTargetRecord],
+        settings: dict[str, object],
+        checks: list[CheckDefinition],
+    ) -> tuple[list[CheckResult], dict[str, CklAsset]]:
+        results: list[CheckResult] = []
+        assets: dict[str, CklAsset] = {}
+        mode = str(settings.get("mode") or "Sample outputs")
+        credentials: DeviceCredentials | None = None
+        runner: NetmikoSshRunner | None = None
+        commands = plan_commands(checks, run_all=False)
+
+        if mode == "Live SSH":
+            username = str(settings.get("username") or "")
+            password = str(settings.get("password") or "")
+            if not username or not password:
+                raise ValueError("Live SSH requires a username and password on the Targets tab.")
+            credentials = DeviceCredentials(
+                username=username,
+                password=password,
+                secret=settings.get("secret") if isinstance(settings.get("secret"), str) else None,
+            )
+            runner = NetmikoSshRunner(
+                CommandOutputCache(self.root_dir / "work" / "cache" / "ssh")
+            )
+
+        for index, target in enumerate(targets, start=1):
+            self.set_status(f"Running L2 audit on {target.ip} ({index}/{len(targets)})...")
+            self.stig_tab.set_checklist_status(
+                f"Running L2 audit on {target.ip} ({index}/{len(targets)})..."
+            )
+            self.update_idletasks()
+            if mode == "Live SSH":
+                assert runner is not None and credentials is not None
+                run = runner.run_commands(
+                    DeviceTarget(
+                        ip=target.ip,
+                        timeout=int(settings.get("timeout") or 30),
+                    ),
+                    credentials,
+                    commands,
+                )
+                if run.status == "skipped":
+                    results.append(
+                        self._skipped_result(
+                            target.ip,
+                            run.error_message or "SSH connection failed",
+                            commands,
+                        )
+                    )
+                    continue
+                outputs = run.outputs
+            else:
+                outputs = self._load_sample_outputs(self._sample_name_for_target(target))
+
+            profile = self._profile_for_target(target)
+            asset = extract_ckl_asset(
+                outputs,
+                target.ip,
+                management_vlan=profile.management_vlan,
+            )
+            assets[target.ip] = asset
+            engine = CheckEngine(profile)
+            results.extend(
+                engine.evaluate_all(
+                    checks,
+                    outputs=outputs,
+                    ip=target.ip,
+                    hostname=asset.hostname,
+                )
+            )
+        return results, assets
 
     def validate_check_yaml(self, text: str) -> tuple[bool, str]:
         try:

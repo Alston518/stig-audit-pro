@@ -15,12 +15,14 @@ Implemented now:
 - Overview dashboard for library status, scan actions, and last-run findings.
 - GUI validation and save actions for check YAML and profile YAML.
 - TXT summary and CSV detail report export from scan results.
+- L2 CKL template population with one completed checklist per target.
+- L2 checklist workflow with optional combined text report and selectable destination.
 - Starter manual-review check generation from imported STIG ZIP/XML metadata.
 - Cyber.mil lookup for Cisco IOS-XE switch STIG bundles, with direct quarterly package fallback.
 
 Not implemented yet:
 
-- CKL writer.
+- NDM CKL workflow.
 - Excel workbook reports.
 - Multi-device concurrent scan orchestration.
 
@@ -56,7 +58,7 @@ The loader reads the base profile first, then overlays the site profile.
 python app.py
 ```
 
-The GUI supports target management, sample scans, live SSH scans, check/profile YAML editing, STIG metadata viewing, results review, and TXT/CSV report export. CKL writing and Excel workbook reports remain later milestones.
+The GUI supports target management, sample scans, live SSH scans, check/profile YAML editing, STIG metadata viewing, results review, TXT/CSV report export, and an L2 CKL test workflow.
 
 ## Target Workbench
 
@@ -115,7 +117,17 @@ After running a sample or live SSH scan, open the Reports tab. The tab shows com
 - `Save TXT Summary` for a readable scan summary with device totals, open findings, failed objects, errors, and skipped devices.
 - `Save CSV Details` for row-level results that can be opened in Excel or filtered by IP, status, STIG family, severity, or Vuln ID.
 
-These reports are not CKL files. CKL generation remains a separate milestone.
+The Reports tab exports standalone TXT and CSV files. The STIG / CKL tab contains the L2 checklist workflow.
+
+## L2 Checklist Test Workflow
+
+1. On the Targets tab, add one or more IP addresses, check the devices to audit, select `Live SSH`, and enter session credentials.
+2. Select the site profile whose VLAN, RADIUS, Root Guard, and other site values match the targets.
+3. On the STIG / CKL tab, browse to an IOS-XE L2 `.ckl` template and choose a destination folder.
+4. Select `Fill CKL`, `Create text report`, or both, then choose `Run Checked Targets — L2`.
+5. Review the scan in the Results tab. The destination receives one completed CKL per successfully scanned target and, when selected, one combined TXT report.
+
+The source CKL is not modified. The completed checklist uses the switch hostname and the IPv4 address configured under the profile-defined management SVI (`management_vlan`, default `300`) for CKL asset fields. If that SVI address is unavailable, the scan target IP is used.
 
 ## STIG Sources
 

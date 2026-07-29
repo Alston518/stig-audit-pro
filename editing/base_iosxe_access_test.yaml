@@ -1,7 +1,11 @@
-profile_name: base_iosxe_access
+# Editable test copy of data/profiles/base_iosxe_access.yaml.
+# Use this file while developing checks so the production base profile is unchanged.
+profile_name: base_iosxe_access_test
 inherits: null
 unused_vlan: 999
+# Native VLAN used on trunk links. No access port may be assigned to this VLAN.
 native_vlan: 333
+# SVI used to populate HOST_IP in completed CKL files.
 management_vlan: 300
 disabled_port_policy:
   require_shutdown: true
@@ -24,8 +28,7 @@ arp_inspection:
 root_guard:
   # Enter Device ID hostnames from "show cdp neighbors detail". Short names and FQDNs both match.
   # A matching core/distribution neighbor exempts only the local interface connected to that neighbor.
-  upstream_switches:
-  - C9606R-cedu-carpa-650-2015-11-1
+  upstream_switches: []
 endpoint_authentication:
   # Match the name after: aaa group server radius <group-name>
   radius_group: ISE-RADIUS
@@ -40,5 +43,6 @@ comments:
 variables:
   site_label: Test IOS-XE access switch profile
   required_user_vlans:
-  - 556
-  - 565
+  - 10
+  - 20
+  - 30

@@ -1,6 +1,12 @@
 ﻿version 17.9
 hostname SW-ACCESS-01
 !
+aaa group server radius ISE-RADIUS
+ server name ISE1-EDU-01
+ server name ISE2-EDU-02
+!
+udld enable
+!
 spanning-tree mode rapid-pvst
 spanning-tree loopguard default
 !
@@ -21,6 +27,7 @@ interface GigabitEthernet1/0/1
  switchport access vlan 10
  authentication port-control auto
  dot1x pae authenticator
+ mab
  spanning-tree bpduguard enable
  switchport block unicast
  ip verify source
@@ -31,12 +38,26 @@ interface GigabitEthernet1/0/2
  description UNUSED-SHUTDOWN
  switchport mode access
  switchport access vlan 999
+ authentication port-control auto
+ dot1x pae authenticator
+ mab
+ spanning-tree bpduguard enable
+ switchport block unicast
+ storm-control broadcast level bps 20000000
+ ip verify source
  shutdown
 !
 interface GigabitEthernet1/0/3
  description SPARE-NOTCONNECTED
  switchport mode access
  switchport access vlan 999
+ authentication port-control auto
+ dot1x pae authenticator
+ mab
+ spanning-tree bpduguard enable
+ switchport block unicast
+ storm-control broadcast level bps 20000000
+ ip verify source
  shutdown
 !
 interface GigabitEthernet1/0/24

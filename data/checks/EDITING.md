@@ -139,3 +139,42 @@ Current NDM status:
 - 33 editable string-search placeholders with blank `strings` lists.
 - 1 automated ACL deny logging check.
 - 8 manual or fixed-status entries for checks that still need better logic or were called out as N/A, NotAFinding, or Open in the spreadsheet.
+
+## Testing One or More Checks From the Command Line
+
+Copy complete check entries from `data/checks/iosxe_l2.yaml` into
+`editing/check_test.yaml`, under `checks:`. Do not edit the production check file
+until the test behaves as expected.
+
+Run the copied checks against a live switch:
+
+```powershell
+python scripts/test_checks.py editing/check_test.yaml --host 10.0.0.10
+```
+
+The script prompts for the SSH username and password. Password input is hidden.
+It only permits the read-only commands accepted by the application's command
+planner. To use a different profile:
+
+```powershell
+python scripts/test_checks.py editing/check_test.yaml --host 10.0.0.10 --profile data/profiles/example_site.yaml
+```
+
+You can keep several checks in the test file and run selected IDs:
+
+```powershell
+python scripts/test_checks.py editing/check_test.yaml --host 10.0.0.10 --only V-220655 V-220657
+```
+
+For an offline test, place command output text files in a directory. Convert the
+command to lowercase, replace spaces and punctuation with underscores, and add
+`.txt`; for example, `show running-config` becomes
+`show_running_config.txt`.
+
+```powershell
+python scripts/test_checks.py editing/check_test.yaml --outputs-dir tests/sample_outputs/compliant
+```
+
+Add `--json work/check-test-results.json` to save the complete result details.
+The exit code is `0` when no result is Open or Error, `1` when a check is Open or
+Error, and `2` for invalid YAML, missing output, unsafe commands, or SSH failure.

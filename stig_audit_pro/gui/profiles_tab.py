@@ -33,6 +33,8 @@ class ProfilesTab(PageFrame):
         labels = [
             ("profile_name", "Name"),
             ("unused_vlan", "Unused VLAN"),
+            ("native_vlan", "Native VLAN"),
+            ("management_vlan", "Management VLAN"),
             ("disabled_vlan", "Disabled Port VLAN"),
             ("trunk_prune", "VLAN 1 Pruned"),
             ("dhcp_vlans", "DHCP Snooping VLANs"),
@@ -41,9 +43,9 @@ class ProfilesTab(PageFrame):
         for offset, (key, text) in enumerate(labels, start=3):
             self.value_labels[key] = label_value(left, offset, text, "-")
 
-        ctk.CTkButton(left, text="Reload Profile", command=app_controller.reload_from_disk).grid(row=10, column=0, columnspan=2, sticky="ew", padx=12, pady=(18, 6))
-        ctk.CTkButton(left, text="Validate Profile YAML", command=self._validate_yaml).grid(row=11, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 6))
-        ctk.CTkButton(left, text="Save Profile YAML", command=self._save_yaml).grid(row=12, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 12))
+        ctk.CTkButton(left, text="Reload Profile", command=app_controller.reload_from_disk).grid(row=12, column=0, columnspan=2, sticky="ew", padx=12, pady=(18, 6))
+        ctk.CTkButton(left, text="Validate Profile YAML", command=self._validate_yaml).grid(row=13, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 6))
+        ctk.CTkButton(left, text="Save Profile YAML", command=self._save_yaml).grid(row=14, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 12))
 
         right = ctk.CTkFrame(self, fg_color="transparent")
         right.grid(row=0, column=1, sticky="nsew", padx=(6, 12), pady=12)
@@ -62,6 +64,8 @@ class ProfilesTab(PageFrame):
         self.editor.set_status("Profile loaded")
         self.value_labels["profile_name"].configure(text=profile.profile_name)
         self.value_labels["unused_vlan"].configure(text=str(profile.unused_vlan))
+        self.value_labels["native_vlan"].configure(text=str(profile.native_vlan))
+        self.value_labels["management_vlan"].configure(text=str(profile.management_vlan))
         self.value_labels["disabled_vlan"].configure(text=str(profile.disabled_port_policy.required_access_vlan))
         self.value_labels["trunk_prune"].configure(text=str(profile.trunk_policy.vlan_1_must_be_pruned))
         self.value_labels["dhcp_vlans"].configure(text=", ".join(str(vlan) for vlan in profile.dhcp_snooping.vlans))

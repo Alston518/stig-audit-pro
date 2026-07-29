@@ -26,7 +26,14 @@ class InterfaceView:
 
     @property
     def switchport_mode(self) -> str | None:
-        return self.config.switchport_mode if self.config else None
+        if self.config and self.config.switchport_mode:
+            return self.config.switchport_mode
+        # IOS-XE reports a numeric VLAN for access ports in "show interfaces
+        # status". Use that as a fallback when the running config relies on the
+        # default access mode and has no explicit "switchport mode access".
+        if self.status and self.status.vlan is not None:
+            return "access"
+        return None
 
     @property
     def access_vlan(self) -> int | None:

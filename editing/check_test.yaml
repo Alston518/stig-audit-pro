@@ -1,0 +1,34 @@
+library_name: iosxe_l2_test
+
+checks:
+  - vuln_id: V-220673
+    stig_id: CISC-L2-000270
+    title: The Cisco switch must not have any switchports assigned to the native VLAN.
+    looking_for: Ensure no physical switchport is assigned as an access port in the profile-defined native VLAN
+    stig_family: IOSXE_L2
+    severity: cat3
+    check_type: interface_config_policy
+    commands:
+      - show interfaces status
+    automated: true
+    scope:
+      interfaces:
+        include:
+          - type: physical
+    conditions:
+      require_candidates: true
+      forbidden_field_values:
+        - field: access_vlan
+          profile_key: native_vlan
+          description: access VLAN matches native VLAN {{ native_vlan }}
+    result:
+      pass_status: NotAFinding
+      fail_status: Open
+      error_status: Error
+    evidence:
+      include_command_output: false
+      include_failed_objects: true
+      pass_comment: No physical switchports are assigned to native VLAN {{ native_vlan }}.
+      fail_comment: One or more physical switchports are assigned to native VLAN {{ native_vlan }}.
+      error_comment: Switchport VLAN assignments could not be evaluated.
+      finding_details_template: default

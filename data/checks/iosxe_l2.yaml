@@ -2,30 +2,49 @@ library_name: iosxe_l2
 checks:
 - vuln_id: V-220649
   stig_id: CISC-L2-000020
-  title: The Cisco switch must uniquely identify and authenticate all network-connected endpoint devices before establishing
-    any connection.
-  looking_for: Looking for list of strings in "show run"
+  title: The Cisco switch must uniquely identify and authenticate all network-connected endpoint devices before establishing any connection.
+  looking_for: Require 802.1X and MAB on every physical access port and require all profile-defined RADIUS servers in the profile-defined AAA server group
   stig_family: IOSXE_L2
   severity: cat1
-  check_type: command_pattern_policy
+  check_type: interface_config_policy
   commands:
   - show running-config
+  - show interfaces status
   automated: true
-  scope: {}
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          switchport_mode: access
   conditions:
-    all:
-    - command: show running-config
-      strings: []
+    required_patterns:
+    - pattern: ^authentication port-control auto$
+      description: authentication port-control auto
+    - pattern: ^dot1x pae authenticator$
+      description: dot1x pae authenticator
+    - pattern: ^mab$
+      description: mab
+    global_required_patterns:
+    - pattern: ^aaa group server radius\s+{{ endpoint_authentication.radius_group }}\s*$
+      description: RADIUS group {{ endpoint_authentication.radius_group }}
+      object_type: radius_group
+      object_name: "{{ endpoint_authentication.radius_group }}"
+    profile_global_required_patterns:
+    - profile_key: endpoint_authentication.radius_servers
+      object_type: radius_server
+      pattern_template: (?m)^aaa group server radius\s+{{ endpoint_authentication.radius_group }}\s*\r?\n(?:(?:[ \t]+[^\r\n]*)\r?\n)*[ \t]+server name\s+{{ item }}\s*$
+      description_template: RADIUS server {{ item }} in group {{ endpoint_authentication.radius_group }}
   result:
     pass_status: NotAFinding
     fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
-    include_failed_objects: false
-    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
-    fail_comment: Automated validation found missing required strings or present forbidden strings.
-    error_comment: Automated validation could not be evaluated.
+    include_failed_objects: true
+    pass_comment: All physical access ports have 802.1X and MAB, and all profile-defined RADIUS servers are configured in the required AAA group.
+    fail_comment: One or more access-port authentication commands, the required AAA RADIUS group, or a profile-defined RADIUS server is missing.
+    error_comment: Endpoint authentication configuration could not be evaluated.
     finding_details_template: default
 - vuln_id: V-220650
   stig_id: CISC-L2-000030
@@ -63,18 +82,14 @@ checks:
   stig_id: CISC-L2-000040
   title: The Cisco switch must manage excess bandwidth to limit the effects of packet flooding types of denial-of-service
     (DoS) attacks.
-  looking_for: Looking for list of strings in "show run"
+  looking_for: QoS is not currently configured; retain as Open until the site QoS policy is implemented and this check is automated
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: command_pattern_policy
-  commands:
-  - show running-config
-  automated: true
+  check_type: manual_review
+  commands: []
+  automated: false
   scope: {}
-  conditions:
-    all:
-    - command: show running-config
-      strings: []
+  conditions: {}
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -82,10 +97,10 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
-    fail_comment: Automated validation found missing required strings or present forbidden strings.
-    error_comment: Automated validation could not be evaluated.
-    finding_details_template: default
+    pass_comment: QoS configuration was manually reviewed and satisfies this requirement.
+    fail_comment: Open pending QoS implementation. Configure and validate the site QoS policy, then replace this placeholder with an automated check.
+    error_comment: QoS configuration review could not be prepared.
+    finding_details_template: manual_review
 - vuln_id: V-220655
   stig_id: CISC-L2-000090
   title: The Cisco switch must have Root Guard enabled on all switch ports connecting to access layer switches.
@@ -131,7 +146,6 @@ checks:
       - type: physical
         match:
           switchport_mode: access
-          status: connected
   conditions:
     required_strings:
     - spanning-tree bpduguard enable
@@ -190,7 +204,6 @@ checks:
       - type: physical
         match:
           switchport_mode: access
-          status: connected
   conditions:
     required_strings:
     - switchport block unicast
@@ -208,7 +221,7 @@ checks:
 - vuln_id: V-220659
   stig_id: CISC-L2-000130
   title: The Cisco switch must have DHCP snooping for all user VLANs to validate DHCP messages from untrusted sources.
-  looking_for: Looking for specific vlan numbers in "show run | inc "ip dhcp snooping"
+  looking_for: Ensure global DHCP snooping and all profile-defined user VLANs are configured
   stig_family: IOSXE_L2
   severity: cat2
   check_type: command_pattern_policy
@@ -255,7 +268,6 @@ checks:
       - type: physical
         match:
           switchport_mode: access
-          status: connected
   conditions:
     required_strings:
     - ip verify source
@@ -273,7 +285,7 @@ checks:
 - vuln_id: V-220661
   stig_id: CISC-L2-000150
   title: The Cisco switch must have Dynamic Address Resolution Protocol (ARP) Inspection (DAI) enabled on all user VLANs.
-  looking_for: Looking for specific vlan numbers in "show run | inc "ip arp inspection"
+  looking_for: Ensure Dynamic ARP Inspection is configured for all profile-defined user VLANs
   stig_family: IOSXE_L2
   severity: cat2
   check_type: command_pattern_policy
@@ -316,7 +328,6 @@ checks:
       - type: physical
         match:
           switchport_mode: access
-          status: connected
   conditions:
     required_strings:
     - storm-control broadcast level
@@ -334,7 +345,7 @@ checks:
 - vuln_id: V-220663
   stig_id: CISC-L2-000170
   title: The Cisco switch must have IGMP or MLD Snooping configured on all VLANs.
-  looking_for: Looking to see if a string is NOT in "show run"
+  looking_for: Ensure IGMP and IPv6 MLD snooping are not disabled globally or for individual VLANs
   stig_family: IOSXE_L2
   severity: cat3
   check_type: command_pattern_policy
@@ -344,12 +355,12 @@ checks:
   scope: {}
   conditions:
     none:
-    - strings:
-      - no ip igmp snooping
-      command: show running-config
-    - strings:
-      - no ipv6 mld snooping
-      command: show running-config
+    - command: show running-config
+      pattern: (?m)^[ \t]*no[ \t]+ip[ \t]+igmp[ \t]+snooping(?:[ \t]+vlan[ \t]+\S+)?[ \t]*$
+      description: IGMP snooping is disabled globally or for a VLAN
+    - command: show running-config
+      pattern: (?m)^[ \t]*no[ \t]+ipv6[ \t]+mld[ \t]+snooping(?:[ \t]+vlan[ \t]+\S+)?[ \t]*$
+      description: IPv6 MLD snooping is disabled globally or for a VLAN
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -357,9 +368,9 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
-    fail_comment: Automated validation found missing required strings or present forbidden strings.
-    error_comment: Automated validation could not be evaluated.
+    pass_comment: IGMP and IPv6 MLD snooping are not disabled globally or for individual VLANs.
+    fail_comment: IGMP or IPv6 MLD snooping is disabled globally or for one or more VLANs.
+    error_comment: IGMP and MLD snooping configuration could not be evaluated.
     finding_details_template: default
 - vuln_id: V-220664
   stig_id: CISC-L2-000180
@@ -394,7 +405,7 @@ checks:
 - vuln_id: V-220665
   stig_id: CISC-L2-000190
   title: The Cisco switch must enable Unidirectional Link Detection (UDLD) to protect against one-way connections.
-  looking_for: Looking for list of strings in "show run| inc udld"
+  looking_for: Looking for list of strings in "show run | inc udld"
   stig_family: IOSXE_L2
   severity: cat2
   check_type: command_pattern_policy
@@ -405,7 +416,8 @@ checks:
   conditions:
     all:
     - command: show running-config
-      strings: []
+      strings:
+      - udld enable
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -420,26 +432,23 @@ checks:
 - vuln_id: V-220666
   stig_id: CISC-L2-000200
   title: The Cisco switch must have all trunk links enabled statically.
-  looking_for: Looking for string "On" to NOT be in "show int switchport | inc Negotiation"
+  looking_for: Ensure all switchports report Negotiation of Trunking as Off
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: interface_config_policy
+  check_type: command_pattern_policy
   commands:
-  - show running-config
-  - show interfaces status
+  - show interfaces switchport | include Negotiation of Trunking
   automated: true
-  scope:
-    interfaces:
-      include:
-      - type: physical
-        match:
-          switchport_mode: trunk
+  scope: {}
   conditions:
-    required_strings:
-    - switchport mode trunk
-    forbidden_strings:
-    - switchport mode dynamic
-    - negotiation auto
+    all:
+    - command: show interfaces switchport | include Negotiation of Trunking
+      pattern: (?m)^[ \t]*Negotiation of Trunking:[ \t]*Off[ \t]*$
+      description: at least one switchport reports trunk negotiation Off
+    none:
+    - command: show interfaces switchport | include Negotiation of Trunking
+      pattern: (?m)^[ \t]*Negotiation of Trunking:(?![ \t]*Off[ \t]*$)[ \t]*.+$
+      description: switchport with trunk negotiation not set to Off
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -447,14 +456,14 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
-    fail_comment: Automated validation found missing required strings or present forbidden strings.
-    error_comment: Automated validation could not be evaluated.
+    pass_comment: All reported switchports have Negotiation of Trunking set to Off.
+    fail_comment: One or more switchports have Negotiation of Trunking enabled or set to an unexpected value.
+    error_comment: Trunk negotiation status could not be evaluated.
     finding_details_template: default
 - vuln_id: V-220667
   stig_id: CISC-L2-000210
   title: The Cisco switch must have all disabled switch ports assigned to an unused VLAN.
-  looking_for: '"show int status", ensure ports in the "notconnect" or "disabled" state are in vlan 999'
+  looking_for: Exempt 802.1X access ports; require all other disabled or disconnected access ports to be shut down and assigned to the unused VLAN
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -467,8 +476,12 @@ checks:
       include:
       - type: physical
         match:
+          switchport_mode: access
           admin_state: disabled_or_notconnect
   conditions:
+    exempt_strings:
+    - string: authentication port-control auto
+      description: 802.1X authentication configured
     required_patterns:
     - pattern: ^shutdown$
       description: shutdown configured
@@ -481,14 +494,14 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: Automated validation matched the configured strings/patterns for this requirement.
-    fail_comment: Automated validation found missing required strings or present forbidden strings.
-    error_comment: Automated validation could not be evaluated.
+    pass_comment: All non-exempt disabled or disconnected access ports are shut down and assigned to the unused VLAN.
+    fail_comment: One or more non-exempt disabled or disconnected access ports are not shut down or are not assigned to the unused VLAN.
+    error_comment: Disabled access-port configuration could not be evaluated.
     finding_details_template: default
 - vuln_id: V-220668
   stig_id: CISC-L2-000220
   title: The Cisco switch must not have the default VLAN assigned to any host-facing switch ports.
-  looking_for: Loop through access ports to make sure none are assigned to vlan 1
+  looking_for: Loop through access ports to make sure none are assigned to VLAN 1
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -523,7 +536,7 @@ checks:
 - vuln_id: V-220669
   stig_id: CISC-L2-000230
   title: The Cisco switch must have the default VLAN pruned from all trunk ports that do not require it.
-  looking_for: Loop through trunk ports to ensure all have vlan 1 pruned
+  looking_for: Loop through trunk ports to ensure all have VLAN 1 pruned
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -563,7 +576,7 @@ checks:
 - vuln_id: V-220670
   stig_id: CISC-L2-000240
   title: The Cisco switch must not use the default VLAN for management traffic.
-  looking_for: Ensure vlan 1 is not the management vlan, no IP assigned to it
+  looking_for: Ensure VLAN 1 is not the management VLAN and has no IP address assigned
   stig_family: IOSXE_L2
   severity: cat2
   check_type: command_pattern_policy
@@ -574,7 +587,7 @@ checks:
   conditions:
     none:
     - command: show running-config
-      pattern: (?ms)^interface\s+Vlan1\b.*?^\s+ip address\b
+      pattern: (?m)^interface[ \t]+Vlan1\b(?:\r?\n(?![ \t]+ip address\b)[ \t]+[^\r\n]*)*\r?\n[ \t]+ip address\b
       description: interface Vlan1 has an IP address
   result:
     pass_status: NotAFinding
@@ -590,29 +603,39 @@ checks:
 - vuln_id: V-220671
   stig_id: CISC-L2-000250
   title: The Cisco switch must have all user-facing or untrusted ports configured as access switch ports.
-  looking_for: ensure all Gigabitethernet ports are set to "switchport mode access"
+  looking_for: Require switchport mode access on every physical copper Ethernet port; ignore SFP/fiber ports used as uplinks
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
-  scope: {}
-  conditions: {}
+  check_type: interface_config_policy
+  commands:
+  - show running-config
+  - show interfaces status
+  automated: true
+  scope:
+    interfaces:
+      include:
+      - type: physical
+        match:
+          media_type:
+            regex: BaseTX
+  conditions:
+    required_strings:
+    - switchport mode access
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
-    include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
+    include_failed_objects: true
+    pass_comment: All physical copper Ethernet ports are statically configured as access ports.
+    fail_comment: One or more physical copper Ethernet ports are not statically configured as access ports.
+    error_comment: Copper access-port configuration could not be evaluated.
+    finding_details_template: default
 - vuln_id: V-220672
   stig_id: CISC-L2-000260
   title: The Cisco switch must have the native VLAN assigned to an ID other than the default VLAN for all 802.1q trunk links.
-  looking_for: Need to make sure that the native vlan is NOT vlan 1
+  looking_for: Ensure every physical trunk has an explicitly configured native VLAN other than VLAN 1
   stig_family: IOSXE_L2
   severity: cat2
   check_type: interface_config_policy
@@ -647,22 +670,31 @@ checks:
 - vuln_id: V-220673
   stig_id: CISC-L2-000270
   title: The Cisco switch must not have any switchports assigned to the native VLAN.
-  looking_for: Need to ensure no ports are assigned to native vlan 333
+  looking_for: Ensure no physical switchport is assigned as an access port in the profile-defined native VLAN
   stig_family: IOSXE_L2
   severity: cat3
-  check_type: manual_review
-  commands: []
-  automated: false
-  scope: {}
-  conditions: {}
+  check_type: interface_config_policy
+  commands:
+  - show interfaces status
+  automated: true
+  scope:
+    interfaces:
+      include:
+      - type: physical
+  conditions:
+    require_candidates: true
+    forbidden_field_values:
+    - field: access_vlan
+      profile_key: native_vlan
+      description: access VLAN matches native VLAN {{ native_vlan }}
   result:
     pass_status: NotAFinding
-    fail_status: Not_Reviewed
+    fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
-    include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
+    include_failed_objects: true
+    pass_comment: No physical switchports are assigned to native VLAN {{ native_vlan }}.
+    fail_comment: One or more physical switchports are assigned to native VLAN {{ native_vlan }}.
+    error_comment: Switchport VLAN assignments could not be evaluated.
+    finding_details_template: default

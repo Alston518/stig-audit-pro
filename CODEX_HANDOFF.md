@@ -127,10 +127,10 @@ spanning-tree guard root
 
 ## GitHub Workflow
 
-The GitHub repo is:
+The GitHub repository URL follows this format:
 
 ```text
-https://github.com/Alston518/stig-audit-pro
+https://github.com/<owner>/stig-audit-pro
 ```
 
 Typical sync steps from GitHub Desktop:

@@ -144,6 +144,11 @@ class RootGuardPolicy(StrictModel):
     upstream_switches: list[str] = Field(default_factory=list)
 
 
+class EndpointAuthenticationPolicy(StrictModel):
+    radius_group: str = "ISE-RADIUS"
+    radius_servers: list[str] = Field(default_factory=list)
+
+
 class ProfileComments(StrictModel):
     default_open_prefix: str = "Automated STIG validation found noncompliant configuration."
     default_pass_prefix: str = "Automated STIG validation found required configuration present."
@@ -157,11 +162,16 @@ class SiteProfile(StrictModel):
     inherits: str | None = None
     variables: dict[str, Any] = Field(default_factory=dict)
     unused_vlan: int = 999
+    native_vlan: int = 333
+    management_vlan: int = 300
     disabled_port_policy: DisabledPortPolicy = Field(default_factory=DisabledPortPolicy)
     trunk_policy: TrunkPolicy = Field(default_factory=TrunkPolicy)
     dhcp_snooping: DhcpSnoopingPolicy = Field(default_factory=DhcpSnoopingPolicy)
     arp_inspection: ArpInspectionPolicy = Field(default_factory=ArpInspectionPolicy)
     root_guard: RootGuardPolicy = Field(default_factory=RootGuardPolicy)
+    endpoint_authentication: EndpointAuthenticationPolicy = Field(
+        default_factory=EndpointAuthenticationPolicy
+    )
     comments: ProfileComments = Field(default_factory=ProfileComments)
 
     @validator("profile_name")
@@ -170,7 +180,7 @@ class SiteProfile(StrictModel):
             raise ValueError("profile_name must not be empty")
         return value
 
-    @validator("unused_vlan")
+    @validator("unused_vlan", "native_vlan", "management_vlan")
     def vlan_must_be_valid(cls, value: int) -> int:
         if value < 1 or value > 4094:
             raise ValueError("VLAN must be between 1 and 4094")
