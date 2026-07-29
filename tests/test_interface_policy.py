@@ -1,7 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from stig_audit_pro.core.check_engine import CheckEngine
 from tests.conftest import check_by_vuln, load_outputs, load_profile
+from stig_audit_pro.core.check_engine import CheckEngine
 
 
 def test_disabled_notconnect_ports_must_be_shutdown_and_unused_vlan_passes():

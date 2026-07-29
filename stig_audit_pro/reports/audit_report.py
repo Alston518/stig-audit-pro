@@ -1,14 +1,13 @@
-"""Plain text and CSV audit report writers."""
+﻿"""Plain text and CSV audit report writers."""
 
 from __future__ import annotations
 
 import csv
 from collections import Counter, defaultdict
-from collections.abc import Iterable
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
-from stig_audit_pro.core.result_model import CheckResult, FindingObject
+from stig_audit_pro.core.result_model import CheckResult
 
 REPORT_STATUSES = ("NotAFinding", "Open", "Error", "Skipped", "Not_Applicable", "Not_Reviewed")
 
@@ -18,9 +17,8 @@ def build_text_report(
     generated_at: datetime | None = None,
     title: str = "STIG Audit Pro Scan Report",
 ) -> str:
-    generated = generated_at or datetime.now(UTC)
-    official_results = [result for result in results if result.include_in_official_totals]
-    status_counts: Counter[str] = Counter(result.status for result in official_results)
+    generated = generated_at or datetime.now(timezone.utc)
+    status_counts = Counter(result.status for result in results)
     device_keys = {(result.ip, result.hostname) for result in results}
     scorable = status_counts["NotAFinding"] + status_counts["Open"] + status_counts["Error"]
     compliance = round((status_counts["NotAFinding"] / scorable) * 100) if scorable else 0
@@ -31,7 +29,6 @@ def build_text_report(
         f"Generated: {generated.astimezone().strftime('%Y-%m-%d %H:%M:%S %Z')}",
         f"Devices: {len(device_keys)}",
         f"Results: {len(results)}",
-        f"Official results: {len(official_results)}",
         f"Automated compliance: {compliance}%",
         "",
         "Status Summary",
@@ -109,22 +106,19 @@ def write_csv_report(results: list[CheckResult], path: str | Path) -> Path:
         for result in results:
             writer.writerow(
                 {
-                    key: _safe_spreadsheet_value(value)
-                    for key, value in {
-                        "ip": result.ip,
-                        "hostname": result.hostname,
-                        "vuln_id": result.vuln_id,
-                        "stig_family": result.stig_family,
-                        "severity": result.severity,
-                        "status": result.status,
-                        "title": result.title,
-                        "failed_objects": _objects_to_text(result.failed_objects),
-                        "passed_objects": _objects_to_text(result.passed_objects),
-                        "comments": result.comments,
-                        "finding_details": result.finding_details,
-                        "commands_used": "; ".join(result.commands_used),
-                        "timestamp": result.timestamp.isoformat(),
-                    }.items()
+                    "ip": result.ip,
+                    "hostname": result.hostname,
+                    "vuln_id": result.vuln_id,
+                    "stig_family": result.stig_family,
+                    "severity": result.severity,
+                    "status": result.status,
+                    "title": result.title,
+                    "failed_objects": _objects_to_text(result.failed_objects),
+                    "passed_objects": _objects_to_text(result.passed_objects),
+                    "comments": result.comments,
+                    "finding_details": result.finding_details,
+                    "commands_used": "; ".join(result.commands_used),
+                    "timestamp": result.timestamp.isoformat(),
                 }
             )
     return destination
@@ -150,17 +144,8 @@ def _finding_block(result: CheckResult) -> list[str]:
     ]
 
 
-def _objects_to_text(objects: Iterable[FindingObject]) -> str:
+def _objects_to_text(objects: object) -> str:
     return "; ".join(
         f"{obj.object_type}:{obj.object_name}" + (f" ({obj.details})" if obj.details else "")
         for obj in objects
     )
-
-
-def _safe_spreadsheet_value(value: object) -> object:
-    """Prevent CSV cells from being interpreted as formulas by spreadsheet apps."""
-    if not isinstance(value, str):
-        return value
-    if value.lstrip().startswith(("=", "+", "-", "@")):
-        return "'" + value
-    return value

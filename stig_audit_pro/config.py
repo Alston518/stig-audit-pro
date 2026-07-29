@@ -1,9 +1,9 @@
-"""Application-wide constants for the core audit package."""
+﻿"""Application-wide constants for the core audit package."""
 
 from __future__ import annotations
 
 APP_NAME = "stig-audit-pro"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.1.0"
 
 DEFAULT_SHOW_COMMANDS: tuple[str, ...] = (
     "terminal length 0",

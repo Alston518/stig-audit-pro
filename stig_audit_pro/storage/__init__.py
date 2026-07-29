@@ -1,4 +1,4 @@
-"""Local storage package."""
+﻿"""Local storage package."""
 
 from stig_audit_pro.storage.device_groups import DeviceGroup, DeviceGroupStore, DeviceTargetRecord
 

@@ -2,20 +2,20 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
-import os
 import re
 import shutil
 import urllib.error
 import urllib.parse
 import urllib.request
 import zipfile
-from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from typing import Iterable
+
+from pydantic.json import pydantic_encoder
 
 from stig_audit_pro.stig.stig_metadata import StigBenchmarkMetadata
 from stig_audit_pro.stig.xccdf_importer import parse_xccdf_file
@@ -116,39 +116,26 @@ class StigSourceManager:
             raise StigSourceError("STIG download URL must be HTTP, HTTPS, file, or a local path.")
 
         family_name = family or self._family_from_filename(Path(parsed.path).name)
+        family_dir = self.cache_dir / family_name
+        family_dir.mkdir(parents=True, exist_ok=True)
+
         request = urllib.request.Request(address, headers={"User-Agent": USER_AGENT})
-        with TemporaryDirectory() as temp_dir:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                final_url = response.geturl()
-                filename = self._filename_from_response(
-                    final_url, response.headers.get("Content-Disposition"), family_name
-                )
-                destination = Path(temp_dir) / filename
-                with destination.open("wb") as handle:
-                    shutil.copyfileobj(response, handle)
-            metadata = self.import_source(destination, family=family_name)
-            metadata.source_url = address
-            self._write_metadata(Path(metadata.source_path).parent, metadata)
-            return metadata
+        with urllib.request.urlopen(request, timeout=60) as response:
+            final_url = response.geturl()
+            filename = self._filename_from_response(final_url, response.headers.get("Content-Disposition"), family_name)
+            destination = family_dir / filename
+            with destination.open("wb") as handle:
+                shutil.copyfileobj(response, handle)
+        return self.import_source(destination, family=family_name)
 
     def import_source(self, source_path: str | Path, family: str = "") -> StigBenchmarkMetadata:
         source = Path(source_path)
         if not source.exists():
             raise StigSourceError(f"STIG source does not exist: {source}")
         family_name = family or self._family_from_filename(source.name)
-        with TemporaryDirectory() as temp_dir:
-            stage = Path(temp_dir)
-            staged_source = stage / source.name
-            shutil.copy2(source, staged_source)
-            xml_path = self._extract_xccdf(staged_source, stage)
-            metadata = parse_xccdf_file(xml_path, family=family_name)
-        benchmark = self._safe_component(
-            metadata.benchmark_id or metadata.title or "unknown-benchmark"
-        )
-        release = self._version_release(metadata)
-        version_dir = self.cache_dir / family_name / benchmark / release
-        version_dir.mkdir(parents=True, exist_ok=True)
-        cached_source = version_dir / source.name
+        family_dir = self.cache_dir / family_name
+        family_dir.mkdir(parents=True, exist_ok=True)
+        cached_source = family_dir / source.name
         if source.resolve() != cached_source.resolve():
             shutil.copy2(source, cached_source)
 
@@ -156,19 +143,17 @@ class StigSourceManager:
         metadata = parse_xccdf_file(xml_path, family=family_name)
         metadata.source_path = str(cached_source)
         metadata.source_filename = cached_source.name
-        metadata.imported_path = str(source.resolve())
-        metadata.source_sha256 = self._sha256(cached_source)
-        self._write_metadata(version_dir, metadata)
+        self._write_metadata(family_dir, metadata)
         return metadata
 
     def load_cached_metadata(self) -> list[StigBenchmarkMetadata]:
         metadata_items: list[StigBenchmarkMetadata] = []
-        for path in sorted(self.cache_dir.glob("**/metadata.json")):
-            try:
-                data = json.loads(path.read_text(encoding="utf-8"))
-                metadata_items.append(StigBenchmarkMetadata.model_validate(data))
-            except Exception as exc:
-                raise StigSourceError(f"Corrupted or partial STIG metadata {path}: {exc}") from exc
+        for path in sorted(self.cache_dir.glob("*/metadata.json")):
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if hasattr(StigBenchmarkMetadata, "model_validate"):
+                metadata_items.append(StigBenchmarkMetadata.model_validate(data))  # type: ignore[attr-defined]
+            else:
+                metadata_items.append(StigBenchmarkMetadata.parse_obj(data))
         return metadata_items
 
     def _read_url_text(self, url: str) -> str:
@@ -269,21 +254,15 @@ class StigSourceManager:
         candidates: list[StigDownloadCandidate] = []
         seen: set[str] = set()
 
-        anchor_pattern = re.compile(
-            r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', re.IGNORECASE | re.DOTALL
-        )
+        anchor_pattern = re.compile(r'<a[^>]+href=["\']([^"\']+)["\'][^>]*>(.*?)</a>', re.IGNORECASE | re.DOTALL)
         for href, label_html in anchor_pattern.findall(html):
             label = re.sub(r"<[^>]+>", " ", label_html)
             label = " ".join(label.split())
             self._add_candidate(candidates, seen, href, label, terms)
 
-        direct_url_pattern = re.compile(
-            r"https?://[^\s\"'<>]+(?:\.zip|\.xml)(?:\?[^\s\"'<>]*)?", re.IGNORECASE
-        )
+        direct_url_pattern = re.compile(r"https?://[^\s\"'<>]+(?:\.zip|\.xml)(?:\?[^\s\"'<>]*)?", re.IGNORECASE)
         for url in direct_url_pattern.findall(html):
-            self._add_candidate(
-                candidates, seen, url, Path(urllib.parse.urlparse(url).path).name, terms
-            )
+            self._add_candidate(candidates, seen, url, Path(urllib.parse.urlparse(url).path).name, terms)
 
         return candidates
 
@@ -365,18 +344,14 @@ class StigSourceManager:
 
     def _looks_like_dynamic_shell(self, html: str) -> bool:
         lowered = html.lower()
-        return (
-            "lwc" in lowered or "salesforce" in lowered or "welcome to lwc communities" in lowered
-        )
+        return "lwc" in lowered or "salesforce" in lowered or "welcome to lwc communities" in lowered
 
     def _path_from_local_address(self, address: str, parsed: urllib.parse.ParseResult) -> Path:
         if parsed.scheme == "file":
             return Path(urllib.request.url2pathname(parsed.path))
         return Path(address)
 
-    def _filename_from_response(
-        self, url: str, content_disposition: str | None, family: str
-    ) -> str:
+    def _filename_from_response(self, url: str, content_disposition: str | None, family: str) -> str:
         if content_disposition:
             match = re.search(r'filename="?([^";]+)"?', content_disposition, flags=re.IGNORECASE)
             if match:
@@ -426,26 +401,8 @@ class StigSourceManager:
         return sorted(xml_files)[0]
 
     def _write_metadata(self, family_dir: Path, metadata: StigBenchmarkMetadata) -> None:
-        payload = json.dumps(metadata.model_dump(mode="json"), indent=2, sort_keys=True)
-        destination = family_dir / "metadata.json"
-        temporary = destination.with_suffix(".json.tmp")
-        temporary.write_text(payload, encoding="utf-8")
-        os.replace(temporary, destination)
-
-    def _safe_component(self, value: str) -> str:
-        return re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip("-_") or "unknown"
-
-    def _version_release(self, metadata: StigBenchmarkMetadata) -> str:
-        release_match = re.search(r"release\s*:?\s*([\w.-]+)", metadata.release_info, re.I)
-        release = release_match.group(1) if release_match else "release-unknown"
-        return self._safe_component(f"{metadata.version or 'version-unknown'}-{release}")
-
-    def _sha256(self, path: Path) -> str:
-        digest = hashlib.sha256()
-        with path.open("rb") as handle:
-            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-                digest.update(chunk)
-        return digest.hexdigest()
+        payload = json.dumps(metadata, default=pydantic_encoder, indent=2)
+        (family_dir / "metadata.json").write_text(payload, encoding="utf-8")
 
     def _family_from_filename(self, filename: str) -> str:
         lowered = filename.lower()

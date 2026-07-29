@@ -1,7 +1,7 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
-from stig_audit_pro.parsers.iosxe_acls import parse_acls
 from tests.conftest import load_outputs
+from stig_audit_pro.parsers.iosxe_acls import parse_acls
 
 
 def test_acl_parser_ignores_remarks_and_finds_deny_log_input():

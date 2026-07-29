@@ -1,11 +1,10 @@
-"""Checks tab showing YAML-backed check definitions."""
+﻿"""Checks tab showing YAML-backed check definitions."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
 import customtkinter as ctk
-import yaml
 
 from stig_audit_pro.core.models import CheckDefinition
 from stig_audit_pro.gui.widgets import PageFrame, Panel
@@ -28,29 +27,17 @@ class ChecksTab(PageFrame):
         list_panel.grid_columnconfigure(0, weight=1)
         list_panel.grid_rowconfigure(3, weight=1)
 
-        self.search = ctk.CTkEntry(
-            list_panel, placeholder_text="Filter by Vuln ID, title, severity"
-        )
+        self.search = ctk.CTkEntry(list_panel, placeholder_text="Filter by Vuln ID, title, severity")
         self.search.grid(row=1, column=0, sticky="ew", padx=12, pady=(8, 6))
         self.search.bind("<KeyRelease>", lambda _event: self._render_check_rows())
 
         filter_row = ctk.CTkFrame(list_panel, fg_color="transparent")
         filter_row.grid(row=2, column=0, sticky="ew", padx=12, pady=(2, 8))
         filter_row.grid_columnconfigure((0, 1), weight=1)
-        self.family_filter = ctk.CTkComboBox(
-            filter_row,
-            values=["All families", "IOSXE_L2", "IOSXE_NDM"],
-            command=lambda _value: self._render_check_rows(),
-            state="readonly",
-        )
+        self.family_filter = ctk.CTkComboBox(filter_row, values=["All families", "IOSXE_L2", "IOSXE_NDM"], command=lambda _value: self._render_check_rows(), state="readonly")
         self.family_filter.set("All families")
         self.family_filter.grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        self.severity_filter = ctk.CTkComboBox(
-            filter_row,
-            values=["All severities", "cat1", "cat2", "cat3"],
-            command=lambda _value: self._render_check_rows(),
-            state="readonly",
-        )
+        self.severity_filter = ctk.CTkComboBox(filter_row, values=["All severities", "cat1", "cat2", "cat3"], command=lambda _value: self._render_check_rows(), state="readonly")
         self.severity_filter.set("All severities")
         self.severity_filter.grid(row=0, column=1, sticky="ew", padx=(6, 0))
 
@@ -142,7 +129,7 @@ class ChecksTab(PageFrame):
             ctk.CTkLabel(row, text=f"{check.stig_family}  |  {check.severity}  |  {mode}  |  {check.check_type}", text_color=("#475467", "#d0d5dd"), anchor="w").grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 8))
 
     def _validate_yaml(self) -> None:
-        ok, message = self.app_controller.validate_single_check_yaml(self.editor.get_text())
+        ok, message = self.app_controller.validate_check_yaml(self.editor.get_text())
         self.editor.set_status(message, ok=ok)
 
     def _selected_yaml_path(self) -> Path | None:

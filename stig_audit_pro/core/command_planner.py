@@ -1,4 +1,4 @@
-"""Plan safe commands needed for selected checks."""
+﻿"""Plan safe commands needed for selected checks."""
 
 from __future__ import annotations
 

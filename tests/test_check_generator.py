@@ -1,18 +1,13 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 from stig_audit_pro.core.models import CheckDefinition
-from stig_audit_pro.stig.check_generator import (
-    build_manual_starter_library,
-    write_manual_starter_library,
-)
+from stig_audit_pro.stig.check_generator import build_manual_starter_library, write_manual_starter_library
 from stig_audit_pro.stig.xccdf_importer import parse_xccdf_file
 from tests.conftest import PROJECT_ROOT
 
 
 def test_build_manual_starter_library_from_stig_metadata():
-    metadata = parse_xccdf_file(
-        PROJECT_ROOT / "tests" / "fixtures" / "sample_xccdf.xml", family="IOSXE_L2"
-    )
+    metadata = parse_xccdf_file(PROJECT_ROOT / "tests" / "fixtures" / "sample_xccdf.xml", family="IOSXE_L2")
 
     library = build_manual_starter_library([metadata], existing_checks=[])
 
@@ -30,9 +25,7 @@ def test_build_manual_starter_library_from_stig_metadata():
 
 
 def test_build_manual_starter_library_skips_existing_automation():
-    metadata = parse_xccdf_file(
-        PROJECT_ROOT / "tests" / "fixtures" / "sample_xccdf.xml", family="IOSXE_L2"
-    )
+    metadata = parse_xccdf_file(PROJECT_ROOT / "tests" / "fixtures" / "sample_xccdf.xml", family="IOSXE_L2")
     existing = CheckDefinition(
         vuln_id="V-123456",
         title="Existing automated check",
@@ -50,9 +43,7 @@ def test_build_manual_starter_library_skips_existing_automation():
 
 
 def test_write_manual_starter_library(tmp_path):
-    metadata = parse_xccdf_file(
-        PROJECT_ROOT / "tests" / "fixtures" / "sample_xccdf.xml", family="IOSXE_L2"
-    )
+    metadata = parse_xccdf_file(PROJECT_ROOT / "tests" / "fixtures" / "sample_xccdf.xml", family="IOSXE_L2")
     library = build_manual_starter_library([metadata], existing_checks=[])
     path = write_manual_starter_library(library, tmp_path / "generated_stig_manual.yaml")
 

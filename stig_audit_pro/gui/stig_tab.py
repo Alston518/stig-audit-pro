@@ -33,12 +33,8 @@ class StigTab(PageFrame):
         source_panel.grid_columnconfigure(0, weight=1)
         source_panel.grid_rowconfigure(10, weight=1)
 
-        ctk.CTkLabel(source_panel, text="Family").grid(
-            row=1, column=0, sticky="w", padx=12, pady=(8, 4)
-        )
-        self.family_select = ctk.CTkComboBox(
-            source_panel, values=["IOSXE_L2", "IOSXE_NDM"], state="readonly"
-        )
+        ctk.CTkLabel(source_panel, text="Family").grid(row=1, column=0, sticky="w", padx=12, pady=(8, 4))
+        self.family_select = ctk.CTkComboBox(source_panel, values=["IOSXE_L2", "IOSXE_NDM"], state="readonly")
         self.family_select.set("IOSXE_L2")
         self.family_select.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
 
@@ -49,51 +45,23 @@ class StigTab(PageFrame):
         ctk.CTkButton(button_row, text="Find L2 + NDM", command=self._download_core_stigs).grid(row=0, column=1, sticky="ew", padx=6)
         ctk.CTkButton(button_row, text="Import ZIP/XML", command=self._import_source).grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
-        ctk.CTkLabel(source_panel, text="Direct ZIP/XML URL").grid(
-            row=4, column=0, sticky="w", padx=12, pady=(6, 4)
-        )
+        ctk.CTkLabel(source_panel, text="Direct ZIP/XML URL").grid(row=4, column=0, sticky="w", padx=12, pady=(6, 4))
         url_row = ctk.CTkFrame(source_panel, fg_color="transparent")
         url_row.grid(row=5, column=0, sticky="ew", padx=12, pady=(0, 8))
         url_row.grid_columnconfigure(0, weight=1)
-        self.download_url = ctk.CTkEntry(
-            url_row, placeholder_text="Paste Cyber Exchange ZIP/XML link"
-        )
+        self.download_url = ctk.CTkEntry(url_row, placeholder_text="Paste Cyber Exchange ZIP/XML link")
         self.download_url.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         self.download_url.bind("<Return>", lambda _event: self._download_url())
-        ctk.CTkButton(url_row, text="Download URL", width=120, command=self._download_url).grid(
-            row=0, column=1
-        )
+        ctk.CTkButton(url_row, text="Download URL", width=120, command=self._download_url).grid(row=0, column=1)
 
-        ctk.CTkButton(
-            source_panel,
-            text="Refresh Cached STIGs",
-            command=self.app_controller.refresh_stig_metadata,
-        ).grid(row=6, column=0, sticky="ew", padx=12, pady=(0, 8))
-        ctk.CTkButton(
-            source_panel, text="Build Starter Checks", command=self._generate_starter_checks
-        ).grid(row=7, column=0, sticky="ew", padx=12, pady=(0, 8))
-        diff_row = ctk.CTkFrame(source_panel, fg_color="transparent")
-        diff_row.grid(row=9, column=0, sticky="ew", padx=12, pady=(0, 8))
-        diff_row.grid_columnconfigure((0, 1), weight=1)
-        ctk.CTkButton(diff_row, text="Compare Releases", command=self._compare_releases).grid(
-            row=0, column=0, sticky="ew", padx=(0, 4)
-        )
-        ctk.CTkButton(diff_row, text="Approve Activation", command=self._approve_activation).grid(
-            row=0, column=1, sticky="ew", padx=(4, 0)
-        )
+        ctk.CTkButton(source_panel, text="Refresh Cached STIGs", command=self.app_controller.refresh_stig_metadata).grid(row=6, column=0, sticky="ew", padx=12, pady=(0, 8))
+        ctk.CTkButton(source_panel, text="Build Starter Checks", command=self._generate_starter_checks).grid(row=7, column=0, sticky="ew", padx=12, pady=(0, 8))
 
-        self.source_status = ctk.CTkLabel(
-            source_panel,
-            text="No STIG metadata loaded.",
-            anchor="w",
-            text_color=("#475467", "#d0d5dd"),
-        )
+        self.source_status = ctk.CTkLabel(source_panel, text="No STIG metadata loaded.", anchor="w", text_color=("#475467", "#d0d5dd"))
         self.source_status.grid(row=8, column=0, sticky="ew", padx=12, pady=(2, 8))
 
         columns = ("family", "version", "rules")
-        self.benchmark_tree = ttk.Treeview(
-            source_panel, columns=columns, show="tree headings", height=8, selectmode="browse"
-        )
+        self.benchmark_tree = ttk.Treeview(source_panel, columns=columns, show="tree headings", height=8, selectmode="browse")
         self.benchmark_tree.heading("#0", text="Benchmark / Rule")
         self.benchmark_tree.heading("family", text="Family")
         self.benchmark_tree.heading("version", text="Version")
@@ -219,9 +187,7 @@ class StigTab(PageFrame):
         self.app_controller.download_core_stigs()
 
     def _download_url(self) -> None:
-        self.app_controller.download_stig_from_url(
-            self.download_url.get(), self.family_select.get()
-        )
+        self.app_controller.download_stig_from_url(self.download_url.get(), self.family_select.get())
 
     def _generate_starter_checks(self) -> None:
         self.app_controller.generate_starter_checks_from_stigs()

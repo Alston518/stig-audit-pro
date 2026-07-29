@@ -1,4 +1,4 @@
-"""Local YAML storage for reusable device groups."""
+﻿"""Local YAML storage for reusable device groups."""
 
 from __future__ import annotations
 
@@ -6,17 +6,18 @@ import re
 from pathlib import Path
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, Field, validator
 
 
 class DeviceTargetRecord(BaseModel):
-    model_config = ConfigDict(extra="forbid")
     ip: str
     profile_override: str | None = None
     checked: bool = True
 
-    @field_validator("ip")
-    @classmethod
+    class Config:
+        extra = "forbid"
+
+    @validator("ip")
     def ip_must_not_be_empty(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("ip must not be empty")
@@ -24,20 +25,20 @@ class DeviceTargetRecord(BaseModel):
 
 
 class DeviceGroup(BaseModel):
-    model_config = ConfigDict(extra="forbid")
     group_name: str
     profile_name: str | None = None
     targets: list[DeviceTargetRecord] = Field(default_factory=list)
 
-    @field_validator("group_name")
-    @classmethod
+    class Config:
+        extra = "forbid"
+
+    @validator("group_name")
     def name_must_not_be_empty(cls, value: str) -> str:
         if not value.strip():
             raise ValueError("group_name must not be empty")
         return value.strip()
 
-    @field_validator("profile_name")
-    @classmethod
+    @validator("profile_name")
     def profile_name_must_not_be_blank(cls, value: str | None) -> str | None:
         if value is not None and not value.strip():
             return None

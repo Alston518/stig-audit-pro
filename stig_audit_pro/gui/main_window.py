@@ -13,32 +13,11 @@ from pydantic import BaseModel, ValidationError
 from stig_audit_pro.config import APP_VERSION
 from stig_audit_pro.core.check_engine import CheckEngine
 from stig_audit_pro.core.command_planner import plan_commands
-from stig_audit_pro.core.models import (
-    CheckDefinition,
-    CheckLibrary,
-    SiteProfile,
-    validate_check_for_profile,
-)
 from stig_audit_pro.core.output_cache import CommandOutputCache
-from stig_audit_pro.core.parser_engine import parse_outputs
-from stig_audit_pro.core.result_model import CheckResult
-from stig_audit_pro.core.scan_orchestrator import ScanOrchestrator
-from stig_audit_pro.core.scan_run import (
-    PackIdentity,
-    ProfileIdentity,
-    ScanRun,
-    sha256_file,
-    sha256_json,
-)
 from stig_audit_pro.core.ssh_runner import DeviceCredentials, DeviceTarget, NetmikoSshRunner
-from stig_audit_pro.core.yaml_loader import (
-    ConfigValidationError,
-    atomic_write_yaml,
-    deep_merge,
-    load_check_library,
-    load_profile,
-    load_yaml_file,
-)
+from stig_audit_pro.core.models import CheckDefinition, CheckLibrary, SiteProfile
+from stig_audit_pro.core.result_model import CheckResult
+from stig_audit_pro.core.yaml_loader import ConfigValidationError, deep_merge, load_check_library, load_profile, load_yaml_file
 from stig_audit_pro.gui.checks_tab import ChecksTab
 from stig_audit_pro.gui.overview_tab import OverviewTab
 from stig_audit_pro.gui.profiles_tab import ProfilesTab
@@ -59,8 +38,6 @@ from stig_audit_pro.stig.ckl_writer import (
 )
 from stig_audit_pro.stig.source_manager import StigSourceError, StigSourceManager
 from stig_audit_pro.stig.stig_metadata import StigBenchmarkMetadata
-from stig_audit_pro.storage.device_groups import DeviceGroup, DeviceGroupStore, DeviceTargetRecord
-from stig_audit_pro.storage.profile_manager import ProfileManager
 
 ModelT = TypeVar("ModelT", bound=BaseModel)
 
@@ -87,15 +64,9 @@ class StigAuditProApp(ctk.CTk):
         configure_treeview_style()
 
         self.root_dir = Path(__file__).resolve().parents[2]
-        self.builtin_data_dir = self.root_dir / "data"
-        default_user_root = Path(os.environ.get("LOCALAPPDATA", self.root_dir / "work"))
-        self.data_dir = Path(
-            os.environ.get("STIG_AUDIT_PRO_DATA_DIR", default_user_root / "STIGAuditPro")
-        )
-        self._seed_user_data()
+        self.data_dir = self.root_dir / "data"
         self.sample_dir = self.root_dir / "tests" / "sample_outputs"
         self.device_group_store = DeviceGroupStore(self.data_dir / "device_groups")
-        self.profile_manager = ProfileManager(self.data_dir / "profiles")
         self.stig_source_manager = StigSourceManager(self.data_dir / "stigs" / "cache")
         self.check_path = self.data_dir / "checks" / "iosxe_l2.yaml"
         self.ndm_check_path = self.data_dir / "checks" / "iosxe_ndm.yaml"
@@ -107,9 +78,6 @@ class StigAuditProApp(ctk.CTk):
         self.results: list[CheckResult] = []
         self.last_artifacts: list[Path] = []
         self.stig_metadata: list[StigBenchmarkMetadata] = []
-        self.scan_orchestrator: ScanOrchestrator | None = None
-        self.active_scan_run: ScanRun | None = None
-        self.pending_stig_diffs: dict[str, tuple[StigDiff, StigBenchmarkMetadata]] = {}
 
         self.title(f"STIG Audit Pro {APP_VERSION}")
         self.geometry("1280x820")
@@ -123,18 +91,6 @@ class StigAuditProApp(ctk.CTk):
         self.reload_from_disk()
         self.refresh_device_groups()
         self.refresh_stig_metadata()
-
-    def _seed_user_data(self) -> None:
-        """Copy missing built-in defaults without overwriting mutable user data."""
-        for source in self.builtin_data_dir.rglob("*"):
-            if not source.is_file() or "stigs" in source.parts:
-                continue
-            relative = source.relative_to(self.builtin_data_dir)
-            destination = self.data_dir / relative
-            if destination.exists():
-                continue
-            destination.parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(source, destination)
 
     def _build_header(self) -> None:
         header = ctk.CTkFrame(self, corner_radius=0, fg_color=("#eef2f6", "#0f172a"))
@@ -203,20 +159,13 @@ class StigAuditProApp(ctk.CTk):
             self.check_library_paths = self._check_library_paths()
             libraries = [load_check_library(path) for path in self.check_library_paths]
             checks = [check for library in libraries for check in library.checks]
-            sources = {
-                check.vuln_id: path
-                for path, library in zip(paths, libraries, strict=True)
-                for check in library.checks
-            }
             self._raise_on_duplicate_checks(checks)
             self.checks = checks
             self._set_active_profile(self.profile_name, announce=False)
             self.checks_tab.refresh(self.checks, self.check_library_paths)
             self.overview_tab.refresh_inventory(self.checks, self.profile)
             self.refresh_device_groups()
-            self.set_status(
-                f"Loaded {len(self.checks)} checks using profile {self.profile.profile_name if self.profile else self.profile_name}."
-            )
+            self.set_status(f"Loaded {len(self.checks)} checks using profile {self.profile.profile_name if self.profile else self.profile_name}.")
         except ConfigValidationError as exc:
             self.set_status("YAML validation failed.")
             self._show_error(str(exc))
@@ -225,7 +174,7 @@ class StigAuditProApp(ctk.CTk):
             self._show_error(str(exc))
 
     def available_profile_names(self) -> list[str]:
-        return self.profile_manager.names()
+        return sorted(path.stem for path in (self.data_dir / "profiles").glob("*.yaml"))
 
     def _check_library_paths(self) -> list[Path]:
         return sorted((self.data_dir / "checks").glob("*.yaml"))
@@ -238,9 +187,7 @@ class StigAuditProApp(ctk.CTk):
                 duplicates.add(check.vuln_id)
             seen.add(check.vuln_id)
         if duplicates:
-            raise ValueError(
-                f"Duplicate check IDs across check libraries: {', '.join(sorted(duplicates))}"
-            )
+            raise ValueError(f"Duplicate check IDs across check libraries: {', '.join(sorted(duplicates))}")
 
     def refresh_device_groups(self) -> None:
         self.targets_tab.refresh_groups(
@@ -258,14 +205,10 @@ class StigAuditProApp(ctk.CTk):
             self.update_idletasks()
             metadata = self.stig_source_manager.download_latest(family)
             self.refresh_stig_metadata()
-            self.stig_tab.set_status(
-                f"Downloaded {metadata.display_name} with {metadata.rule_count} rule(s)."
-            )
+            self.stig_tab.set_status(f"Downloaded {metadata.display_name} with {metadata.rule_count} rule(s).")
             self.set_status(f"Downloaded {metadata.display_name}.")
         except Exception as exc:
-            self.stig_tab.set_status(
-                "Automatic lookup failed. Paste a direct ZIP/XML URL or import the downloaded file."
-            )
+            self.stig_tab.set_status("Automatic lookup failed. Paste a direct ZIP/XML URL or import the downloaded file.")
             self.set_status("STIG lookup failed.")
             self._show_error(str(exc))
 
@@ -291,14 +234,10 @@ class StigAuditProApp(ctk.CTk):
             self.update_idletasks()
             metadata = self.stig_source_manager.download_from_url(url, family=family)
             self.refresh_stig_metadata()
-            self.stig_tab.set_status(
-                f"Downloaded {metadata.display_name} with {metadata.rule_count} rule(s)."
-            )
+            self.stig_tab.set_status(f"Downloaded {metadata.display_name} with {metadata.rule_count} rule(s).")
             self.set_status(f"Downloaded {metadata.display_name}.")
         except Exception as exc:
-            self.stig_tab.set_status(
-                "Direct URL download failed. Import the ZIP/XML file if the link is protected."
-            )
+            self.stig_tab.set_status("Direct URL download failed. Import the ZIP/XML file if the link is protected.")
             self.set_status("STIG URL download failed.")
             self._show_error(str(exc))
 
@@ -306,9 +245,7 @@ class StigAuditProApp(ctk.CTk):
         try:
             metadata = self.stig_source_manager.import_source(path, family=family)
             self.refresh_stig_metadata()
-            self.stig_tab.set_status(
-                f"Imported {metadata.display_name} with {metadata.rule_count} rule(s)."
-            )
+            self.stig_tab.set_status(f"Imported {metadata.display_name} with {metadata.rule_count} rule(s).")
             self.set_status(f"Imported {metadata.display_name}.")
         except Exception as exc:
             self.stig_tab.set_status("STIG import failed.")
@@ -319,9 +256,7 @@ class StigAuditProApp(ctk.CTk):
         try:
             self.refresh_stig_metadata()
             if not self.stig_metadata:
-                raise ValueError(
-                    "Import the current L2/NDM STIG ZIP/XML first, then build starter checks."
-                )
+                raise ValueError("Import the current L2/NDM STIG ZIP/XML first, then build starter checks.")
             starter_library = build_manual_starter_library(self.stig_metadata, self.checks)
             destination = self.data_dir / "checks" / "generated_stig_manual.yaml"
             write_manual_starter_library(starter_library, destination)
@@ -335,62 +270,13 @@ class StigAuditProApp(ctk.CTk):
             self.set_status("Starter check generation failed.")
             self._show_error(str(exc))
 
-    def compare_stig_releases(self, family: str) -> None:
-        items = sorted(
-            (item for item in self.stig_metadata if item.family == family),
-            key=lambda item: item.imported_at,
-        )
-        if len(items) < 2:
-            self._show_error(f"Import at least two {family} releases to compare.")
-            return
-        old, new = items[-2], items[-1]
-        service = StigDiffService()
-        diff = service.compare(old, new)
-        service.mark_checks(self.checks, diff)
-        self.pending_stig_diffs[family] = (diff, new)
-        changed_text = "\n\n".join(
-            f"{item.stable_key}: {', '.join(item.change_types)}\n"
-            f"OLD CHECK: {(item.old_rule.check_text if item.old_rule else '')}\n"
-            f"NEW CHECK: {(item.new_rule.check_text if item.new_rule else '')}\n"
-            f"OLD FIX: {(item.old_rule.fix_text if item.old_rule else '')}\n"
-            f"NEW FIX: {(item.new_rule.fix_text if item.new_rule else '')}"
-            for item in diff.changed
-        )
-        self.stig_tab.show_diff(
-            f"{family} controlled release difference\n\n"
-            f"Old: {old.version} {old.release_info}\nNew: {new.version} {new.release_info}\n\n"
-            f"Added: {len(diff.added)}\nRemoved: {len(diff.removed)}\n"
-            f"Changed: {len(diff.changed)}\nUnchanged: {len(diff.unchanged)}\n\n"
-            "Changed automated checks are now Review Required; logic is not silently rewritten.\n\n"
-            + (changed_text or "No changed source text.")
-        )
-
-    def approve_stig_activation(self, family: str) -> None:
-        pending = self.pending_stig_diffs.get(family)
-        if pending is None:
-            self._show_error("Compare releases before approving activation.")
-            return
-        _, metadata = pending
-        path = self.data_dir / "stigs" / "active-releases.yaml"
-        data = load_yaml_file(path) if path.exists() else {}
-        data[family] = {
-            "benchmark_id": metadata.benchmark_id,
-            "version": metadata.version,
-            "release": metadata.release_info,
-            "source_sha256": metadata.source_sha256,
-        }
-        atomic_write_yaml(path, data, backup=True)
-        self.set_status(f"Approved {family} {metadata.version} activation record.")
-
     def load_device_group(self, group_name: str) -> None:
         try:
             group = self.device_group_store.load_group(group_name)
             if group.profile_name:
                 self._set_active_profile(group.profile_name, announce=False)
             self.targets_tab.set_targets(group.targets, group.group_name, group.profile_name)
-            profile_text = group.profile_name or (
-                self.profile.profile_name if self.profile else self.profile_name
-            )
+            profile_text = group.profile_name or (self.profile.profile_name if self.profile else self.profile_name)
             self.set_status(
                 f"Loaded {group.group_name}: {len(group.targets)} target(s), profile {profile_text}."
             )
@@ -405,9 +291,7 @@ class StigAuditProApp(ctk.CTk):
         profile_name: str | None = None,
     ) -> None:
         try:
-            resolved_profile = profile_name or (
-                self.profile.profile_name if self.profile else self.profile_name
-            )
+            resolved_profile = profile_name or (self.profile.profile_name if self.profile else self.profile_name)
             group = DeviceGroup(
                 group_name=group_name,
                 profile_name=resolved_profile,
@@ -457,8 +341,6 @@ class StigAuditProApp(ctk.CTk):
             if not self.results:
                 raise ValueError("Run a scan before exporting a report.")
             destination = write_text_report(self.results, path)
-            if self.active_scan_run:
-                self.active_scan_run.report_paths.append(str(destination))
             self.set_status(f"Saved TXT report to {destination}.")
             self.reports_tab.set_export_status(f"Saved TXT report: {destination}")
         except Exception as exc:
@@ -470,8 +352,6 @@ class StigAuditProApp(ctk.CTk):
             if not self.results:
                 raise ValueError("Run a scan before exporting a report.")
             destination = write_csv_report(self.results, path)
-            if self.active_scan_run:
-                self.active_scan_run.report_paths.append(str(destination))
             self.set_status(f"Saved CSV report to {destination}.")
             self.reports_tab.set_export_status(f"Saved CSV report: {destination}")
         except Exception as exc:
@@ -696,13 +576,7 @@ class StigAuditProApp(ctk.CTk):
         self.profile_name = profile_name
         self.profile_path = self.data_dir / "profiles" / f"{profile_name}.yaml"
         self.profile = load_profile(self.profile_path)
-        self.profiles_tab.refresh(
-            self.profile,
-            self.profile_path,
-            profile_names=self.available_profile_names(),
-            local_values=self.profile_manager.local_values(profile_name),
-            consumers=self.profile_manager.consumers(self.checks),
-        )
+        self.profiles_tab.refresh(self.profile, self.profile_path)
         if announce:
             self.set_status(f"Selected site profile {self.profile.profile_name}.")
 
@@ -751,91 +625,22 @@ class StigAuditProApp(ctk.CTk):
             secret=settings.get("secret") if isinstance(settings.get("secret"), str) else None,
         )
         commands = plan_commands(self.checks, run_all=False)
-        profiles = {target.ip: self._profile_for_target(target) for target in targets}
-        try:
-            for profile in profiles.values():
-                for check in self.checks:
-                    validate_check_for_profile(check, profile)
-        except ValueError as exc:
-            self.set_status(f"Scan validation failed: {exc}")
-            return
-        cache = CommandOutputCache(self.data_dir / "evidence", retention_days=30, redact=True)
-        concurrency = int(settings.get("concurrency") or 4)
-        retries = int(settings.get("retries") or 1)
-        self.scan_orchestrator = ScanOrchestrator(
-            lambda: NetmikoSshRunner(cache), concurrency=concurrency, retries=retries
-        )
-        profile_payload = self.profile.model_dump(mode="json") if self.profile else {}
-        scan_run = ScanRun(
-            profile=ProfileIdentity(name=self.profile_name, sha256=sha256_json(profile_payload)),
-            selected_targets=[target.ip for target in targets],
-            check_packs=[
-                PackIdentity(
-                    name=path.stem,
-                    version=load_check_library(path).check_pack_version,
-                    schema_version=load_check_library(path).schema_version,
-                    sha256=sha256_file(path),
-                )
-                for path in self._check_library_paths()
-            ],
-            parser_versions={"iosxe": "1"},
-        )
-        self.active_scan_run = scan_run
-        device_targets = [DeviceTarget(ip=target.ip, timeout=timeout) for target in targets]
-        self.set_status(f"Starting SSH scan for {len(targets)} target(s)...")
-
-        def progress(done: int, total: int, outcome: object) -> None:
-            ip = getattr(outcome, "ip", "device")
-            self.after(0, lambda: self.set_status(f"Scanned {ip} ({done}/{total})..."))
-
-        def worker() -> None:
-            assert self.scan_orchestrator is not None
-            outcomes = self.scan_orchestrator.run(
-                device_targets, credentials, commands, str(scan_run.run_id), progress=progress
+        runner = NetmikoSshRunner(CommandOutputCache(self.root_dir / "work" / "cache" / "ssh"))
+        results: list[CheckResult] = []
+        for index, target in enumerate(targets, start=1):
+            self.set_status(f"Scanning {target.ip} ({index}/{len(targets)}) over SSH...")
+            self.update_idletasks()
+            run = runner.run_commands(
+                DeviceTarget(ip=target.ip, timeout=timeout),
+                credentials,
+                commands,
             )
-            results: list[CheckResult] = []
-            for outcome in outcomes:
-                scan_run.command_collection_status[outcome.ip] = {
-                    "status": outcome.status,
-                    "category": outcome.category,
-                    "attempts": outcome.attempts,
-                    "error": outcome.error_message,
-                }
-                if outcome.status != "scanned":
-                    results.append(
-                        self._skipped_result(
-                            outcome.ip,
-                            f"{outcome.category}: {outcome.error_message or outcome.status}",
-                            commands,
-                        )
-                    )
-                    continue
-                engine = CheckEngine(profiles[outcome.ip])
-                device_results = engine.evaluate_all(self.checks, outcome.outputs, outcome.ip)
-                results.extend(device_results)
-                parsed = parse_outputs(outcome.outputs)
-                scan_run.device_facts[outcome.ip] = asdict(parsed.facts)
-                scan_run.parser_warnings[outcome.ip] = [
-                    warning for result in device_results for warning in result.parser_warnings
-                ]
-            scan_run.results = results
-            scan_run.finish()
-            cache.write_manifest(scan_run.run_id, scan_run.manifest())
-            cache.enforce_retention()
-            self.after(0, lambda: self._finish_live_scan(results, targets, label))
-
-        threading.Thread(target=worker, name="stig-scan-controller", daemon=True).start()
-
-    def cancel_scan(self) -> None:
-        if self.scan_orchestrator is None:
-            self.set_status("No live scan is running.")
-            return
-        self.scan_orchestrator.cancel()
-        self.set_status("Cancellation requested; active device operations will finish safely.")
-
-    def _finish_live_scan(
-        self, results: list[CheckResult], targets: list[DeviceTargetRecord], label: str
-    ) -> None:
+            if run.status == "skipped":
+                results.append(self._skipped_result(target.ip, run.error_message or "SSH connection failed", commands))
+                continue
+            profile = self._profile_for_target(target)
+            engine = CheckEngine(profile)
+            results.extend(engine.evaluate_all(self.checks, outputs=run.outputs, ip=target.ip))
         self.results = results
         self.results_tab.refresh(self.results)
         self.update_report_summary(self.results)
@@ -847,7 +652,6 @@ class StigAuditProApp(ctk.CTk):
             f"{label.title()} SSH run complete for {len(targets)} target(s): "
             f"{pass_count} NotAFinding, {open_count} Open, {skipped} Skipped."
         )
-        self.scan_orchestrator = None
 
     def _skipped_result(self, ip: str, reason: str, commands: list[str]) -> CheckResult:
         return CheckResult(
@@ -901,9 +705,7 @@ class StigAuditProApp(ctk.CTk):
         text.grid(row=0, column=0, sticky="nsew", padx=14, pady=(14, 8))
         text.insert("1.0", message)
         text.configure(state="disabled")
-        ctk.CTkButton(dialog, text="OK", command=dialog.destroy).grid(
-            row=1, column=0, sticky="e", padx=14, pady=(0, 14)
-        )
+        ctk.CTkButton(dialog, text="OK", command=dialog.destroy).grid(row=1, column=0, sticky="e", padx=14, pady=(0, 14))
 
     def _short_error(self, exc: Exception) -> str:
         text = str(exc).replace("\n", " ")

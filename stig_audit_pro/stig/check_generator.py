@@ -1,18 +1,13 @@
-"""Generate starter manual-review checks from imported STIG metadata."""
+﻿"""Generate starter manual-review checks from imported STIG metadata."""
 
 from __future__ import annotations
 
-from collections.abc import Iterable
 from pathlib import Path
+from typing import Iterable
 
 import yaml
 
-from stig_audit_pro.core.models import (
-    CheckDefinition,
-    CheckLibrary,
-    EvidenceConfig,
-    ResultMapping,
-)
+from stig_audit_pro.core.models import CheckDefinition, CheckLibrary
 from stig_audit_pro.stig.stig_metadata import StigBenchmarkMetadata, StigRuleMetadata
 
 GENERATED_LIBRARY_NAME = "generated_stig_manual_starters"
@@ -67,16 +62,19 @@ def _manual_check_from_rule(
         source_benchmark=metadata.title or metadata.benchmark_id or None,
         source_version=metadata.version or None,
         source_release=metadata.release_info or None,
-        source_rule_fingerprint=rule.fingerprint,
-        result=ResultMapping(fail_status="Not_Reviewed"),
-        evidence=EvidenceConfig(
-            include_command_output=False,
-            include_failed_objects=False,
-            pass_comment="Manual review completed and requirement was marked NotAFinding.",
-            fail_comment="Manual review required. Review the STIG requirement and customer/site tailoring.",
-            error_comment="Manual review check could not be prepared.",
-            finding_details_template="manual_review",
-        ),
+        result={
+            "pass_status": "NotAFinding",
+            "fail_status": "Not_Reviewed",
+            "error_status": "Error",
+        },
+        evidence={
+            "include_command_output": False,
+            "include_failed_objects": False,
+            "pass_comment": "Manual review completed and requirement was marked NotAFinding.",
+            "fail_comment": "Manual review required. Review the STIG requirement and customer/site tailoring.",
+            "error_comment": "Manual review check could not be prepared.",
+            "finding_details_template": "manual_review",
+        },
     )
 
 
