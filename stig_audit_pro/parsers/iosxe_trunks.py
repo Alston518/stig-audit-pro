@@ -1,10 +1,14 @@
-﻿"""Parser for show interfaces trunk."""
+"""Parser for show interfaces trunk."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from stig_audit_pro.parsers.common import looks_like_interface, normalize_interface_name, parse_vlan_list
+from stig_audit_pro.parsers.common import (
+    looks_like_interface,
+    normalize_interface_name,
+    parse_vlan_list,
+)
 
 
 @dataclass(slots=True)

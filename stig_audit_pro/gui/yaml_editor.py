@@ -1,4 +1,4 @@
-﻿"""YAML editor surface used by Checks and Profiles tabs."""
+"""YAML editor surface used by Checks and Profiles tabs."""
 
 from __future__ import annotations
 
@@ -26,12 +26,20 @@ class YamlEditor(ctk.CTkFrame):
         self.status_label = ctk.CTkLabel(header, text="Ready", text_color=TEXT_MUTED)
         self.status_label.grid(row=0, column=1, sticky="e")
 
-        self.textbox = ctk.CTkTextbox(self, wrap="none", font=ctk.CTkFont(family="Consolas", size=12))
+        self.textbox = ctk.CTkTextbox(
+            self, wrap="none", font=ctk.CTkFont(family="Consolas", size=12)
+        )
         self.textbox.grid(row=1, column=0, sticky="nsew", padx=12, pady=(0, 12))
+        self._dirty = False
+        self._loading = False
+        self.textbox.bind("<KeyRelease>", self._changed)
 
     def set_text(self, text: str) -> None:
+        self._loading = True
         self.textbox.delete("1.0", "end")
         self.textbox.insert("1.0", text)
+        self._loading = False
+        self._dirty = False
 
     def get_text(self) -> str:
         return self.textbox.get("1.0", "end").strip() + "\n"
@@ -39,3 +47,15 @@ class YamlEditor(ctk.CTkFrame):
     def set_status(self, text: str, ok: bool = True) -> None:
         color = ("#1f6f45", "#7ee2a8") if ok else ("#9f1d1d", "#ffb4b4")
         self.status_label.configure(text=text, text_color=color)
+
+    @property
+    def is_dirty(self) -> bool:
+        return self._dirty
+
+    def mark_clean(self) -> None:
+        self._dirty = False
+
+    def _changed(self, _event: object) -> None:
+        if not self._loading:
+            self._dirty = True
+            self.set_status("Unsaved changes", ok=False)

@@ -1,8 +1,8 @@
 # STIG Audit Pro
 
-Core implementation for Milestones 1-4 of a Windows-focused Cisco IOS-XE STIG audit tool.
+STIG Audit Pro is a Windows-focused, read-only Cisco IOS-XE STIG audit desktop application for an internal team pilot. It preserves the existing sample and live SSH workflows while adding strict check/profile validation, safer evidence, controlled STIG updates, and background multi-device scanning.
 
-Implemented now:
+## Implemented
 
 - Project skeleton for future GUI, STIG, report, and storage layers.
 - Pydantic models for check definitions, site profiles, exceptions, and results.
@@ -20,23 +20,26 @@ Implemented now:
 - Starter manual-review check generation from imported STIG ZIP/XML metadata.
 - Cyber.mil lookup for Cisco IOS-XE switch STIG bundles, with direct quarterly package fallback.
 
-Not implemented yet:
+## Safety boundary
 
 - NDM CKL workflow.
 - Excel workbook reports.
 - Multi-device concurrent scan orchestration.
 
-## Run Tests
+## Install and run
 
 ```powershell
-python -m pytest
+py -3.13 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+.\.venv\Scripts\python.exe -m pytest
+.\.venv\Scripts\python.exe app.py
 ```
 
-## Add Or Edit Checks
+See [Windows installation](docs/WINDOWS_INSTALL.md), [architecture](docs/ARCHITECTURE.md), [check authoring](docs/CHECK_AUTHORING.md), [profile management](docs/PROFILE_MANAGEMENT.md), [STIG updates](docs/STIG_UPDATE_WORKFLOW.md), and [evidence/security](docs/EVIDENCE_AND_SECURITY.md).
 
-Checks live in `data/checks/*.yaml`. Each check declares metadata, safe show commands, a `check_type`, YAML conditions, result status mapping, and evidence/comment templates.
+## Current limits
 
-The engine reads those files at runtime, so changing check logic normally does not require editing Python code.
+CKL generation, Excel/JSON reports, CLI/headless operation, signed installers, scheduling, trending, signed packs, and multi-vendor plugins are not implemented. They are intentionally tracked in [the product roadmap](docs/PRODUCT_ROADMAP.md).
 
 Most string checks use editable `strings`, `required_strings`, or `forbidden_strings` lists. A blank list leaves the check `Not_Reviewed` until site-specific strings are added.
 

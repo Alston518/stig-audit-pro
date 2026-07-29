@@ -1,4 +1,4 @@
-﻿"""Basic IOS-XE fact parsing."""
+"""Basic IOS-XE fact parsing."""
 
 from __future__ import annotations
 
@@ -16,7 +16,9 @@ class DeviceFacts:
     serial_number: str | None = None
 
 
-def parse_facts(running_config: str = "", show_version: str = "", show_inventory: str = "") -> DeviceFacts:
+def parse_facts(
+    running_config: str = "", show_version: str = "", show_inventory: str = ""
+) -> DeviceFacts:
     running = parse_running_config(running_config) if running_config else None
     hostname = running.hostname if running and running.hostname else "unknown"
     version: str | None = None

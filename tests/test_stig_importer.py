@@ -1,16 +1,18 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import zipfile
 
 import pytest
 
-from tests.conftest import PROJECT_ROOT
 from stig_audit_pro.stig.source_manager import StigSourceError, StigSourceManager
 from stig_audit_pro.stig.xccdf_importer import parse_xccdf_file
+from tests.conftest import PROJECT_ROOT
 
 
 def test_parse_xccdf_metadata():
-    metadata = parse_xccdf_file(PROJECT_ROOT / "tests" / "fixtures" / "sample_xccdf.xml", family="IOSXE_L2")
+    metadata = parse_xccdf_file(
+        PROJECT_ROOT / "tests" / "fixtures" / "sample_xccdf.xml", family="IOSXE_L2"
+    )
 
     assert metadata.family == "IOSXE_L2"
     assert metadata.title.startswith("Cisco IOS-XE Switch L2S")

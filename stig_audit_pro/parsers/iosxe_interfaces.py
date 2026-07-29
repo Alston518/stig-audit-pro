@@ -16,6 +16,7 @@ class InterfaceStatus:
     duplex: str = ""
     speed: str = ""
     media_type: str = ""
+    vlan_text: str = ""
 
 
 def _parse_vlan(value: str) -> int | None:
@@ -61,6 +62,7 @@ def parse_interfaces_status(text: str) -> dict[str, InterfaceStatus]:
             name_column=values[1],
             status=values[2].lower(),
             vlan=_parse_vlan(values[3]),
+            vlan_text=values[3],
             duplex=values[4],
             speed=values[5],
             media_type=values[6],

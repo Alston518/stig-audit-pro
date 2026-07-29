@@ -1,4 +1,7 @@
 library_name: iosxe_l2
+check_pack_version: 2.0.0
+schema_version: 1
+minimum_app_version: 0.2.0
 checks:
 - vuln_id: V-220649
   stig_id: CISC-L2-000020
@@ -224,11 +227,12 @@ checks:
   looking_for: Ensure global DHCP snooping and all profile-defined user VLANs are configured
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: command_pattern_policy
+  check_type: dhcp_snooping_policy
   commands:
   - show running-config
   automated: true
   scope: {}
+  empty_scope_status: Error
   conditions:
     all:
     - command: show running-config
@@ -237,9 +241,6 @@ checks:
     profile_all:
     - command: show running-config
       profile_key: dhcp_snooping.vlans
-      object_type: vlan
-      pattern_template: ^\s*ip dhcp snooping vlan\s+.*(?<!\d){{ item }}(?!\d).*$
-      description_template: DHCP snooping VLAN {{ item }}
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -288,18 +289,17 @@ checks:
   looking_for: Ensure Dynamic ARP Inspection is configured for all profile-defined user VLANs
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: command_pattern_policy
+  check_type: arp_inspection_policy
   commands:
   - show running-config
   automated: true
   scope: {}
+  empty_scope_status: Error
   conditions:
-    profile_all:
-    - command: show running-config
+    all:
+    - field: inspection_vlans
+      op: includes_profile_list
       profile_key: arp_inspection.vlans
-      object_type: vlan
-      pattern_template: ^\s*ip arp inspection vlan\s+.*(?<!\d){{ item }}(?!\d).*$
-      description_template: ARP inspection VLAN {{ item }}
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -485,8 +485,8 @@ checks:
     required_patterns:
     - pattern: ^shutdown$
       description: shutdown configured
-    - pattern: ^switchport access vlan\s+{{ unused_vlan }}$
-      description: unused VLAN {{ unused_vlan }} assigned
+    - pattern: ^switchport access vlan\s+{{ disabled_port_policy.required_access_vlan }}$
+      description: unused VLAN {{ disabled_port_policy.required_access_vlan }} assigned
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -539,7 +539,7 @@ checks:
   looking_for: Loop through trunk ports to ensure all have VLAN 1 pruned
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: interface_config_policy
+  check_type: trunk_vlan_policy
   commands:
   - show running-config
   - show interfaces status
@@ -550,18 +550,8 @@ checks:
       - type: physical
         match:
           switchport_mode: trunk
-  conditions:
-    required_patterns:
-    - pattern: ^switchport trunk allowed vlan\s+.+$
-      description: explicit trunk allowed VLAN list
-    forbidden_patterns:
-    - pattern: ^switchport trunk allowed vlan\s+.*(?<!\d)1(?!\d).*$
-      description: VLAN 1 allowed on trunk
-    profile_forbidden_patterns:
-    - profile_key: trunk_policy.additional_pruned_vlans
-      object_type: vlan
-      pattern_template: ^switchport trunk allowed vlan\s+.*(?<!\d){{ item }}(?!\d).*$
-      description_template: profile-pruned VLAN {{ item }} allowed on trunk
+  empty_scope_status: Not_Applicable
+  conditions: {}
   result:
     pass_status: NotAFinding
     fail_status: Open
@@ -579,7 +569,7 @@ checks:
   looking_for: Ensure VLAN 1 is not the management VLAN and has no IP address assigned
   stig_family: IOSXE_L2
   severity: cat2
-  check_type: command_pattern_policy
+  check_type: section_not_contains
   commands:
   - show running-config
   automated: true

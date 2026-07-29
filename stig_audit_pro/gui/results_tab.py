@@ -38,9 +38,21 @@ class ResultsTab(PageFrame):
         run_row = ctk.CTkFrame(self, fg_color="transparent")
         run_row.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
         run_row.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkButton(run_row, text="Run Compliant Sample", command=lambda: app_controller.run_sample_audit("compliant")).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(run_row, text="Run Noncompliant Sample", command=lambda: app_controller.run_sample_audit("noncompliant"), fg_color="#9f1d1d", hover_color="#7f1d1d").grid(row=0, column=1, sticky="ew", padx=6)
-        ctk.CTkButton(run_row, text="Clear", command=self.clear).grid(row=0, column=2, sticky="ew", padx=(6, 0))
+        ctk.CTkButton(
+            run_row,
+            text="Run Compliant Sample",
+            command=lambda: app_controller.run_sample_audit("compliant"),
+        ).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(
+            run_row,
+            text="Run Noncompliant Sample",
+            command=lambda: app_controller.run_sample_audit("noncompliant"),
+            fg_color="#9f1d1d",
+            hover_color="#7f1d1d",
+        ).grid(row=0, column=1, sticky="ew", padx=6)
+        ctk.CTkButton(run_row, text="Clear", command=self.clear).grid(
+            row=0, column=2, sticky="ew", padx=(6, 0)
+        )
 
         filter_row = ctk.CTkFrame(self, fg_color="transparent")
         filter_row.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
@@ -74,7 +86,14 @@ class ResultsTab(PageFrame):
             "status": "Status",
             "failed": "Failed Objects",
         }
-        widths = {"ip": 110, "vuln": 180, "family": 100, "severity": 80, "status": 120, "failed": 260}
+        widths = {
+            "ip": 110,
+            "vuln": 180,
+            "family": 100,
+            "severity": 80,
+            "status": 120,
+            "failed": 260,
+        }
         for column in columns:
             self.tree.heading(column, text=headings[column])
             self.tree.column(column, width=widths[column], anchor="w")
@@ -155,8 +174,17 @@ class ResultsTab(PageFrame):
         self._show_result(self.filtered_results[index])
 
     def _show_result(self, result: CheckResult) -> None:
-        failed = "\n".join(f"- {obj.object_type}: {obj.object_name} ({obj.details})" for obj in result.failed_objects) or "None"
-        passed = "\n".join(f"- {obj.object_type}: {obj.object_name}" for obj in result.passed_objects) or "None"
+        failed = (
+            "\n".join(
+                f"- {obj.object_type}: {obj.object_name} ({obj.details})"
+                for obj in result.failed_objects
+            )
+            or "None"
+        )
+        passed = (
+            "\n".join(f"- {obj.object_type}: {obj.object_name}" for obj in result.passed_objects)
+            or "None"
+        )
         text = (
             f"{result.vuln_id}\n{result.title}\n\n"
             f"Status: {result.status}\nSeverity: {result.severity}\nDevice: {result.hostname} ({result.ip})\n\n"

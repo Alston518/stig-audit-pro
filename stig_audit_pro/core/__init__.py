@@ -1,1 +1,1 @@
-﻿"""Core scanning, validation, and evaluation services."""
+"""Core scanning, validation, and evaluation services."""

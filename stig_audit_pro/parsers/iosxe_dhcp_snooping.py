@@ -1,4 +1,4 @@
-﻿"""Parser for DHCP snooping state."""
+"""Parser for DHCP snooping state."""
 
 from __future__ import annotations
 
@@ -26,7 +26,9 @@ def _parse_running_config(text: str) -> DhcpSnoopingInfo:
             current_interface = None
             continue
         if stripped.startswith("interface "):
-            current_interface = normalize_interface_name(stripped.removeprefix("interface ").strip())
+            current_interface = normalize_interface_name(
+                stripped.removeprefix("interface ").strip()
+            )
             continue
         if stripped == "ip dhcp snooping":
             info.global_enabled = True
@@ -51,7 +53,9 @@ def _parse_show_output(text: str) -> DhcpSnoopingInfo:
             info.global_enabled = True
         elif "dhcp snooping is disabled" in lowered:
             info.global_enabled = False
-        elif "configured on following vlan" in lowered or "operational on following vlan" in lowered:
+        elif (
+            "configured on following vlan" in lowered or "operational on following vlan" in lowered
+        ):
             capture_vlans = True
             continue
         elif "interface" in lowered and "trusted" in lowered:
