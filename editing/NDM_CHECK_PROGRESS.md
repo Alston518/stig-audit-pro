@@ -8,7 +8,7 @@ Status meanings:
 - `[ ]` Still needs individual live testing.
 - `[~]` Intentionally deferred with a documented temporary result.
 
-Progress: **37 of 42 completed for the current implementation**
+Progress: **42 of 42 completed for the current implementation**
 
 ## Individual Checks
 
@@ -17,12 +17,12 @@ Progress: **37 of 42 completed for the current implementation**
 - [x] V-220520 - Archive log configuration auditing for account modification
 - [x] V-220521 - Archive log configuration auditing for account disabling
 - [x] V-220522 - Archive log configuration auditing for account removal
-- [ ] V-220523
+- [x] V-220523 - Profile-approved management ACL applied inbound to every VTY section
 - [x] V-220524 - Block logins for 900 seconds after three failed attempts within 120 seconds
-- [ ] V-220525
+- [x] V-220525 - Standard Mandatory DoD Notice and Consent text in the login banner
 - [x] V-220526 - Administrator activity logging with logging userinfo
 - [x] V-220528 - Millisecond localtime log timestamps with timezone and year
-- [ ] V-220529
+- [x] V-220529 - Log-input on deny statements in interface-bound IPv4 ACLs
 - [x] V-220530 - Archive log configuration auditing for privileged commands
 - [x] V-220531 - Temporarily Not Applicable because logging persistent is not configured
 - [x] V-220532 - Temporarily Not Applicable because logging persistent is not configured
@@ -43,7 +43,7 @@ Progress: **37 of 42 completed for the current implementation**
 - [x] V-220549 - At least two profile-defined authoritative NTP servers
 - [x] V-220552 - SNMPv3 SHA/SHA-2 HMAC authentication protocol
 - [x] V-220553 - SNMPv3 AES-128/192/256 privacy protocol
-- [ ] V-220554
+- [x] V-220554 - Trusted HMAC-SHA2-256 authentication on every profile-defined NTP server
 - [x] V-220555 - Approved SSH HMAC-SHA2 algorithm list
 - [x] V-220556 - Approved SSH AES-CTR encryption algorithm list
 - [x] V-220559 - Archive log configuration auditing for deleted administrator privileges
@@ -51,7 +51,7 @@ Progress: **37 of 42 completed for the current implementation**
 - [x] V-220561 - Archive log configuration auditing for privileged activities
 - [x] V-220565 - Two profile-defined RADIUS servers with ports, keys, and AAA group membership
 - [x] V-220566 - Temporarily NotAFinding; backups performed through Cisco Catalyst Center
-- [ ] V-220567
+- [x] V-220567 - Not Applicable; no organization-managed public key certificates are used
 - [x] V-220568 - At least two profile-defined central logging servers
 - [x] V-220569 - Installed IOS-XE release matches the profile-supported version allowlist
 

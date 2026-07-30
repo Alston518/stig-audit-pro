@@ -168,12 +168,13 @@ checks:
   title: The Cisco switch must be configured to enforce approved authorizations for
     controlling the flow of management information within the device based on control
     policies.
-  looking_for: Loop through VTY lines and look for a string on each
+  looking_for: Require the profile-defined management ACL inbound on every VTY section and permit only profile-approved management networks
   stig_family: IOSXE_NDM
   severity: cat2
-  check_type: manual_review
-  commands: []
-  automated: false
+  check_type: management_access_policy
+  commands:
+  - show running-config
+  automated: true
   scope: {}
   conditions: {}
   result:
@@ -182,12 +183,11 @@ checks:
     error_status: Error
   evidence:
     include_command_output: false
-    include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Manual review required. Review the STIG requirement and customer/site
-      tailoring.
-    error_comment: Manual review check could not be prepared.
-    finding_details_template: manual_review
+    include_failed_objects: true
+    pass_comment: Every VTY section uses the required inbound management ACL, which permits only the profile-approved management networks.
+    fail_comment: A VTY section is missing the required inbound management ACL, or the ACL permits an unapproved source network.
+    error_comment: VTY management-access controls could not be evaluated.
+    finding_details_template: default
 - vuln_id: V-220524
   stig_id: CISC-ND-000150
   title: The Cisco switch must be configured to enforce the limit of three consecutive
@@ -221,30 +221,27 @@ checks:
   stig_id: CISC-ND-000160
   title: The Cisco switch must be configured to display the Standard Mandatory DoD
     Notice and Consent Banner before granting access to the device.
-  looking_for: Looking for list of strings in "show run | inc banner"
+  looking_for: Verify the login banner contains every mandatory DoD notice and consent clause
   stig_family: IOSXE_NDM
   severity: cat2
-  check_type: command_pattern_policy
+  check_type: dod_banner_policy
   commands:
   - show running-config
   automated: true
   scope: {}
   conditions:
-    all:
-    - command: show running-config
-      strings: []
+    command: show running-config
+    banner_type: login
   result:
     pass_status: NotAFinding
     fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
-    include_failed_objects: false
-    pass_comment: Automated validation matched the configured strings/patterns for
-      this requirement.
-    fail_comment: Automated validation found missing required strings or present forbidden
-      strings.
-    error_comment: Automated validation could not be evaluated.
+    include_failed_objects: true
+    pass_comment: The configured login banner contains all mandatory Standard DoD Notice and Consent clauses.
+    fail_comment: The login banner is missing or does not contain all mandatory Standard DoD Notice and Consent clauses.
+    error_comment: The Standard DoD Notice and Consent banner could not be evaluated.
     finding_details_template: default
 - vuln_id: V-220526
   stig_id: CISC-ND-000210
@@ -305,17 +302,18 @@ checks:
   stig_id: CISC-ND-000290
   title: The Cisco switch must produce audit records containing information to establish
     where the events occurred.
-  looking_for: Loops through ACL deny statements and ensure that "log-input" is at
-    the end of them all
+  looking_for: Require log-input on every deny statement in each interface-bound IPv4 ACL
   stig_family: IOSXE_NDM
   severity: cat2
   check_type: acl_deny_logging_policy
   commands:
+  - show running-config
   - show ip access-lists
   automated: true
   scope: {}
   conditions:
     deny_statements:
+      interface_bound_only: true
       include_standard_acls: true
       include_extended_acls: true
       include_ipv6_acls: false
@@ -327,9 +325,9 @@ checks:
   evidence:
     include_command_output: false
     include_failed_objects: true
-    pass_comment: All in-scope ACL deny statements include log-input.
-    fail_comment: One or more ACL deny statements are missing log-input.
-    error_comment: ACL deny logging check could not be evaluated.
+    pass_comment: Every deny statement in each interface-bound IPv4 ACL includes log-input.
+    fail_comment: One or more deny statements in an interface-bound IPv4 ACL are missing log-input.
+    error_comment: Interface-bound ACL deny logging could not be evaluated.
     finding_details_template: default
 - vuln_id: V-220530
   stig_id: CISC-ND-000330
@@ -955,30 +953,30 @@ checks:
   stig_id: CISC-ND-001150
   title: The Cisco switch must be configured to authenticate Network Time Protocol
     (NTP) sources using authentication that is cryptographically based.
-  looking_for: Looking for list of strings in "show run| inc ntp"
+  looking_for: Require every profile-defined NTP server to use a trusted HMAC-SHA2-256 authentication key
   stig_family: IOSXE_NDM
   severity: cat2
-  check_type: command_pattern_policy
+  check_type: ntp_authentication_policy
   commands:
   - show running-config
   automated: true
   scope: {}
   conditions:
-    all:
-    - command: show running-config
-      strings: []
+    command: show running-config
+    ntp_servers_profile_key: ntp_servers
+    minimum_servers: 2
+    approved_algorithms:
+    - hmac-sha2-256
   result:
     pass_status: NotAFinding
     fail_status: Open
     error_status: Error
   evidence:
     include_command_output: false
-    include_failed_objects: false
-    pass_comment: Automated validation matched the configured strings/patterns for
-      this requirement.
-    fail_comment: Automated validation found missing required strings or present forbidden
-      strings.
-    error_comment: Automated validation could not be evaluated.
+    include_failed_objects: true
+    pass_comment: Every profile-defined NTP server uses a trusted HMAC-SHA2-256 authentication key and global NTP authentication is enabled.
+    fail_comment: Global NTP authentication is disabled, or one or more profile-defined NTP servers do not use a trusted HMAC-SHA2-256 key.
+    error_comment: NTP source authentication could not be evaluated.
     finding_details_template: default
 - vuln_id: V-220555
   stig_id: CISC-ND-001200
@@ -1201,7 +1199,7 @@ checks:
   stig_id: CISC-ND-001440
   title: The Cisco switch must be configured to obtain its public key certificates
     from an appropriate certificate policy through an approved service provider.
-  looking_for: Open because we cannot delete the default certifiates
+  looking_for: Not Applicable because these access switches do not use organization-managed public key certificates
   stig_family: IOSXE_NDM
   severity: cat2
   check_type: manual_review
@@ -1211,15 +1209,14 @@ checks:
   conditions: {}
   result:
     pass_status: NotAFinding
-    fail_status: Open
+    fail_status: Not_Applicable
     error_status: Error
   evidence:
     include_command_output: false
     include_failed_objects: false
-    pass_comment: Manual review completed and requirement was marked NotAFinding.
-    fail_comment: Marked Open because default certificates cannot be deleted in this
-      environment.
-    error_comment: Manual review check could not be prepared.
+    pass_comment: The switch uses organization-managed public key certificates obtained through an approved certificate policy or service provider.
+    fail_comment: Not Applicable. The switch does not use organization-managed public key certificates. Only Cisco factory-installed/default certificates and trustpoints are present. No locally configured CA enrollment trustpoint or certificate-based management service is used.
+    error_comment: Public key certificate applicability could not be documented.
     finding_details_template: manual_review
 - vuln_id: V-220568
   stig_id: CISC-ND-001450

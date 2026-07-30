@@ -135,3 +135,61 @@ def configure_treeview_style() -> None:
 
 def status_accent(status: str) -> str:
     return STATUS_ACCENTS.get(status, PRIMARY)
+
+
+def confirm_action(
+    parent: ctk.CTkBaseClass,
+    *,
+    title: str,
+    message: str,
+    confirm_text: str = "Yes",
+) -> bool:
+    """Show a lightweight confirmation dialog and return True only when confirmed."""
+    confirmed = False
+    dialog = ctk.CTkToplevel(parent)
+    dialog.title(title)
+    dialog.geometry("420x170")
+    dialog.resizable(False, False)
+    dialog.transient(parent.winfo_toplevel())
+    dialog.grid_columnconfigure(0, weight=1)
+    dialog.grid_rowconfigure(0, weight=1)
+
+    content = ctk.CTkFrame(dialog, fg_color="transparent")
+    content.grid(row=0, column=0, sticky="nsew", padx=18, pady=16)
+    content.grid_columnconfigure((0, 1), weight=1)
+
+    ctk.CTkLabel(
+        content,
+        text=message,
+        anchor="w",
+        justify="left",
+        wraplength=380,
+    ).grid(row=0, column=0, columnspan=2, sticky="ew", pady=(4, 20))
+
+    def close(value: bool) -> None:
+        nonlocal confirmed
+        confirmed = value
+        dialog.grab_release()
+        dialog.destroy()
+
+    ctk.CTkButton(
+        content,
+        text="Cancel",
+        fg_color="transparent",
+        border_width=1,
+        text_color=("gray10", "gray90"),
+        command=lambda: close(False),
+    ).grid(row=1, column=0, sticky="ew", padx=(0, 6))
+    ctk.CTkButton(
+        content,
+        text=confirm_text,
+        fg_color=DANGER,
+        hover_color=DANGER_HOVER,
+        command=lambda: close(True),
+    ).grid(row=1, column=1, sticky="ew", padx=(6, 0))
+
+    dialog.protocol("WM_DELETE_WINDOW", lambda: close(False))
+    dialog.bind("<Escape>", lambda _event: close(False))
+    dialog.after(10, dialog.grab_set)
+    parent.wait_window(dialog)
+    return confirmed

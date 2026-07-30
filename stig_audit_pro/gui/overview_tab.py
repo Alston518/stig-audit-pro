@@ -2,20 +2,33 @@
 
 from __future__ import annotations
 
+import tkinter as tk
 from collections import Counter
+from tkinter import ttk
 from typing import Any
 
 import customtkinter as ctk
 
 from stig_audit_pro.core.models import CheckDefinition, SiteProfile
 from stig_audit_pro.core.result_model import CheckResult
-from stig_audit_pro.gui.widgets import DANGER, DANGER_HOVER, Metric, PageFrame, Panel, PRIMARY, SUCCESS, WARNING
+from stig_audit_pro.gui.widgets import (
+    DANGER,
+    DANGER_HOVER,
+    Metric,
+    PageFrame,
+    Panel,
+    PRIMARY,
+    STATUS_COLORS,
+    SUCCESS,
+    WARNING,
+)
 
 
 class OverviewTab(PageFrame):
     def __init__(self, master: ctk.CTkBaseClass, app_controller: object) -> None:
         super().__init__(master)
         self.app_controller = app_controller
+        self.open_results: list[CheckResult] = []
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
 
@@ -71,9 +84,49 @@ class OverviewTab(PageFrame):
         ctk.CTkButton(quick_row, text="STIG Sources", command=lambda: app_controller.show_tab("STIG / CKL")).grid(row=0, column=1, sticky="ew", padx=6)
         ctk.CTkButton(quick_row, text="Reports", command=lambda: app_controller.show_tab("Reports")).grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
-        self.run_summary = ctk.CTkTextbox(run_panel, wrap="word", height=260)
-        self.run_summary.grid(row=3, column=0, columnspan=3, sticky="nsew", padx=12, pady=(0, 12))
+        results_frame = ctk.CTkFrame(run_panel, fg_color="transparent")
+        results_frame.grid(row=3, column=0, columnspan=3, sticky="nsew", padx=12, pady=(0, 12))
+        results_frame.grid_columnconfigure(0, weight=1)
+        results_frame.grid_rowconfigure(2, weight=1)
+
+        self.run_summary = ctk.CTkTextbox(results_frame, wrap="word", height=132)
+        self.run_summary.grid(row=0, column=0, sticky="ew")
         self._set_run_summary("No scan results loaded.")
+
+        ctk.CTkLabel(
+            results_frame,
+            text="Open Findings — select a row to view details",
+            anchor="w",
+            font=ctk.CTkFont(weight="bold"),
+        ).grid(row=1, column=0, sticky="ew", pady=(10, 4))
+
+        findings_frame = ctk.CTkFrame(results_frame, corner_radius=6, border_width=1)
+        findings_frame.grid(row=2, column=0, sticky="nsew")
+        findings_frame.grid_columnconfigure(0, weight=1)
+        findings_frame.grid_rowconfigure(0, weight=1)
+        self.open_tree = ttk.Treeview(
+            findings_frame,
+            columns=("ip", "vuln", "title"),
+            show="headings",
+            selectmode="browse",
+            height=7,
+        )
+        self.open_tree.heading("ip", text="IP")
+        self.open_tree.heading("vuln", text="Vuln ID")
+        self.open_tree.heading("title", text="Finding")
+        self.open_tree.column("ip", width=110, anchor="w", stretch=False)
+        self.open_tree.column("vuln", width=100, anchor="w", stretch=False)
+        self.open_tree.column("title", width=360, anchor="w")
+        self.open_tree.tag_configure(
+            "Open",
+            background=STATUS_COLORS["Open"][0],
+            foreground=STATUS_COLORS["Open"][1],
+        )
+        self.open_tree.grid(row=0, column=0, sticky="nsew", padx=(8, 0), pady=8)
+        scrollbar = ttk.Scrollbar(findings_frame, orient="vertical", command=self.open_tree.yview)
+        scrollbar.grid(row=0, column=1, sticky="ns", padx=(0, 8), pady=8)
+        self.open_tree.configure(yscrollcommand=scrollbar.set)
+        self.open_tree.bind("<<TreeviewSelect>>", self._open_finding_selected)
 
         ops_panel = Panel(body, "Library Status")
         ops_panel.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
@@ -108,12 +161,15 @@ class OverviewTab(PageFrame):
         self._set_library_status("\n".join(lines))
 
     def refresh_results(self, results: list[CheckResult]) -> None:
+        for item in self.open_tree.get_children():
+            self.open_tree.delete(item)
+        self.open_results = []
         if not results:
             self._set_run_summary("No scan results loaded.")
             return
         counts = Counter(result.status for result in results)
         devices = sorted({result.ip for result in results})
-        open_findings = [result for result in results if result.status == "Open"][:12]
+        self.open_results = [result for result in results if result.status == "Open"]
         lines = [
             f"Devices scanned: {len(devices)}",
             f"Total results: {len(results)}",
@@ -123,14 +179,16 @@ class OverviewTab(PageFrame):
             f"NotApplicable: {counts.get('Not_Applicable', 0)}",
             f"Error: {counts.get('Error', 0)}",
             f"Skipped: {counts.get('Skipped', 0)}",
-            "",
-            "Open findings:",
         ]
-        if open_findings:
-            lines.extend(f"- {result.ip} {result.vuln_id}: {result.title}" for result in open_findings)
-        else:
-            lines.append("None")
         self._set_run_summary("\n".join(lines))
+        for index, result in enumerate(self.open_results):
+            self.open_tree.insert(
+                "",
+                "end",
+                iid=str(index),
+                values=(result.ip, result.vuln_id, result.title),
+                tags=("Open",),
+            )
 
     def _blank_string_slots(self, value: Any) -> int:
         if isinstance(value, dict):
@@ -150,6 +208,15 @@ class OverviewTab(PageFrame):
         self.run_summary.delete("1.0", "end")
         self.run_summary.insert("1.0", text)
         self.run_summary.configure(state="disabled")
+
+    def _open_finding_selected(self, _event: tk.Event[tk.Misc]) -> None:
+        selected = self.open_tree.selection()
+        if not selected:
+            return
+        index = int(selected[0])
+        if index >= len(self.open_results):
+            return
+        self.app_controller.show_result(self.open_results[index])
 
     def _set_library_status(self, text: str) -> None:
         self.library_status.configure(state="normal")

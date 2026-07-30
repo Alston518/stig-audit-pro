@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import threading
+from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any, TypeVar
@@ -85,6 +87,10 @@ class StigAuditProApp(ctk.CTk):
         self.results: list[CheckResult] = []
         self.last_artifacts: list[Path] = []
         self.stig_metadata: list[StigBenchmarkMetadata] = []
+        self._scan_cancel_event = threading.Event()
+        self._scan_thread: threading.Thread | None = None
+        self._scan_in_progress = False
+        self._license_notice_dismissed = False
         self.license_manager = LicenseManager()
         self.license_manager.load()
 
@@ -101,14 +107,6 @@ class StigAuditProApp(ctk.CTk):
         self.refresh_device_groups()
         self.refresh_stig_metadata()
         self.refresh_license_status(announce=False)
-        if self.license_manager.status is LicenseStatus.INVALID:
-            self.after(
-                250,
-                lambda: self._show_error(
-                    "The installed license is invalid. STIG Audit Pro is running in "
-                    "Free mode. Open the License tab to import a valid license."
-                ),
-            )
 
     def _build_header(self) -> None:
         header = ctk.CTkFrame(self, corner_radius=0, fg_color=("#eef2f6", "#0f172a"))
@@ -140,6 +138,52 @@ class StigAuditProApp(ctk.CTk):
             height=28,
         )
         self.license_badge.grid(row=0, column=2, rowspan=2, sticky="e", padx=(0, 18))
+
+        self.license_notice_frame = ctk.CTkFrame(
+            header,
+            corner_radius=0,
+            fg_color=("#fffaeb", "#451a03"),
+            border_width=1,
+            border_color=("#f79009", "#b45309"),
+        )
+        self.license_notice_frame.grid(
+            row=2,
+            column=0,
+            columnspan=3,
+            sticky="ew",
+        )
+        self.license_notice_frame.grid_columnconfigure(0, weight=1)
+        self.license_notice_label = ctk.CTkLabel(
+            self.license_notice_frame,
+            text="",
+            anchor="w",
+            text_color=("#7a2e0e", "#fef3c7"),
+        )
+        self.license_notice_label.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=(18, 10),
+            pady=7,
+        )
+        ctk.CTkButton(
+            self.license_notice_frame,
+            text="Open License",
+            width=100,
+            height=26,
+            command=lambda: self.show_tab("License"),
+        ).grid(row=0, column=1, padx=(0, 8), pady=5)
+        ctk.CTkButton(
+            self.license_notice_frame,
+            text="Dismiss",
+            width=76,
+            height=26,
+            fg_color="transparent",
+            border_width=1,
+            text_color=("#7a2e0e", "#fef3c7"),
+            command=self._dismiss_license_notice,
+        ).grid(row=0, column=2, padx=(0, 18), pady=5)
+        self.license_notice_frame.grid_remove()
 
     def _build_tabs(self) -> None:
         self.tabs = ctk.CTkTabview(self)
@@ -186,6 +230,11 @@ class StigAuditProApp(ctk.CTk):
     def show_tab(self, tab_name: str) -> None:
         self.tabs.set(tab_name)
 
+    def show_result(self, result: CheckResult) -> None:
+        """Open the Results tab with the requested result selected."""
+        self.show_tab("Results")
+        self.results_tab.select_result(result.ip, result.vuln_id)
+
     def refresh_license_status(self, announce: bool = True) -> None:
         self.license_manager.reload()
         self.license_tab.refresh(self.license_manager)
@@ -202,10 +251,41 @@ class StigAuditProApp(ctk.CTk):
                 else ("#92400e", "#fef3c7")
             ),
         )
+        self._update_license_notice()
         if announce:
             self.set_status(
                 f"License status: {self.license_manager.mode_summary}."
             )
+
+    def _update_license_notice(self) -> None:
+        if self.license_manager.is_valid or self._license_notice_dismissed:
+            self.license_notice_frame.grid_remove()
+            return
+        messages = {
+            LicenseStatus.INVALID: (
+                "The installed license is invalid. STIG Audit Pro is running "
+                "in Free mode."
+            ),
+            LicenseStatus.EXPIRED: (
+                "The installed license has expired. STIG Audit Pro is running "
+                "in Free mode."
+            ),
+            LicenseStatus.MISSING: (
+                "No license is installed. STIG Audit Pro is running in Free mode."
+            ),
+            LicenseStatus.FREE: "STIG Audit Pro is running in Free mode.",
+        }
+        self.license_notice_label.configure(
+            text=messages.get(
+                self.license_manager.status,
+                "STIG Audit Pro is running in Free mode.",
+            )
+        )
+        self.license_notice_frame.grid()
+
+    def _dismiss_license_notice(self) -> None:
+        self._license_notice_dismissed = True
+        self.license_notice_frame.grid_remove()
 
     def import_license_file(self, path: Path) -> None:
         try:
@@ -222,7 +302,7 @@ class StigAuditProApp(ctk.CTk):
             self.refresh_license_status(announce=False)
             self.tabs.set("License")
             self.set_status("License import failed; Free mode remains active.")
-            self._show_error(str(exc))
+            self._show_error(str(exc), kind="license")
 
     def reload_from_disk(self) -> None:
         try:
@@ -238,10 +318,10 @@ class StigAuditProApp(ctk.CTk):
             self.set_status(f"Loaded {len(self.checks)} checks using profile {self.profile.profile_name if self.profile else self.profile_name}.")
         except ConfigValidationError as exc:
             self.set_status("YAML validation failed.")
-            self._show_error(str(exc))
+            self._show_error(str(exc), kind="validation")
         except ValueError as exc:
             self.set_status("Check library validation failed.")
-            self._show_error(str(exc))
+            self._show_error(str(exc), kind="validation")
 
     def available_profile_names(self) -> list[str]:
         return sorted(path.stem for path in (self.data_dir / "profiles").glob("*.yaml"))
@@ -385,7 +465,89 @@ class StigAuditProApp(ctk.CTk):
             self.refresh_device_groups()
         except Exception as exc:
             self.set_status("Could not load profile.")
-            self._show_error(str(exc))
+            self._show_error(str(exc), kind="validation")
+
+    def _begin_scan(self, total: int, message: str) -> bool:
+        if self._scan_in_progress:
+            self.set_status(
+                "A scan is already running. Cancel it or wait for it to finish."
+            )
+            return False
+        self._scan_cancel_event.clear()
+        self._scan_in_progress = True
+        self.targets_tab.set_scan_state(
+            running=True,
+            completed=0,
+            total=total,
+            message=f"0/{total} devices",
+        )
+        self.stig_tab.set_scan_running(True)
+        self.set_status(message)
+        return True
+
+    def _queue_scan_progress(
+        self,
+        completed: int,
+        total: int,
+        message: str,
+        *,
+        checklist: bool = False,
+    ) -> None:
+        self.after(
+            0,
+            lambda: self._update_scan_progress(
+                completed,
+                total,
+                message,
+                checklist=checklist,
+            ),
+        )
+
+    def _update_scan_progress(
+        self,
+        completed: int,
+        total: int,
+        message: str,
+        *,
+        checklist: bool = False,
+    ) -> None:
+        self.targets_tab.set_scan_state(
+            running=True,
+            completed=completed,
+            total=total,
+        )
+        self.set_status(message)
+        if checklist:
+            self.stig_tab.set_checklist_status(message)
+
+    def _finish_scan_ui(
+        self,
+        *,
+        completed: int,
+        total: int,
+        message: str,
+    ) -> None:
+        self._scan_in_progress = False
+        self._scan_thread = None
+        self.targets_tab.set_scan_state(
+            running=False,
+            completed=completed,
+            total=total,
+        )
+        self.stig_tab.set_scan_running(False)
+        self.set_status(message)
+
+    def cancel_scan(self) -> None:
+        if not self._scan_in_progress:
+            self.set_status("No scan is currently running.")
+            return
+        self._scan_cancel_event.set()
+        message = (
+            "Cancel requested. The current device will finish, then remaining "
+            "targets will be skipped."
+        )
+        self.set_status(message)
+        self.stig_tab.set_checklist_status(message)
 
     def run_target_scope(self, scope: str) -> None:
         targets = self.targets_tab.get_targets(scope)
@@ -403,7 +565,7 @@ class StigAuditProApp(ctk.CTk):
         except LicensePolicyError as exc:
             self.refresh_license_status(announce=False)
             self.set_status("Scan blocked by the current license.")
-            self._show_error(str(exc))
+            self._show_error(str(exc), kind="license")
 
     def run_sample_audit(self, sample_name: str) -> None:
         ip = "10.50.10.25" if sample_name == "compliant" else "10.50.10.26"
@@ -415,7 +577,7 @@ class StigAuditProApp(ctk.CTk):
         except LicensePolicyError as exc:
             self.refresh_license_status(announce=False)
             self.set_status("Demo scan blocked by the current license.")
-            self._show_error(str(exc))
+            self._show_error(str(exc), kind="license")
 
     def update_report_summary(self, results: list[CheckResult]) -> None:
         self.reports_tab.refresh(results)
@@ -429,6 +591,12 @@ class StigAuditProApp(ctk.CTk):
             destination = write_text_report(self.results, path)
             self.set_status(f"Saved TXT report to {destination}.")
             self.reports_tab.set_export_status(f"Saved TXT report: {destination}")
+        except LicensePolicyError as exc:
+            self.set_status("TXT report export blocked by the current license.")
+            self._show_error(str(exc), kind="license")
+        except ValueError as exc:
+            self.set_status("TXT report export needs more information.")
+            self._show_error(str(exc), kind="validation")
         except Exception as exc:
             self.set_status("TXT report export failed.")
             self._show_error(str(exc))
@@ -441,9 +609,344 @@ class StigAuditProApp(ctk.CTk):
             destination = write_csv_report(self.results, path)
             self.set_status(f"Saved CSV report to {destination}.")
             self.reports_tab.set_export_status(f"Saved CSV report: {destination}")
+        except LicensePolicyError as exc:
+            self.set_status("CSV report export blocked by the current license.")
+            self._show_error(str(exc), kind="license")
+        except ValueError as exc:
+            self.set_status("CSV report export needs more information.")
+            self._show_error(str(exc), kind="validation")
         except Exception as exc:
             self.set_status("CSV report export failed.")
             self._show_error(str(exc))
+
+    def run_checklist_audit(
+        self,
+        *,
+        families: set[str],
+        ckl_paths: dict[str, Path | None],
+        output_dir: Path | None,
+        create_ckl: bool,
+        create_text: bool,
+        append_comments: bool,
+    ) -> None:
+        """Run L2, NDM, or a combined audit and create the selected artifacts."""
+
+        scan_started = False
+        try:
+            supported_families = {"IOSXE_L2", "IOSXE_NDM"}
+            selected_families = families & supported_families
+            if not selected_families:
+                raise ValueError("Select L2, NDM, or both before starting the audit.")
+
+            self.license_manager.reload()
+            if "IOSXE_L2" in selected_families:
+                self.license_manager.require_feature("l2_checks", refresh=False)
+            if "IOSXE_NDM" in selected_families:
+                self.license_manager.require_feature("ndm_checks", refresh=False)
+            if create_ckl:
+                self.license_manager.require_feature("ckl_export", refresh=False)
+            if create_text:
+                self.license_manager.require_feature(
+                    "advanced_reporting",
+                    refresh=False,
+                )
+            if not create_ckl and not create_text:
+                raise ValueError("Select Fill CKL, Create text report, or both.")
+            if output_dir is None:
+                raise ValueError(
+                    "Select a destination folder for the completed files."
+                )
+            output_dir.mkdir(parents=True, exist_ok=True)
+
+            checks_by_family = {
+                family: [
+                    check for check in self.checks if check.stig_family == family
+                ]
+                for family in supported_families
+            }
+            for family in selected_families:
+                if not checks_by_family[family]:
+                    raise ValueError(f"No {family} checks are loaded.")
+
+            selected_checks = [
+                check
+                for check in self.checks
+                if check.stig_family in selected_families
+            ]
+            if selected_families == supported_families:
+                scan_label = "L2 + NDM"
+                file_label = "IOSXE_L2_NDM"
+                selected_template_key = "COMBINED"
+            elif selected_families == {"IOSXE_NDM"}:
+                scan_label = "NDM"
+                file_label = "IOSXE_NDM"
+                selected_template_key = "IOSXE_NDM"
+            else:
+                scan_label = "L2"
+                file_label = "IOSXE_L2"
+                selected_template_key = "IOSXE_L2"
+
+            selected_template: Path | None = None
+            if create_ckl:
+                template_labels = {
+                    "IOSXE_L2": "L2",
+                    "IOSXE_NDM": "NDM",
+                    "COMBINED": "combined L2 and NDM",
+                }
+                missing_templates = [
+                    template_labels[key]
+                    for key in ("IOSXE_L2", "IOSXE_NDM", "COMBINED")
+                    if ckl_paths.get(key) is None
+                ]
+                if missing_templates:
+                    raise ValueError(
+                        "Select all three CKL templates before running: "
+                        + ", ".join(missing_templates)
+                        + "."
+                    )
+
+                template_ids = {
+                    key: checklist_vuln_ids(path)
+                    for key in ("IOSXE_L2", "IOSXE_NDM", "COMBINED")
+                    if (path := ckl_paths.get(key)) is not None
+                }
+                family_ids = {
+                    family: {
+                        check.vuln_id for check in checks_by_family[family]
+                    }
+                    for family in supported_families
+                }
+                if not (template_ids["IOSXE_L2"] & family_ids["IOSXE_L2"]):
+                    raise ValueError(
+                        "The selected L2 CKL template contains no IOS-XE L2 "
+                        "vulnerability IDs."
+                    )
+                if not (template_ids["IOSXE_NDM"] & family_ids["IOSXE_NDM"]):
+                    raise ValueError(
+                        "The selected NDM CKL template contains no IOS-XE NDM "
+                        "vulnerability IDs."
+                    )
+                combined_ids = template_ids["COMBINED"]
+                if not (
+                    combined_ids & family_ids["IOSXE_L2"]
+                    and combined_ids & family_ids["IOSXE_NDM"]
+                ):
+                    raise ValueError(
+                        "The combined CKL template must contain both IOS-XE L2 "
+                        "and IOS-XE NDM vulnerability IDs."
+                    )
+                selected_template = ckl_paths[selected_template_key]
+
+            targets = self.targets_tab.get_targets("checked")
+            if not targets:
+                raise ValueError("Check at least one target on the Targets tab.")
+            targets = self._licensed_targets(targets, refresh=False)
+            settings = self.targets_tab.get_scan_settings()
+            if settings.get("mode") != "Live SSH":
+                raise ValueError(
+                    "The CKL workflow requires Live SSH. On the Targets tab, "
+                    "change Scan Mode from Sample outputs to Live SSH."
+                )
+            username = str(settings.get("username") or "")
+            password = str(settings.get("password") or "")
+            if not username or not password:
+                raise ValueError(
+                    "Live SSH requires a username and password on the Targets tab."
+                )
+            if not self._begin_scan(
+                len(targets),
+                f"Starting {scan_label} checklist audit for "
+                f"{len(targets)} target(s)...",
+            ):
+                return
+            scan_started = True
+            self._scan_thread = threading.Thread(
+                target=self._checklist_scan_worker,
+                args=(
+                    list(targets),
+                    dict(settings),
+                    list(selected_checks),
+                    set(selected_families),
+                    scan_label,
+                    file_label,
+                    selected_template,
+                    output_dir,
+                    create_ckl,
+                    create_text,
+                    append_comments,
+                ),
+                daemon=True,
+                name="stig-audit-checklist-scan",
+            )
+            self._scan_thread.start()
+        except LicensePolicyError as exc:
+            if scan_started:
+                self._finish_scan_ui(
+                    completed=0,
+                    total=len(targets) if "targets" in locals() else 0,
+                    message="Checklist audit could not be started.",
+                )
+            self.refresh_license_status(announce=False)
+            self.stig_tab.set_checklist_status(
+                f"Checklist audit blocked by license: {exc}"
+            )
+            self.set_status("Checklist audit blocked by the current license.")
+            self._show_error(str(exc), kind="license")
+        except Exception as exc:
+            if scan_started:
+                self._finish_scan_ui(
+                    completed=0,
+                    total=len(targets) if "targets" in locals() else 0,
+                    message="Checklist audit could not be started.",
+                )
+            self.stig_tab.set_checklist_status(
+                f"Checklist audit failed: {exc}"
+            )
+            self.set_status("Checklist audit failed.")
+            self._show_error(str(exc), kind="validation")
+
+    def _checklist_scan_worker(
+        self,
+        targets: list[DeviceTargetRecord],
+        settings: dict[str, object],
+        checks: list[CheckDefinition],
+        selected_families: set[str],
+        scan_label: str,
+        file_label: str,
+        selected_template: Path | None,
+        output_dir: Path,
+        create_ckl: bool,
+        create_text: bool,
+        append_comments: bool,
+    ) -> None:
+        progress = {"completed": 0}
+        total = len(targets)
+
+        def progress_callback(
+            completed: int,
+            progress_total: int,
+            message: str,
+        ) -> None:
+            progress["completed"] = completed
+            self._queue_scan_progress(
+                completed,
+                progress_total,
+                message,
+                checklist=True,
+            )
+
+        try:
+            results, assets = self._run_l2_targets(
+                targets,
+                settings,
+                checks,
+                audit_label=scan_label,
+                cancel_event=self._scan_cancel_event,
+                progress_callback=progress_callback,
+            )
+
+            artifacts: list[Path] = []
+            unmatched_count = 0
+            if create_ckl and selected_template is not None:
+                for target in targets:
+                    asset = assets.get(target.ip)
+                    device_results = [
+                        result
+                        for result in results
+                        if result.ip == target.ip
+                        and result.stig_family in selected_families
+                    ]
+                    if asset is None or not device_results:
+                        continue
+                    filename = (
+                        f"{safe_device_filename(asset.hostname)}_"
+                        f"{safe_device_filename(target.ip)}_"
+                        f"{file_label}_completed.ckl"
+                    )
+                    summary = write_completed_ckl(
+                        selected_template,
+                        output_dir / filename,
+                        device_results,
+                        asset,
+                        append_comments=append_comments,
+                    )
+                    artifacts.append(summary.path)
+                    unmatched_count += len(summary.unmatched_result_ids)
+
+            if create_text and results:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                report_path = (
+                    output_dir / f"{file_label}_audit_{timestamp}.txt"
+                )
+                artifacts.append(write_text_report(results, report_path))
+
+            cancelled = self._scan_cancel_event.is_set()
+            completed = progress["completed"]
+            self.after(
+                0,
+                lambda: self._complete_checklist_scan(
+                    results,
+                    artifacts,
+                    unmatched_count,
+                    scan_label,
+                    output_dir,
+                    completed,
+                    total,
+                    cancelled,
+                ),
+            )
+        except Exception as exc:
+            message = str(exc)
+            completed = progress["completed"]
+            self.after(
+                0,
+                lambda: self._handle_background_scan_error(
+                    message,
+                    completed,
+                    total,
+                    checklist=True,
+                ),
+            )
+
+    def _complete_checklist_scan(
+        self,
+        results: list[CheckResult],
+        artifacts: list[Path],
+        unmatched_count: int,
+        scan_label: str,
+        output_dir: Path,
+        completed: int,
+        total: int,
+        cancelled: bool,
+    ) -> None:
+        self.last_artifacts = artifacts
+        self.results = results
+        self.results_tab.refresh(results)
+        self.update_report_summary(results)
+        if results:
+            self.tabs.set("Results")
+        open_count = sum(result.status == "Open" for result in results)
+        pass_count = sum(result.status == "NotAFinding" for result in results)
+        prefix = (
+            f"{scan_label} audit cancelled after {completed}/{total} target(s)"
+            if cancelled
+            else f"{scan_label} audit complete for {completed} target(s)"
+        )
+        message = (
+            f"{prefix}: {pass_count} NotAFinding, {open_count} Open; "
+            f"created {len(artifacts)} file(s) in {output_dir}."
+        )
+        if unmatched_count:
+            message += (
+                f" {unmatched_count} result(s) had no matching CKL "
+                "vulnerability."
+            )
+        self.stig_tab.set_checklist_status(message)
+        self._finish_scan_ui(
+            completed=completed,
+            total=total,
+            message=message,
+        )
 
     def run_l2_checklist_audit(
         self,
@@ -547,13 +1050,23 @@ class StigAuditProApp(ctk.CTk):
         except Exception as exc:
             self.stig_tab.set_checklist_status(f"L2 checklist audit failed: {exc}")
             self.set_status("L2 checklist audit failed.")
-            self._show_error(str(exc))
+            kind = (
+                "license"
+                if isinstance(exc, LicensePolicyError)
+                else "validation"
+                if isinstance(exc, (ValueError, ConfigValidationError))
+                else "generic"
+            )
+            self._show_error(str(exc), kind=kind)
 
     def _run_l2_targets(
         self,
         targets: list[DeviceTargetRecord],
         settings: dict[str, object],
         checks: list[CheckDefinition],
+        audit_label: str = "L2",
+        cancel_event: threading.Event | None = None,
+        progress_callback: Callable[[int, int, str], None] | None = None,
     ) -> tuple[list[CheckResult], dict[str, CklAsset]]:
         results: list[CheckResult] = []
         assets: dict[str, CklAsset] = {}
@@ -576,12 +1089,18 @@ class StigAuditProApp(ctk.CTk):
                 CommandOutputCache(self.root_dir / "work" / "cache" / "ssh")
             )
 
+        completed = 0
+        total = len(targets)
         for index, target in enumerate(targets, start=1):
-            self.set_status(f"Running L2 audit on {target.ip} ({index}/{len(targets)})...")
-            self.stig_tab.set_checklist_status(
-                f"Running L2 audit on {target.ip} ({index}/{len(targets)})..."
-            )
-            self.update_idletasks()
+            if cancel_event is not None and cancel_event.is_set():
+                break
+            if progress_callback is not None:
+                progress_callback(
+                    completed,
+                    total,
+                    f"Running {audit_label} audit on {target.ip} "
+                    f"({index}/{total})...",
+                )
             if mode == "Live SSH":
                 assert runner is not None and credentials is not None
                 run = runner.run_commands(
@@ -600,6 +1119,13 @@ class StigAuditProApp(ctk.CTk):
                             commands,
                         )
                     )
+                    completed += 1
+                    if progress_callback is not None:
+                        progress_callback(
+                            completed,
+                            total,
+                            f"Completed {target.ip} ({completed}/{total}).",
+                        )
                     continue
                 outputs = run.outputs
             else:
@@ -621,6 +1147,13 @@ class StigAuditProApp(ctk.CTk):
                     hostname=asset.hostname,
                 )
             )
+            completed += 1
+            if progress_callback is not None:
+                progress_callback(
+                    completed,
+                    total,
+                    f"Completed {target.ip} ({completed}/{total}).",
+                )
         return results, assets
 
     def validate_check_yaml(self, text: str) -> tuple[bool, str]:
@@ -719,41 +1252,174 @@ class StigAuditProApp(ctk.CTk):
         password = str(settings.get("password") or "")
         if not username or not password:
             self.set_status("Live SSH requires a username and password.")
-            return
-        timeout = int(settings.get("timeout") or 30)
-        credentials = DeviceCredentials(
-            username=username,
-            password=password,
-            secret=settings.get("secret") if isinstance(settings.get("secret"), str) else None,
-        )
-        commands = plan_commands(checks, run_all=False)
-        runner = NetmikoSshRunner(CommandOutputCache(self.root_dir / "work" / "cache" / "ssh"))
-        results: list[CheckResult] = []
-        for index, target in enumerate(targets, start=1):
-            self.set_status(f"Scanning {target.ip} ({index}/{len(targets)}) over SSH...")
-            self.update_idletasks()
-            run = runner.run_commands(
-                DeviceTarget(ip=target.ip, timeout=timeout),
-                credentials,
-                commands,
+            self._show_error(
+                "Enter both an SSH username and password on the Targets tab.",
+                kind="validation",
             )
-            if run.status == "skipped":
-                results.append(self._skipped_result(target.ip, run.error_message or "SSH connection failed", commands))
-                continue
-            profile = self._profile_for_target(target)
-            engine = CheckEngine(profile)
-            results.extend(engine.evaluate_all(checks, outputs=run.outputs, ip=target.ip))
+            return
+        if not self._begin_scan(
+            len(targets),
+            f"Starting {label} SSH scan for {len(targets)} target(s)...",
+        ):
+            return
+
+        try:
+            timeout = int(settings.get("timeout") or 30)
+            credentials = DeviceCredentials(
+                username=username,
+                password=password,
+                secret=settings.get("secret") if isinstance(settings.get("secret"), str) else None,
+            )
+            commands = plan_commands(checks, run_all=False)
+            self._scan_thread = threading.Thread(
+                target=self._live_scan_worker,
+                args=(
+                    list(targets),
+                    credentials,
+                    timeout,
+                    label,
+                    list(checks),
+                    commands,
+                ),
+                daemon=True,
+                name="stig-audit-live-scan",
+            )
+            self._scan_thread.start()
+        except Exception as exc:
+            self._finish_scan_ui(
+                completed=0,
+                total=len(targets),
+                message="Live SSH scan could not be started.",
+            )
+            self._show_error(str(exc), kind="connection")
+
+    def _live_scan_worker(
+        self,
+        targets: list[DeviceTargetRecord],
+        credentials: DeviceCredentials,
+        timeout: int,
+        label: str,
+        checks: list[CheckDefinition],
+        commands: list[str],
+    ) -> None:
+        runner = NetmikoSshRunner(
+            CommandOutputCache(self.root_dir / "work" / "cache" / "ssh")
+        )
+        results: list[CheckResult] = []
+        completed = 0
+        total = len(targets)
+        try:
+            for index, target in enumerate(targets, start=1):
+                if self._scan_cancel_event.is_set():
+                    break
+                self._queue_scan_progress(
+                    completed,
+                    total,
+                    f"Scanning {target.ip} ({index}/{total}) over SSH...",
+                )
+                run = runner.run_commands(
+                    DeviceTarget(ip=target.ip, timeout=timeout),
+                    credentials,
+                    commands,
+                )
+                if run.status == "skipped":
+                    results.append(
+                        self._skipped_result(
+                            target.ip,
+                            run.error_message or "SSH connection failed",
+                            commands,
+                        )
+                    )
+                else:
+                    profile = self._profile_for_target(target)
+                    engine = CheckEngine(profile)
+                    results.extend(
+                        engine.evaluate_all(
+                            checks,
+                            outputs=run.outputs,
+                            ip=target.ip,
+                        )
+                    )
+                completed += 1
+                self._queue_scan_progress(
+                    completed,
+                    total,
+                    f"Completed {target.ip} ({completed}/{total}).",
+                )
+            cancelled = self._scan_cancel_event.is_set()
+            self.after(
+                0,
+                lambda: self._complete_live_scan(
+                    results,
+                    label,
+                    completed,
+                    total,
+                    cancelled,
+                ),
+            )
+        except Exception as exc:
+            message = str(exc)
+            self.after(
+                0,
+                lambda: self._handle_background_scan_error(
+                    message,
+                    completed,
+                    total,
+                ),
+            )
+
+    def _complete_live_scan(
+        self,
+        results: list[CheckResult],
+        label: str,
+        completed: int,
+        total: int,
+        cancelled: bool,
+    ) -> None:
         self.results = results
         self.results_tab.refresh(self.results)
         self.update_report_summary(self.results)
         skipped = sum(1 for result in self.results if result.status == "Skipped")
         open_count = sum(1 for result in self.results if result.status == "Open")
         pass_count = sum(1 for result in self.results if result.status == "NotAFinding")
-        self.tabs.set("Results")
-        self.set_status(
-            f"{label.title()} SSH run complete for {len(targets)} target(s): "
+        if results:
+            self.tabs.set("Results")
+        prefix = (
+            f"{label.title()} SSH run cancelled after {completed}/{total} target(s)"
+            if cancelled
+            else f"{label.title()} SSH run complete for {completed} target(s)"
+        )
+        message = (
+            f"{prefix}: "
             f"{pass_count} NotAFinding, {open_count} Open, {skipped} Skipped."
         )
+        self._finish_scan_ui(
+            completed=completed,
+            total=total,
+            message=message,
+        )
+
+    def _handle_background_scan_error(
+        self,
+        message: str,
+        completed: int,
+        total: int,
+        *,
+        checklist: bool = False,
+    ) -> None:
+        status_message = (
+            f"Scan failed after {completed}/{total} target(s)."
+        )
+        if checklist:
+            self.stig_tab.set_checklist_status(
+                f"Checklist audit failed: {message}"
+            )
+        self._finish_scan_ui(
+            completed=completed,
+            total=total,
+            message=status_message,
+        )
+        self._show_error(message, kind="connection")
 
     def _skipped_result(self, ip: str, reason: str, commands: list[str]) -> CheckResult:
         return CheckResult(
@@ -835,9 +1501,20 @@ class StigAuditProApp(ctk.CTk):
             return model_type.model_validate(data)  # type: ignore[attr-defined]
         return model_type.parse_obj(data)
 
-    def _show_error(self, message: str) -> None:
+    def _show_error(
+        self,
+        message: str,
+        title: str | None = None,
+        kind: str = "generic",
+    ) -> None:
+        dialog_titles = {
+            "connection": "Connection Failed",
+            "license": "License Issue",
+            "validation": "Invalid Input",
+            "generic": "Error",
+        }
         dialog = ctk.CTkToplevel(self)
-        dialog.title("Error")
+        dialog.title(title or dialog_titles.get(kind, dialog_titles["generic"]))
         dialog.geometry("620x260")
         dialog.transient(self)
         dialog.grab_set()
@@ -847,7 +1524,33 @@ class StigAuditProApp(ctk.CTk):
         text.grid(row=0, column=0, sticky="nsew", padx=14, pady=(14, 8))
         text.insert("1.0", message)
         text.configure(state="disabled")
-        ctk.CTkButton(dialog, text="OK", command=dialog.destroy).grid(row=1, column=0, sticky="e", padx=14, pady=(0, 14))
+
+        buttons = ctk.CTkFrame(dialog, fg_color="transparent")
+        buttons.grid(row=1, column=0, sticky="ew", padx=14, pady=(0, 14))
+        buttons.grid_columnconfigure(0, weight=1)
+
+        def copy_details() -> None:
+            self.clipboard_clear()
+            self.clipboard_append(message)
+            self.update_idletasks()
+            copy_button.configure(text="Copied")
+
+        copy_button = ctk.CTkButton(
+            buttons,
+            text="Copy Details",
+            width=110,
+            fg_color="transparent",
+            border_width=1,
+            text_color=("gray10", "gray90"),
+            command=copy_details,
+        )
+        copy_button.grid(row=0, column=0, sticky="w")
+        ctk.CTkButton(
+            buttons,
+            text="OK",
+            width=90,
+            command=dialog.destroy,
+        ).grid(row=0, column=1, sticky="e")
 
     def _short_error(self, exc: Exception) -> str:
         text = str(exc).replace("\n", " ")

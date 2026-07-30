@@ -27,10 +27,13 @@ CheckTypeLiteral = Literal[
     "section_not_contains",
     "interface_policy",
     "interface_config_policy",
+    "management_access_policy",
+    "ntp_authentication_policy",
     "trunk_vlan_policy",
     "acl_deny_logging_policy",
     "dhcp_snooping_policy",
     "arp_inspection_policy",
+    "dod_banner_policy",
     "radius_server_policy",
     "root_guard_neighbor_policy",
     "vty_session_limit_policy",
@@ -146,6 +149,16 @@ class RootGuardPolicy(StrictModel):
     upstream_switches: list[str] = Field(default_factory=list)
 
 
+class ManagementNetwork(StrictModel):
+    network_address: str
+    subnet_mask: str
+
+
+class ManagementAccessPolicy(StrictModel):
+    acl_name: str = "MANAGEMENT_NET"
+    networks: list[ManagementNetwork] = Field(default_factory=list)
+
+
 class EndpointAuthenticationPolicy(StrictModel):
     radius_group: str = "ISE-RADIUS"
     radius_servers: list[str] = Field(default_factory=list)
@@ -172,6 +185,9 @@ class SiteProfile(StrictModel):
     dhcp_snooping: DhcpSnoopingPolicy = Field(default_factory=DhcpSnoopingPolicy)
     arp_inspection: ArpInspectionPolicy = Field(default_factory=ArpInspectionPolicy)
     root_guard: RootGuardPolicy = Field(default_factory=RootGuardPolicy)
+    management_access: ManagementAccessPolicy = Field(
+        default_factory=ManagementAccessPolicy
+    )
     endpoint_authentication: EndpointAuthenticationPolicy = Field(
         default_factory=EndpointAuthenticationPolicy
     )

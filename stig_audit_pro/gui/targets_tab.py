@@ -10,7 +10,7 @@ from tkinter import filedialog
 
 import customtkinter as ctk
 
-from stig_audit_pro.gui.widgets import PageFrame, Panel
+from stig_audit_pro.gui.widgets import PageFrame, Panel, confirm_action
 from stig_audit_pro.storage.device_groups import DeviceTargetRecord
 
 USE_DEFAULT_PROFILE = "Use scan default"
@@ -83,24 +83,38 @@ class TargetsTab(PageFrame):
         scan_panel = ctk.CTkFrame(panel, corner_radius=8, border_width=1)
         scan_panel.grid(row=7, column=0, sticky="ew", padx=12, pady=(0, 12))
         scan_panel.grid_columnconfigure(1, weight=1)
-        ctk.CTkLabel(scan_panel, text="Scan Mode", font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=10, pady=(10, 4))
+        ctk.CTkLabel(scan_panel, text="Scan Mode", font=ctk.CTkFont(size=14, weight="bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=10, pady=(10, 4))
         ctk.CTkLabel(scan_panel, text="Mode").grid(row=1, column=0, sticky="w", padx=10, pady=4)
         self.scan_mode = ctk.CTkComboBox(scan_panel, values=["Sample outputs", "Live SSH"], state="readonly")
         self.scan_mode.set("Sample outputs")
-        self.scan_mode.grid(row=1, column=1, sticky="ew", padx=10, pady=4)
+        self.scan_mode.grid(row=1, column=1, columnspan=2, sticky="ew", padx=10, pady=4)
         ctk.CTkLabel(scan_panel, text="Username").grid(row=2, column=0, sticky="w", padx=10, pady=4)
         self.ssh_username = ctk.CTkEntry(scan_panel, placeholder_text="TACACS or local username")
-        self.ssh_username.grid(row=2, column=1, sticky="ew", padx=10, pady=4)
+        self.ssh_username.grid(row=2, column=1, columnspan=2, sticky="ew", padx=10, pady=4)
         ctk.CTkLabel(scan_panel, text="Password").grid(row=3, column=0, sticky="w", padx=10, pady=4)
         self.ssh_password = ctk.CTkEntry(scan_panel, show="*")
-        self.ssh_password.grid(row=3, column=1, sticky="ew", padx=10, pady=4)
+        self.ssh_password.grid(row=3, column=1, sticky="ew", padx=(10, 5), pady=4)
+        self.password_toggle = ctk.CTkButton(
+            scan_panel,
+            text="Show",
+            width=58,
+            command=lambda: self._toggle_secret_visibility(self.ssh_password, self.password_toggle),
+        )
+        self.password_toggle.grid(row=3, column=2, sticky="e", padx=(0, 10), pady=4)
         ctk.CTkLabel(scan_panel, text="Enable Secret").grid(row=4, column=0, sticky="w", padx=10, pady=4)
         self.enable_secret = ctk.CTkEntry(scan_panel, show="*")
-        self.enable_secret.grid(row=4, column=1, sticky="ew", padx=10, pady=4)
+        self.enable_secret.grid(row=4, column=1, sticky="ew", padx=(10, 5), pady=4)
+        self.secret_toggle = ctk.CTkButton(
+            scan_panel,
+            text="Show",
+            width=58,
+            command=lambda: self._toggle_secret_visibility(self.enable_secret, self.secret_toggle),
+        )
+        self.secret_toggle.grid(row=4, column=2, sticky="e", padx=(0, 10), pady=4)
         ctk.CTkLabel(scan_panel, text="Timeout").grid(row=5, column=0, sticky="w", padx=10, pady=(4, 10))
         self.ssh_timeout = ctk.CTkEntry(scan_panel)
         self.ssh_timeout.insert(0, "30")
-        self.ssh_timeout.grid(row=5, column=1, sticky="ew", padx=10, pady=(4, 10))
+        self.ssh_timeout.grid(row=5, column=1, columnspan=2, sticky="ew", padx=10, pady=(4, 10))
 
         self.status = ctk.CTkLabel(panel, text="No targets loaded.", anchor="w", text_color=("#475467", "#d0d5dd"))
         self.status.grid(row=8, column=0, sticky="ew", padx=12, pady=(0, 8))
@@ -125,10 +139,76 @@ class TargetsTab(PageFrame):
 
         run_row = ctk.CTkFrame(panel, fg_color="transparent")
         run_row.grid(row=3, column=0, sticky="ew", padx=12, pady=(4, 12))
-        run_row.grid_columnconfigure((0, 1, 2), weight=1)
-        ctk.CTkButton(run_row, text="Run Selected", command=lambda: self.app_controller.run_target_scope("selected")).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(run_row, text="Run Checked", command=lambda: self.app_controller.run_target_scope("checked")).grid(row=0, column=1, sticky="ew", padx=6)
-        ctk.CTkButton(run_row, text="Run All", command=lambda: self.app_controller.run_target_scope("all")).grid(row=0, column=2, sticky="ew", padx=(6, 0))
+        run_row.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        self.run_buttons = [
+            ctk.CTkButton(
+                run_row,
+                text="Run Selected",
+                command=lambda: self.app_controller.run_target_scope("selected"),
+            ),
+            ctk.CTkButton(
+                run_row,
+                text="Run Checked",
+                command=lambda: self.app_controller.run_target_scope("checked"),
+            ),
+            ctk.CTkButton(
+                run_row,
+                text="Run All",
+                command=lambda: self.app_controller.run_target_scope("all"),
+            ),
+        ]
+        self.run_buttons[0].grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=(0, 6),
+        )
+        self.run_buttons[1].grid(
+            row=0,
+            column=1,
+            sticky="ew",
+            padx=6,
+        )
+        self.run_buttons[2].grid(
+            row=0,
+            column=2,
+            sticky="ew",
+            padx=6,
+        )
+        self.cancel_scan_button = ctk.CTkButton(
+            run_row,
+            text="Cancel Scan",
+            command=self.app_controller.cancel_scan,
+            state="disabled",
+            fg_color="#b42318",
+            hover_color="#912018",
+        )
+        self.cancel_scan_button.grid(
+            row=0,
+            column=3,
+            sticky="ew",
+            padx=(6, 0),
+        )
+
+        progress_row = ctk.CTkFrame(panel, fg_color="transparent")
+        progress_row.grid(row=4, column=0, sticky="ew", padx=12, pady=(0, 12))
+        progress_row.grid_columnconfigure(0, weight=1)
+        self.scan_progress = ctk.CTkProgressBar(progress_row)
+        self.scan_progress.set(0)
+        self.scan_progress.grid(
+            row=0,
+            column=0,
+            sticky="ew",
+            padx=(0, 10),
+        )
+        self.scan_progress_label = ctk.CTkLabel(
+            progress_row,
+            text="Idle",
+            width=120,
+            anchor="e",
+            text_color=("#475467", "#d0d5dd"),
+        )
+        self.scan_progress_label.grid(row=0, column=1, sticky="e")
 
         self._render_rows()
 
@@ -183,6 +263,38 @@ class TargetsTab(PageFrame):
             "secret": self.enable_secret.get() or None,
             "timeout": timeout,
         }
+
+    @staticmethod
+    def _toggle_secret_visibility(entry: ctk.CTkEntry, button: ctk.CTkButton) -> None:
+        visible = entry.cget("show") == ""
+        entry.configure(show="*" if visible else "")
+        button.configure(text="Show" if visible else "Hide")
+
+    def set_scan_state(
+        self,
+        *,
+        running: bool,
+        completed: int = 0,
+        total: int = 0,
+        message: str | None = None,
+    ) -> None:
+        state = "disabled" if running else "normal"
+        for button in self.run_buttons:
+            button.configure(state=state)
+        self.cancel_scan_button.configure(
+            state="normal" if running else "disabled"
+        )
+        progress = completed / total if total else 0
+        self.scan_progress.set(max(0.0, min(1.0, progress)))
+        if message:
+            label = message
+        elif running:
+            label = f"{completed}/{total} devices"
+        elif total:
+            label = f"{completed}/{total} complete"
+        else:
+            label = "Idle"
+        self.scan_progress_label.configure(text=label)
 
     def add_single_ip(self) -> None:
         text = self.single_ip.get().strip()
@@ -240,6 +352,14 @@ class TargetsTab(PageFrame):
         if self.selected_index is None or self.selected_index >= len(self.targets):
             self._set_status("Select a target row first.")
             return
+        target = self.targets[self.selected_index]
+        if not confirm_action(
+            self,
+            title="Remove Target",
+            message=f"Remove {target.ip} from the target list?",
+            confirm_text="Remove",
+        ):
+            return
         removed = self.targets.pop(self.selected_index)
         if not self.targets:
             self.selected_index = None
@@ -249,6 +369,16 @@ class TargetsTab(PageFrame):
         self._set_status(f"Removed {removed.ip}.")
 
     def clear_targets(self) -> None:
+        if not self.targets:
+            self._set_status("Target list is already empty.")
+            return
+        if not confirm_action(
+            self,
+            title="Clear Targets",
+            message=f"Remove all {len(self.targets)} targets from the workbench?",
+            confirm_text="Clear All",
+        ):
+            return
         self.targets = []
         self.selected_index = None
         self._render_rows()

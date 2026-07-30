@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
+from ipaddress import IPv4Address, IPv4Network
 from typing import Any, Iterable
 
 from stig_audit_pro.core.exceptions import ExceptionRule, apply_exceptions
@@ -115,6 +116,10 @@ class CheckEngine:
             return self._interface_policy(check, parsed)
         if check.check_type == "interface_config_policy":
             return self._interface_config_policy(check, parsed)
+        if check.check_type == "management_access_policy":
+            return self._management_access_policy(check, parsed)
+        if check.check_type == "ntp_authentication_policy":
+            return self._ntp_authentication_policy(check, outputs)
         if check.check_type == "trunk_vlan_policy":
             return self._trunk_vlan_policy(check, parsed)
         if check.check_type == "acl_deny_logging_policy":
@@ -123,6 +128,8 @@ class CheckEngine:
             return self._dhcp_snooping_policy(check, parsed)
         if check.check_type == "arp_inspection_policy":
             return self._arp_inspection_policy(check, parsed)
+        if check.check_type == "dod_banner_policy":
+            return self._dod_banner_policy(check, outputs)
         if check.check_type == "radius_server_policy":
             return self._radius_server_policy(check, parsed)
         if check.check_type == "root_guard_neighbor_policy":
@@ -753,6 +760,195 @@ class CheckEngine:
             return set()
         return {normalized, normalized.split(".", 1)[0]}
 
+    @staticmethod
+    def _normalized_banner_words(value: str) -> str:
+        """Normalize banner formatting while preserving its word order."""
+
+        return " ".join(re.findall(r"[a-z0-9]+", value.casefold()))
+
+    @staticmethod
+    def _extract_ios_banners(config: str, banner_type: str) -> list[str]:
+        """Return complete IOS banner bodies for the requested banner type."""
+
+        lines = config.splitlines()
+        header_pattern = re.compile(
+            rf"^[ \t]*banner[ \t]+{re.escape(banner_type)}[ \t]+(.+)$",
+            flags=re.IGNORECASE,
+        )
+        banners: list[str] = []
+        line_index = 0
+        while line_index < len(lines):
+            match = header_pattern.match(lines[line_index])
+            if not match:
+                line_index += 1
+                continue
+
+            remainder = match.group(1)
+            delimiter = remainder[:2] if remainder.startswith("^") and len(remainder) >= 2 else remainder[:1]
+            if not delimiter:
+                line_index += 1
+                continue
+
+            first_body_text = remainder[len(delimiter) :]
+            body_lines: list[str] = []
+            if delimiter in first_body_text:
+                body_lines.append(first_body_text.split(delimiter, 1)[0])
+                banners.append("\n".join(body_lines))
+                line_index += 1
+                continue
+
+            if first_body_text:
+                body_lines.append(first_body_text)
+
+            scan_index = line_index + 1
+            complete = False
+            while scan_index < len(lines):
+                current_line = lines[scan_index]
+                if delimiter in current_line:
+                    body_lines.append(current_line.split(delimiter, 1)[0])
+                    complete = True
+                    break
+                body_lines.append(current_line)
+                scan_index += 1
+
+            if complete:
+                banners.append("\n".join(body_lines))
+                line_index = scan_index + 1
+            else:
+                line_index += 1
+
+        return banners
+
+    def _dod_banner_policy(
+        self,
+        check: CheckDefinition,
+        outputs: dict[str, str],
+    ) -> EvaluationOutcome:
+        command = str(check.conditions.get("command") or "show running-config")
+        banner_type = str(check.conditions.get("banner_type") or "login").strip().lower()
+        if banner_type not in {"login", "motd"}:
+            raise ValueError("banner_type must be login or motd")
+
+        required_clauses = (
+            (
+                "USG-authorized-use notice",
+                "you are accessing a u s government usg information system is that is provided for usg authorized use only",
+            ),
+            (
+                "consent statement",
+                "by using this is which includes any device attached to this is you consent to the following conditions",
+            ),
+            (
+                "routine interception and monitoring",
+                "the usg routinely intercepts and monitors communications on this is",
+            ),
+            (
+                "authorized monitoring purposes",
+                "penetration testing comsec monitoring network operations and defense personnel misconduct pm law enforcement le and counterintelligence ci investigations",
+            ),
+            (
+                "inspection and seizure of stored data",
+                "at any time the usg may inspect and seize data stored on this is",
+            ),
+            (
+                "no expectation of privacy",
+                "communications using or data stored on this is are not private",
+            ),
+            (
+                "monitoring, interception, and search",
+                "subject to routine monitoring interception and search",
+            ),
+            (
+                "authorized disclosure or use",
+                "may be disclosed or used for any usg authorized purpose",
+            ),
+            (
+                "security-measures notice",
+                "this is includes security measures",
+            ),
+            (
+                "authentication and access controls",
+                "authentication and access controls",
+            ),
+            (
+                "USG-interest limitation",
+                "to protect usg interests not for your personal benefit or privacy",
+            ),
+            (
+                "privileged-communications exception",
+                "using this is does not constitute consent to pm le or ci investigative searching or monitoring",
+            ),
+            (
+                "protected content and work product",
+                "content of privileged communications or work product",
+            ),
+            (
+                "covered professional relationships",
+                "attorneys psychotherapists or clergy and their assistants",
+            ),
+            (
+                "private-and-confidential statement",
+                "such communications and work product are private and confidential",
+            ),
+            (
+                "User Agreement reference",
+                "see user agreement for details",
+            ),
+        )
+
+        banners = self._extract_ios_banners(outputs[command], banner_type)
+        if not banners:
+            failed = FindingObject(
+                object_type="banner",
+                object_name=banner_type,
+                details=f"complete banner {banner_type} configuration is missing",
+            )
+            return EvaluationOutcome(
+                passed=False,
+                failed_objects=[failed],
+                details=[f"No complete banner {banner_type} block was found."],
+            )
+
+        candidate_results: list[tuple[list[str], str]] = []
+        for banner in banners:
+            normalized = self._normalized_banner_words(banner)
+            missing = [
+                label
+                for label, required_text in required_clauses
+                if self._normalized_banner_words(required_text) not in normalized
+            ]
+            candidate_results.append((missing, normalized))
+
+        best_missing, _ = min(candidate_results, key=lambda result: len(result[0]))
+        if best_missing:
+            failed = FindingObject(
+                object_type="banner",
+                object_name=banner_type,
+                details="missing mandatory clauses: " + ", ".join(best_missing),
+            )
+            return EvaluationOutcome(
+                passed=False,
+                failed_objects=[failed],
+                details=[
+                    f"The best matching banner {banner_type} block is missing "
+                    f"{len(best_missing)} of {len(required_clauses)} mandatory clauses."
+                ],
+            )
+
+        passed = FindingObject(
+            object_type="banner",
+            object_name=banner_type,
+            details="all mandatory DoD notice and consent clauses are present",
+        )
+        return EvaluationOutcome(
+            passed=True,
+            passed_objects=[passed],
+            details=[
+                f"The banner {banner_type} block contains all "
+                f"{len(required_clauses)} mandatory clauses."
+            ],
+        )
+
     def _radius_server_policy(
         self,
         check: CheckDefinition,
@@ -1234,6 +1430,345 @@ class CheckEngine:
             return trunk.native_vlan
         raise ValueError(f"Unsupported trunk field: {field}")
 
+    @staticmethod
+    def _acl_permit_source(statement: AclStatement) -> tuple[str, str] | None:
+        tokens = statement.text.split()
+        if not tokens or tokens[0].casefold() != "permit":
+            return None
+
+        source_index = 1
+        if statement.acl_type == "extended":
+            if len(tokens) < 3:
+                return None
+            source_index = 2
+        if source_index >= len(tokens):
+            return None
+
+        source = tokens[source_index].rstrip(",")
+        if source.casefold() == "any":
+            return ("any", "any")
+        if source.casefold() == "host":
+            if source_index + 1 >= len(tokens):
+                return None
+            address = tokens[source_index + 1].rstrip(",")
+            try:
+                return (str(IPv4Address(address)), "0.0.0.0")
+            except ValueError:
+                return None
+
+        try:
+            address = str(IPv4Address(source))
+        except ValueError:
+            return None
+
+        wildcard = "0.0.0.0"
+        if source_index + 1 < len(tokens):
+            possible_wildcard = tokens[source_index + 1].rstrip(",")
+            try:
+                wildcard = str(IPv4Address(possible_wildcard))
+            except ValueError:
+                if (
+                    possible_wildcard.casefold() == "wildcard"
+                    and source_index + 3 < len(tokens)
+                    and tokens[source_index + 2].casefold() == "bits"
+                ):
+                    try:
+                        wildcard = str(
+                            IPv4Address(tokens[source_index + 3].rstrip(","))
+                        )
+                    except ValueError:
+                        return None
+                elif statement.acl_type == "extended":
+                    return None
+        return (address, wildcard)
+
+    def _management_access_policy(
+        self,
+        check: CheckDefinition,
+        parsed: ParsedDeviceData,
+    ) -> EvaluationOutcome:
+        acl_name = self.profile.management_access.acl_name.strip()
+        if not acl_name:
+            raise ValueError("profile.management_access.acl_name must not be empty")
+        if not self.profile.management_access.networks:
+            raise ValueError(
+                "profile.management_access.networks must define at least one network"
+            )
+
+        expected_sources: set[tuple[str, str]] = set()
+        for configured_network in self.profile.management_access.networks:
+            try:
+                network = IPv4Network(
+                    f"{configured_network.network_address}/"
+                    f"{configured_network.subnet_mask}",
+                    strict=True,
+                )
+            except ValueError as exc:
+                raise ValueError(
+                    "Invalid profile management network "
+                    f"{configured_network.network_address}/"
+                    f"{configured_network.subnet_mask}: {exc}"
+                ) from exc
+            expected_sources.add(
+                (str(network.network_address), str(network.hostmask))
+            )
+
+        failed: list[FindingObject] = []
+        passed: list[FindingObject] = []
+        vty_sections = [
+            (header, lines)
+            for header, lines in parsed.running_config.sections.items()
+            if re.fullmatch(
+                r"line[ \t]+vty[ \t]+\d+(?:[ \t]+\d+)?",
+                header,
+                flags=re.IGNORECASE,
+            )
+        ]
+        if not vty_sections:
+            return EvaluationOutcome(
+                passed=False,
+                status=check.result.error_status,
+                details=["No VTY configuration sections were found."],
+            )
+
+        access_class_pattern = re.compile(
+            rf"^access-class[ \t]+{re.escape(acl_name)}[ \t]+in"
+            r"(?:[ \t]+vrf-also)?[ \t]*$",
+            flags=re.IGNORECASE,
+        )
+        for header, lines in vty_sections:
+            has_access_class = any(
+                access_class_pattern.fullmatch(line.strip()) for line in lines
+            )
+            obj = FindingObject(
+                object_type="vty_section",
+                object_name=header,
+                details=(
+                    f"inbound access-class {acl_name} is configured"
+                    if has_access_class
+                    else f"inbound access-class {acl_name} is missing"
+                ),
+            )
+            if has_access_class:
+                passed.append(obj)
+            else:
+                failed.append(obj)
+
+        acl_statements = [
+            statement
+            for statement in parsed.acls.statements
+            if statement.acl_name.casefold() == acl_name.casefold()
+            and statement.acl_type in {"standard", "extended"}
+        ]
+        permit_statements = [
+            statement for statement in acl_statements if statement.action == "permit"
+        ]
+        if not permit_statements:
+            failed.append(
+                FindingObject(
+                    object_type="management_acl",
+                    object_name=acl_name,
+                    details="ACL is missing or contains no permit statements",
+                )
+            )
+            return EvaluationOutcome(
+                passed=False,
+                failed_objects=failed,
+                passed_objects=passed,
+            )
+
+        configured_sources: set[tuple[str, str]] = set()
+        for statement in permit_statements:
+            source = self._acl_permit_source(statement)
+            sequence = f" {statement.sequence}" if statement.sequence is not None else ""
+            obj = FindingObject(
+                object_type="acl_statement",
+                object_name=f"{acl_name}{sequence}",
+                details=statement.text,
+            )
+            if source is None:
+                obj.details += "; source network could not be evaluated"
+                failed.append(obj)
+                continue
+            if source not in expected_sources:
+                obj.details += "; source is not a profile-approved management network"
+                failed.append(obj)
+                continue
+            configured_sources.add(source)
+            passed.append(obj)
+
+        missing_sources = expected_sources - configured_sources
+        for address, wildcard in sorted(missing_sources):
+            failed.append(
+                FindingObject(
+                    object_type="management_network",
+                    object_name=f"{address} {wildcard}",
+                    details=f"required permit is missing from ACL {acl_name}",
+                )
+            )
+
+        return EvaluationOutcome(
+            passed=not failed,
+            failed_objects=failed,
+            passed_objects=passed,
+            details=[
+                f"Validated {len(vty_sections)} VTY section(s) and management ACL "
+                f"{acl_name} against {len(expected_sources)} approved network(s)."
+            ],
+        )
+
+    def _ntp_authentication_policy(
+        self,
+        check: CheckDefinition,
+        outputs: dict[str, str],
+    ) -> EvaluationOutcome:
+        command = str(check.conditions.get("command") or "show running-config")
+        servers_profile_key = str(
+            check.conditions.get("ntp_servers_profile_key") or "ntp_servers"
+        )
+        raw_servers = self._profile_value(servers_profile_key)
+        if not isinstance(raw_servers, list):
+            raise ValueError(f"profile.{servers_profile_key} must be a list")
+        servers = [str(server).strip() for server in raw_servers if str(server).strip()]
+        minimum_servers = int(check.conditions.get("minimum_servers", 2))
+        if len({server.casefold() for server in servers}) < minimum_servers:
+            raise ValueError(
+                f"profile.{servers_profile_key} must contain at least "
+                f"{minimum_servers} unique NTP servers"
+            )
+
+        raw_algorithms = check.conditions.get(
+            "approved_algorithms",
+            ["hmac-sha2-256"],
+        )
+        if not isinstance(raw_algorithms, list) or not raw_algorithms:
+            raise ValueError("approved_algorithms must be a non-empty list")
+        approved_algorithms = {
+            str(algorithm).strip().casefold()
+            for algorithm in raw_algorithms
+            if str(algorithm).strip()
+        }
+        if not approved_algorithms:
+            raise ValueError("approved_algorithms must contain at least one value")
+
+        running_config = outputs[command]
+        failed: list[FindingObject] = []
+        passed: list[FindingObject] = []
+
+        authenticate_enabled = bool(
+            re.search(
+                r"^[ \t]*ntp[ \t]+authenticate[ \t]*$",
+                running_config,
+                flags=re.IGNORECASE | re.MULTILINE,
+            )
+        )
+        authenticate_object = FindingObject(
+            object_type="ntp_global",
+            object_name="ntp authenticate",
+            details=(
+                "global NTP authentication is enabled"
+                if authenticate_enabled
+                else "global NTP authentication is missing"
+            ),
+        )
+        if authenticate_enabled:
+            passed.append(authenticate_object)
+        else:
+            failed.append(authenticate_object)
+
+        authentication_keys: dict[int, str] = {}
+        authentication_key_pattern = re.compile(
+            r"^[ \t]*ntp[ \t]+authentication-key[ \t]+(\d+)"
+            r"[ \t]+(\S+)(?:[ \t]+[^\r\n]+)?[ \t]*$",
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        for match in authentication_key_pattern.finditer(running_config):
+            authentication_keys[int(match.group(1))] = match.group(2).casefold()
+
+        trusted_keys: set[int] = set()
+        trusted_key_pattern = re.compile(
+            r"^[ \t]*ntp[ \t]+trusted-key[ \t]+([^\r\n]+?)[ \t]*$",
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        for match in trusted_key_pattern.finditer(running_config):
+            for token in match.group(1).split():
+                if token.isdigit():
+                    trusted_keys.add(int(token))
+                    continue
+                key_range = re.fullmatch(r"(\d+)-(\d+)", token)
+                if key_range:
+                    start = int(key_range.group(1))
+                    end = int(key_range.group(2))
+                    if end >= start:
+                        trusted_keys.update(range(start, end + 1))
+
+        server_lines: dict[str, list[str]] = {}
+        server_pattern = re.compile(
+            r"^[ \t]*ntp[ \t]+server[ \t]+(\S+)(?:[ \t]+([^\r\n]*))?[ \t]*$",
+            flags=re.IGNORECASE | re.MULTILINE,
+        )
+        for match in server_pattern.finditer(running_config):
+            server_lines.setdefault(match.group(1).casefold(), []).append(
+                (match.group(2) or "").strip()
+            )
+
+        key_option_pattern = re.compile(
+            r"(?:^|[ \t])key[ \t]+(\d+)(?=[ \t]|$)",
+            flags=re.IGNORECASE,
+        )
+        for server in servers:
+            options_list = server_lines.get(server.casefold(), [])
+            key_ids = [
+                int(match.group(1))
+                for options in options_list
+                if (match := key_option_pattern.search(options))
+            ]
+            failure_reasons: list[str] = []
+            if not options_list:
+                failure_reasons.append("NTP server command is missing")
+            elif not key_ids:
+                failure_reasons.append("NTP server has no authentication key")
+            else:
+                key_id = key_ids[0]
+                algorithm = authentication_keys.get(key_id)
+                if algorithm is None:
+                    failure_reasons.append(
+                        f"authentication key {key_id} is not defined"
+                    )
+                elif algorithm not in approved_algorithms:
+                    failure_reasons.append(
+                        f"authentication key {key_id} uses unapproved algorithm "
+                        f"{algorithm}"
+                    )
+                if key_id not in trusted_keys:
+                    failure_reasons.append(
+                        f"authentication key {key_id} is not trusted"
+                    )
+
+            obj = FindingObject(
+                object_type="ntp_server",
+                object_name=server,
+                details=(
+                    "; ".join(failure_reasons)
+                    or "uses a trusted key with an approved authentication algorithm"
+                ),
+            )
+            if failure_reasons:
+                failed.append(obj)
+            else:
+                passed.append(obj)
+
+        return EvaluationOutcome(
+            passed=not failed,
+            failed_objects=failed,
+            passed_objects=passed,
+            details=[
+                f"Validated NTP authentication for {len(servers)} profile-defined "
+                f"server(s) using approved algorithm(s): "
+                + ", ".join(sorted(approved_algorithms))
+            ],
+        )
+
     def _trunk_vlan_policy(self, check: CheckDefinition, parsed: ParsedDeviceData) -> EvaluationOutcome:
         conditions = check.conditions.get("all", [])
         failed: list[FindingObject] = []
@@ -1266,24 +1801,60 @@ class CheckEngine:
     def _acl_deny_logging_policy(self, check: CheckDefinition, parsed: ParsedDeviceData) -> EvaluationOutcome:
         settings = check.conditions.get("deny_statements", {})
         required_keyword = str(settings.get("require_keyword", "log-input")).lower()
+        interface_bound_only = bool(settings.get("interface_bound_only", False))
+        acl_bindings: dict[str, list[str]] = {}
+        if interface_bound_only:
+            binding_pattern = re.compile(
+                r"^ip[ \t]+access-group[ \t]+(\S+)[ \t]+(in|out)$",
+                flags=re.IGNORECASE,
+            )
+            for interface in parsed.interfaces.values():
+                if not interface.config:
+                    continue
+                for line in interface.config.raw_lines:
+                    match = binding_pattern.fullmatch(line.strip())
+                    if not match:
+                        continue
+                    acl_bindings.setdefault(match.group(1).casefold(), []).append(
+                        f"{interface.name} {match.group(2).lower()}"
+                    )
+
         failed: list[FindingObject] = []
         passed: list[FindingObject] = []
         for statement in parsed.acls.deny_statements:
             if not self._acl_in_scope(statement, settings):
                 continue
+            bindings = acl_bindings.get(statement.acl_name.casefold(), [])
+            if interface_bound_only and not bindings:
+                continue
             has_required = re.search(rf"\b{re.escape(required_keyword)}\b", statement.text, re.IGNORECASE)
             sequence = f" {statement.sequence}" if statement.sequence is not None else ""
             name = f"{statement.acl_name}{sequence}"
+            binding_details = (
+                f"; bound to {', '.join(bindings)}"
+                if bindings
+                else ""
+            )
             obj = FindingObject(
                 object_type="acl_statement",
                 object_name=name,
-                details=statement.text,
+                details=f"{statement.text}{binding_details}",
             )
             if has_required:
                 passed.append(obj)
             else:
                 failed.append(obj)
-        return EvaluationOutcome(passed=not failed, failed_objects=failed, passed_objects=passed)
+        details: list[str] = []
+        if interface_bound_only and not acl_bindings:
+            details.append("No IPv4 ACLs are bound to interfaces.")
+        elif interface_bound_only and not failed and not passed:
+            details.append("No deny statements were found in interface-bound IPv4 ACLs.")
+        return EvaluationOutcome(
+            passed=not failed,
+            failed_objects=failed,
+            passed_objects=passed,
+            details=details,
+        )
 
     def _dhcp_field(self, parsed: ParsedDeviceData, field: str) -> Any:
         if field == "global_enabled":

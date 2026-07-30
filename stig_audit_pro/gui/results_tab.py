@@ -8,7 +8,16 @@ from tkinter import ttk
 import customtkinter as ctk
 
 from stig_audit_pro.core.result_model import CheckResult
-from stig_audit_pro.gui.widgets import DANGER, Metric, PageFrame, PRIMARY, STATUS_COLORS, SUCCESS, WARNING
+from stig_audit_pro.gui.widgets import (
+    DANGER,
+    Metric,
+    PageFrame,
+    PRIMARY,
+    STATUS_COLORS,
+    SUCCESS,
+    WARNING,
+    confirm_action,
+)
 
 
 class ResultsTab(PageFrame):
@@ -93,26 +102,39 @@ class ResultsTab(PageFrame):
         self._update_metrics()
         self._render_tree()
 
-    def _render_tree(self) -> None:
+    def _render_tree(self, selected_result: tuple[str, str] | None = None) -> None:
         for item in self.tree.get_children():
             self.tree.delete(item)
         self.filtered_results = self._filtered_results()
+        selected_iid: str | None = None
         for index, result in enumerate(self.filtered_results):
             failed = ", ".join(obj.object_name for obj in result.failed_objects)
+            iid = str(index)
             self.tree.insert(
                 "",
                 "end",
-                iid=str(index),
+                iid=iid,
                 values=(result.ip, result.vuln_id, result.stig_family, result.severity, result.status, failed),
                 tags=(result.status,),
             )
+            if selected_result == (result.ip, result.vuln_id):
+                selected_iid = iid
         if self.filtered_results:
-            self.tree.selection_set("0")
-            self._show_result(self.filtered_results[0])
+            selected_iid = selected_iid or "0"
+            self.tree.selection_set(selected_iid)
+            self.tree.focus(selected_iid)
+            self.tree.see(selected_iid)
+            self._show_result(self.filtered_results[int(selected_iid)])
         elif self.results:
             self._set_details("No results match the current filter.")
         else:
             self._set_details("No results.")
+
+    def select_result(self, ip: str, vuln_id: str) -> None:
+        """Reveal and select a result, clearing filters that would otherwise hide it."""
+        self.status_filter.set("All statuses")
+        self.search.delete(0, "end")
+        self._render_tree((ip, vuln_id))
 
     def _filtered_results(self) -> list[CheckResult]:
         status = self.status_filter.get()
@@ -128,6 +150,15 @@ class ResultsTab(PageFrame):
         return filtered
 
     def clear(self) -> None:
+        if not self.results:
+            return
+        if not confirm_action(
+            self,
+            title="Clear Results",
+            message=f"Clear all {len(self.results)} scan results from the current session?",
+            confirm_text="Clear Results",
+        ):
+            return
         self.refresh([])
         self.app_controller.update_report_summary([])
 

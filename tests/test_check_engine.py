@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections import Counter
 
 from stig_audit_pro.core.check_engine import CheckEngine
+from stig_audit_pro.core.models import CheckDefinition, ManagementNetwork
 from stig_audit_pro.core.yaml_loader import load_check_library
 from tests.conftest import DATA_DIR, load_l2_checks, load_outputs, load_profile
 
@@ -1105,6 +1106,27 @@ def test_catalyst_center_backup_check_is_temporarily_not_a_finding():
     )
 
 
+def test_public_key_certificate_check_is_tailored_not_applicable():
+    check = next(
+        check
+        for check in load_check_library(
+            DATA_DIR / "checks" / "iosxe_ndm.yaml"
+        ).checks
+        if check.vuln_id == "V-220567"
+    )
+    result = CheckEngine(load_profile()).evaluate(
+        check,
+        outputs={},
+        ip="192.0.2.1",
+    )
+
+    assert result.status == "Not_Applicable"
+    assert "does not use organization-managed public key certificates" in (
+        result.comments
+    )
+    assert "Cisco factory-installed/default certificates" in result.comments
+
+
 def test_radius_server_policy_requires_server_blocks_keys_and_group_membership():
     profile = load_profile()
     profile.endpoint_authentication.radius_group = "ISE-RADIUS"
@@ -1212,3 +1234,310 @@ def test_profile_any_accepts_only_exact_supported_iosxe_versions():
     assert results["unsupported"].status == "Open"
     assert results["suffix_lookalike"].status == "Open"
     assert results["numeric_lookalike"].status == "Open"
+
+
+def test_dod_banner_policy_requires_complete_standard_text_inside_login_banner():
+    check = CheckDefinition.model_validate(
+        {
+            "vuln_id": "V-220525",
+            "stig_id": "CISC-ND-000160",
+            "title": "Standard Mandatory DoD Notice and Consent Banner",
+            "stig_family": "IOSXE_NDM",
+            "severity": "cat2",
+            "check_type": "dod_banner_policy",
+            "commands": ["show running-config"],
+            "conditions": {
+                "command": "show running-config",
+                "banner_type": "login",
+            },
+        }
+    )
+    banner_text = """\
+You are accessing a U.S. Government (USG) Information System (IS) that is
+provided for USG-authorized use only.
+By using this IS (which includes any device attached to this IS), you consent
+to the following conditions:
+-The USG routinely intercepts and monitors communications on this IS for
+purposes including, but not limited to, penetration testing, COMSEC monitoring,
+network operations and defense, personnel misconduct (PM), law enforcement
+(LE), and counterintelligence (CI) investigations.
+-At any time, the USG may inspect and seize data stored on this IS.
+-Communications using, or data stored on, this IS are not private, are subject
+to routine monitoring, interception, and search, and may be disclosed or used
+for any USG-authorized purpose.
+-This IS includes security measures (e.g., authentication and access controls)
+to protect USG interests--not for your personal benefit or privacy.
+-Notwithstanding the above, using this IS does not constitute consent to PM,
+LE or CI investigative searching or monitoring of the content of privileged
+communications, or work product, related to personal representation or
+services by attorneys, psychotherapists, or clergy, and their assistants.
+Such communications and work product are private and confidential.
+See User Agreement for details."""
+    configurations = {
+        "complete_control_c": f"banner login ^C\n{banner_text}\n^C\n",
+        "complete_hash": f"banner login #\n{banner_text}\n#\n",
+        "missing_clause": (
+            "banner login ^C\n"
+            + banner_text.replace("See User Agreement for details.", "")
+            + "\n^C\n"
+        ),
+        "text_outside_banner": (
+            f"{banner_text}\n"
+            "banner login ^C\nAuthorized users only.\n^C\n"
+        ),
+        "motd_only": f"banner motd ^C\n{banner_text}\n^C\n",
+    }
+
+    results = {
+        name: CheckEngine(load_profile()).evaluate(
+            check,
+            outputs={"show running-config": output},
+            ip="192.0.2.1",
+        )
+        for name, output in configurations.items()
+    }
+
+    assert results["complete_control_c"].status == "NotAFinding"
+    assert results["complete_hash"].status == "NotAFinding"
+    assert results["missing_clause"].status == "Open"
+    assert "User Agreement reference" in results["missing_clause"].finding_details
+    assert results["text_outside_banner"].status == "Open"
+    assert results["motd_only"].status == "Open"
+
+
+def test_acl_deny_logging_policy_checks_only_interface_bound_acls():
+    check = CheckDefinition.model_validate(
+        {
+            "vuln_id": "V-220529",
+            "stig_id": "CISC-ND-000290",
+            "title": "Interface ACL denies require log-input",
+            "stig_family": "IOSXE_NDM",
+            "severity": "cat2",
+            "check_type": "acl_deny_logging_policy",
+            "commands": ["show running-config", "show ip access-lists"],
+            "conditions": {
+                "deny_statements": {
+                    "interface_bound_only": True,
+                    "include_standard_acls": True,
+                    "include_extended_acls": True,
+                    "include_ipv6_acls": False,
+                    "require_keyword": "log-input",
+                }
+            },
+        }
+    )
+    running_config = """\
+interface GigabitEthernet1/0/1
+ ip access-group BLOCK_INBOUND in
+!
+interface GigabitEthernet1/0/2
+ ip access-group 10 out
+!
+"""
+    compliant_acls = """\
+Extended IP access list BLOCK_INBOUND
+    10 deny icmp any any log-input
+    20 permit ip any any
+Standard IP access list 10
+    10 deny any log-input
+Extended IP access list UNUSED
+    10 deny ip any any
+"""
+    configurations = {
+        "compliant": (running_config, compliant_acls),
+        "bound_extended_missing": (
+            running_config,
+            compliant_acls.replace("deny icmp any any log-input", "deny icmp any any"),
+        ),
+        "bound_standard_missing": (
+            running_config,
+            compliant_acls.replace("deny any log-input", "deny any"),
+        ),
+        "only_unused_missing": (
+            "interface GigabitEthernet1/0/1\n description no ACL here\n!\n",
+            compliant_acls,
+        ),
+    }
+
+    results = {
+        name: CheckEngine(load_profile()).evaluate(
+            check,
+            outputs={
+                "show running-config": running,
+                "show ip access-lists": access_lists,
+            },
+            ip="192.0.2.1",
+        )
+        for name, (running, access_lists) in configurations.items()
+    }
+
+    assert results["compliant"].status == "NotAFinding"
+    assert results["bound_extended_missing"].status == "Open"
+    assert "GigabitEthernet1/0/1 in" in (
+        results["bound_extended_missing"].finding_details
+    )
+    assert results["bound_standard_missing"].status == "Open"
+    assert "GigabitEthernet1/0/2 out" in (
+        results["bound_standard_missing"].finding_details
+    )
+    assert results["only_unused_missing"].status == "NotAFinding"
+
+
+def test_management_access_policy_requires_acl_on_every_vty_and_only_approved_sources():
+    profile = load_profile()
+    profile.management_access.acl_name = "MANAGEMENT_NET"
+    profile.management_access.networks = [
+        ManagementNetwork(
+            network_address="192.0.2.0",
+            subnet_mask="255.255.255.0",
+        )
+    ]
+    engine = CheckEngine(profile)
+    check = CheckDefinition.model_validate(
+        {
+            "vuln_id": "V-220523",
+            "stig_id": "CISC-ND-000140",
+            "title": "VTY management access control",
+            "stig_family": "IOSXE_NDM",
+            "severity": "cat2",
+            "check_type": "management_access_policy",
+            "commands": ["show running-config"],
+        }
+    )
+    compliant_standard = """\
+ip access-list standard MANAGEMENT_NET
+ permit 192.0.2.0 0.0.0.255
+ deny any log-input
+!
+line vty 0 4
+ access-class MANAGEMENT_NET in
+ transport input ssh
+!
+line vty 5 15
+ access-class MANAGEMENT_NET in
+ transport input none
+!
+"""
+    compliant_extended = """\
+ip access-list extended MANAGEMENT_NET
+ permit ip 192.0.2.0 0.0.0.255 any
+ deny ip any any log-input
+!
+line vty 0 15
+ access-class MANAGEMENT_NET in
+ transport input ssh
+!
+"""
+    configurations = {
+        "standard": compliant_standard,
+        "extended": compliant_extended,
+        "missing_second_vty_acl": compliant_standard.replace(
+            "line vty 5 15\n access-class MANAGEMENT_NET in\n",
+            "line vty 5 15\n",
+        ),
+        "wrong_vty_acl": compliant_standard.replace(
+            "access-class MANAGEMENT_NET in",
+            "access-class OTHER_NET in",
+            1,
+        ),
+        "unapproved_permit": compliant_standard.replace(
+            " permit 192.0.2.0 0.0.0.255\n",
+            " permit 192.0.2.0 0.0.0.255\n permit 198.51.100.0 0.0.0.255\n",
+        ),
+        "wrong_management_network": compliant_standard.replace(
+            "permit 192.0.2.0 0.0.0.255",
+            "permit 198.51.100.0 0.0.0.255",
+        ),
+    }
+
+    results = {
+        name: engine.evaluate(
+            check,
+            outputs={"show running-config": running_config},
+            ip="192.0.2.1",
+        )
+        for name, running_config in configurations.items()
+    }
+
+    assert results["standard"].status == "NotAFinding"
+    assert results["extended"].status == "NotAFinding"
+    assert results["missing_second_vty_acl"].status == "Open"
+    assert "line vty 5 15" in results["missing_second_vty_acl"].finding_details
+    assert results["wrong_vty_acl"].status == "Open"
+    assert results["unapproved_permit"].status == "Open"
+    assert "not a profile-approved" in results["unapproved_permit"].finding_details
+    assert results["wrong_management_network"].status == "Open"
+
+
+def test_ntp_authentication_policy_requires_sha2_key_on_every_profile_server():
+    profile = load_profile()
+    profile.variables["ntp_servers"] = ["192.0.2.20", "192.0.2.21"]
+    engine = CheckEngine(profile)
+    check = CheckDefinition.model_validate(
+        {
+            "vuln_id": "V-220554",
+            "stig_id": "CISC-ND-001150",
+            "title": "Cryptographically authenticated NTP sources",
+            "stig_family": "IOSXE_NDM",
+            "severity": "cat2",
+            "check_type": "ntp_authentication_policy",
+            "commands": ["show running-config"],
+            "conditions": {
+                "command": "show running-config",
+                "ntp_servers_profile_key": "ntp_servers",
+                "minimum_servers": 2,
+                "approved_algorithms": ["hmac-sha2-256"],
+            },
+        }
+    )
+    compliant = """\
+ntp authentication-key 1 hmac-sha2-256 SECRET-ONE 7
+ntp authentication-key 650 hmac-sha2-256 SECRET-TWO 7
+ntp authenticate
+ntp trusted-key 1
+ntp trusted-key 650
+ntp server 192.0.2.20 key 1 prefer
+ntp server 192.0.2.21 key 650
+"""
+    configurations = {
+        "compliant": compliant,
+        "md5_key": compliant.replace(
+            "ntp authentication-key 1 hmac-sha2-256",
+            "ntp authentication-key 1 md5",
+        ),
+        "server_without_key": compliant.replace(
+            "ntp server 192.0.2.21 key 650",
+            "ntp server 192.0.2.21",
+        ),
+        "untrusted_key": compliant.replace("ntp trusted-key 650\n", ""),
+        "undefined_key": compliant.replace(
+            "ntp authentication-key 650 hmac-sha2-256 SECRET-TWO 7\n",
+            "",
+        ),
+        "authentication_disabled": compliant.replace("ntp authenticate\n", ""),
+    }
+
+    results = {
+        name: engine.evaluate(
+            check,
+            outputs={"show running-config": running_config},
+            ip="192.0.2.1",
+        )
+        for name, running_config in configurations.items()
+    }
+
+    assert results["compliant"].status == "NotAFinding"
+    assert results["md5_key"].status == "Open"
+    assert "unapproved algorithm md5" in results["md5_key"].finding_details
+    assert results["server_without_key"].status == "Open"
+    assert "has no authentication key" in (
+        results["server_without_key"].finding_details
+    )
+    assert results["untrusted_key"].status == "Open"
+    assert "is not trusted" in results["untrusted_key"].finding_details
+    assert results["undefined_key"].status == "Open"
+    assert "is not defined" in results["undefined_key"].finding_details
+    assert results["authentication_disabled"].status == "Open"
+    assert all(
+        "SECRET-" not in result.finding_details for result in results.values()
+    )

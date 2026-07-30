@@ -26,6 +26,13 @@ root_guard:
   # A matching core/distribution neighbor exempts only the local interface connected to that neighbor.
   upstream_switches:
   - C9606R-cedu-carpa-650-2015-11-1
+management_access:
+  # ACL applied inbound to every VTY section.
+  acl_name: MANAGEMENT_NET
+  # Approved source networks. Enter the subnet mask, not the ACL wildcard.
+  networks:
+  - network_address: 172.16.100.0
+    subnet_mask: 255.255.255.0
 endpoint_authentication:
   # Match the name after: aaa group server radius <group-name>
   radius_group: ISE-RADIUS

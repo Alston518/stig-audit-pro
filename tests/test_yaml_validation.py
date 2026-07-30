@@ -86,4 +86,4 @@ def test_ndm_archive_checks_use_completed_hierarchy_policy():
     assert checks["V-220529"].check_type == "acl_deny_logging_policy"
     assert checks["V-220531"].result.fail_status == "Not_Applicable"
     assert checks["V-220566"].result.fail_status == "NotAFinding"
-    assert checks["V-220567"].result.fail_status == "Open"
+    assert checks["V-220567"].result.fail_status == "Not_Applicable"
