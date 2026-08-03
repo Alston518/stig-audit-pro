@@ -5,6 +5,7 @@ from __future__ import annotations
 APP_NAME = "stig-audit-pro"
 APP_VERSION = "0.1.0"
 LICENSE_FILENAME = "stig-audit-pro.license.json"
+DEFAULT_PROFILE_NAME = "base_iosxe_access"
 
 DEFAULT_SHOW_COMMANDS: tuple[str, ...] = (
     "terminal length 0",

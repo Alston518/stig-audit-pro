@@ -1,5 +1,5 @@
-group_name: building_1_access
-profile_name: base_iosxe_access
+group_name: session_targets
+profile_name: example_site
 targets:
 - ip: 172.16.100.55
   profile_override: base_iosxe_access

@@ -10,7 +10,15 @@ from tkinter import filedialog
 
 import customtkinter as ctk
 
-from stig_audit_pro.gui.widgets import PageFrame, Panel, confirm_action
+from stig_audit_pro.gui.widgets import (
+    BORDER_DARK,
+    BORDER_LIGHT,
+    PANEL_DARK,
+    PANEL_LIGHT,
+    PageFrame,
+    Panel,
+    confirm_action,
+)
 from stig_audit_pro.storage.device_groups import DeviceTargetRecord
 
 USE_DEFAULT_PROFILE = "Use scan default"
@@ -35,10 +43,19 @@ class TargetsTab(PageFrame):
         self._build_table_panel()
 
     def _build_input_panel(self) -> None:
-        panel = Panel(self, "Target Workbench")
+        panel = ctk.CTkScrollableFrame(
+            self,
+            label_text="Target Workbench",
+            label_font=ctk.CTkFont(size=15, weight="bold"),
+            label_anchor="w",
+            corner_radius=8,
+            border_width=1,
+            fg_color=(PANEL_LIGHT, PANEL_DARK),
+            border_color=(BORDER_LIGHT, BORDER_DARK),
+            label_fg_color=(PANEL_LIGHT, PANEL_DARK),
+        )
         panel.grid(row=0, column=0, sticky="nsew", padx=(12, 6), pady=12)
         panel.grid_columnconfigure(0, weight=1)
-        panel.grid_rowconfigure(5, weight=1)
 
         ctk.CTkLabel(panel, text="Single IP").grid(row=1, column=0, sticky="w", padx=12, pady=(8, 4))
         single_row = ctk.CTkFrame(panel, fg_color="transparent")
@@ -56,7 +73,7 @@ class TargetsTab(PageFrame):
         add_row = ctk.CTkFrame(panel, fg_color="transparent")
         add_row.grid(row=5, column=0, sticky="ew", padx=12, pady=(0, 10))
         add_row.grid_columnconfigure((0, 1), weight=1)
-        ctk.CTkButton(add_row, text="Add Pasted", command=self.add_pasted_ips).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(add_row, text="Add Pasted IPs", command=self.add_pasted_ips).grid(row=0, column=0, sticky="ew", padx=(0, 6))
         ctk.CTkButton(add_row, text="Import CSV/TXT", command=self.import_targets).grid(row=0, column=1, sticky="ew", padx=(6, 0))
 
         group_panel = ctk.CTkFrame(panel, corner_radius=8, border_width=1)

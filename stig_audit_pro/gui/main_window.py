@@ -12,7 +12,7 @@ import customtkinter as ctk
 import yaml
 from pydantic import BaseModel, ValidationError
 
-from stig_audit_pro.config import APP_VERSION
+from stig_audit_pro.config import APP_VERSION, DEFAULT_PROFILE_NAME
 from stig_audit_pro.core.check_engine import CheckEngine
 from stig_audit_pro.core.command_planner import plan_commands
 from stig_audit_pro.core.output_cache import CommandOutputCache
@@ -80,8 +80,8 @@ class StigAuditProApp(ctk.CTk):
         self.check_path = self.data_dir / "checks" / "iosxe_l2.yaml"
         self.ndm_check_path = self.data_dir / "checks" / "iosxe_ndm.yaml"
         self.check_library_paths: list[Path] = []
-        self.profile_name = "example_site"
-        self.profile_path = self.data_dir / "profiles" / "example_site.yaml"
+        self.profile_name = DEFAULT_PROFILE_NAME
+        self.profile_path = self.data_dir / "profiles" / f"{DEFAULT_PROFILE_NAME}.yaml"
         self.checks = []
         self.profile: SiteProfile | None = None
         self.results: list[CheckResult] = []

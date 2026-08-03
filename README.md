@@ -84,6 +84,8 @@ The GUI supports target management, sample scans, live SSH scans, check/profile 
 
 The Targets tab keeps a working list of devices in the GUI. You can add one IP, paste many IPs, import CSV/TXT targets, check or uncheck rows, run selected/checked/all rows, and save or load reusable groups from `data/device_groups/*.yaml`.
 
+The application starts with `base_iosxe_access` as the active scan profile. A target set to `Use scan default` uses that active profile without needing a device group. Use groups when you want to save an inventory for later or automatically select a different site profile when that inventory is loaded.
+
 Saved device groups can also carry their default site profile:
 
 ```yaml

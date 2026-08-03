@@ -42,11 +42,17 @@ def test_build_text_report_includes_summary_and_findings():
     )
 
     assert "STIG Audit Pro Scan Report" in report
-    assert "Devices: 1" in report
-    assert "Open: 1" in report
-    assert "NotAFinding: 1" in report
+    assert "Devices               : 1" in report
+    assert "[FAIL]   Open                    1" in report
+    assert "[PASS]   Not a Finding           1" in report
     assert "GigabitEthernet1/0/2" in report
     assert "V-220667" in report
+    assert "[FAIL] OPEN" in report
+    assert "[PASS] NOT A FINDING" in report
+    assert "CHECK 1 OF 2" in report
+    assert "CHECK 2 OF 2" in report
+    assert "DETAILED CHECK RESULTS" in report
+    assert report.count("=" * 88) == 4
 
 
 def test_report_writers_create_txt_and_csv(tmp_path):
@@ -56,7 +62,7 @@ def test_report_writers_create_txt_and_csv(tmp_path):
     write_text_report(sample_results(), txt_path)
     write_csv_report(sample_results(), csv_path)
 
-    assert "Open Findings" in txt_path.read_text(encoding="utf-8")
+    assert "OPEN FINDINGS - QUICK VIEW" in txt_path.read_text(encoding="utf-8")
     csv_text = csv_path.read_text(encoding="utf-8-sig")
     assert "ip,hostname,vuln_id" in csv_text
     assert "10.50.10.26" in csv_text

@@ -6,6 +6,7 @@ from pathlib import Path
 
 import customtkinter as ctk
 
+from stig_audit_pro.config import DEFAULT_PROFILE_NAME
 from stig_audit_pro.core.models import SiteProfile
 from stig_audit_pro.gui.widgets import PageFrame, Panel, label_value
 from stig_audit_pro.gui.yaml_editor import YamlEditor
@@ -25,8 +26,8 @@ class ProfilesTab(PageFrame):
         left.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(left, text="Site Profile").grid(row=1, column=0, sticky="w", padx=12, pady=(8, 4))
-        self.profile_select = ctk.CTkComboBox(left, values=["example_site", "base_iosxe_access"], command=self._profile_selected, state="readonly")
-        self.profile_select.set("example_site")
+        self.profile_select = ctk.CTkComboBox(left, values=[DEFAULT_PROFILE_NAME], command=self._profile_selected, state="readonly")
+        self.profile_select.set(DEFAULT_PROFILE_NAME)
         self.profile_select.grid(row=1, column=1, sticky="ew", padx=12, pady=(8, 4))
 
         self.value_labels: dict[str, ctk.CTkLabel] = {}
