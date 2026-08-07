@@ -24,9 +24,18 @@ Implemented now:
 
 Not implemented yet:
 
-- NDM CKL workflow.
 - Excel workbook reports.
 - Multi-device concurrent scan orchestration.
+
+## Safety Boundary
+
+The unmodified product and bundled check packs make zero changes to an audited device's running or startup configuration. Depending on the licensed families and selected workflow, the live scanner sends a subset of nine documented `show` commands plus the session-only `terminal length 0` pagination setting. If an Administrator supplies an enable secret, the session may first enter privileged EXEC mode; it never enters configuration mode.
+
+STIG Audit Pro contains no device configuration, save, reload, or remediation workflow. Any action taken after reviewing a result is an independent decision and responsibility of authorized administrative personnel and occurs outside STIG Audit Pro. See the [command reference](docs/COMMAND_REFERENCE.md) for the exact inventory and custom-check boundary.
+
+## Product, Operator, and Legal Documentation
+
+See the [documentation index](docs/DOCUMENTATION_INDEX.md) for the official product overview, Administrator guide, security/data-handling guidance, EULA draft, and release checklist. The EULA contains legal and business placeholders and requires counsel approval before external distribution.
 
 ## Run Tests
 
