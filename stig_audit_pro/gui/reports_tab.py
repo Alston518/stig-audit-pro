@@ -41,13 +41,17 @@ class ReportsTab(PageFrame):
         self.txt_button.grid(row=1, column=0, sticky="ew", padx=(12, 6), pady=(14, 8))
         self.csv_button = ctk.CTkButton(panel, text="Save CSV Details", command=self._save_csv_report, state="disabled")
         self.csv_button.grid(row=1, column=1, sticky="ew", padx=(6, 12), pady=(14, 8))
+        self.json_button = ctk.CTkButton(panel, text="Save JSON Report", command=self._save_json_report, state="disabled")
+        self.json_button.grid(row=2, column=0, sticky="ew", padx=(12, 6), pady=(0, 8))
+        self.xlsx_button = ctk.CTkButton(panel, text="Save Excel Report", command=self._save_excel_report, state="disabled")
+        self.xlsx_button.grid(row=2, column=1, sticky="ew", padx=(6, 12), pady=(0, 8))
         self.summary = ctk.CTkTextbox(panel, height=260)
-        self.summary.grid(row=2, column=0, columnspan=2, sticky="nsew", padx=12, pady=(4, 8))
-        panel.grid_rowconfigure(2, weight=1)
+        self.summary.grid(row=3, column=0, columnspan=2, sticky="nsew", padx=12, pady=(4, 8))
+        panel.grid_rowconfigure(3, weight=1)
         self.summary.insert("1.0", "No audit results loaded.")
         self.summary.configure(state="disabled")
         self.export_status = ctk.CTkLabel(panel, text="Run a scan to enable report export.", anchor="w", text_color=("#475467", "#d0d5dd"))
-        self.export_status.grid(row=3, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 12))
+        self.export_status.grid(row=4, column=0, columnspan=2, sticky="ew", padx=12, pady=(0, 12))
 
     def refresh(self, results: list[CheckResult]) -> None:
         self.results = results
@@ -71,6 +75,8 @@ class ReportsTab(PageFrame):
         button_state = "normal" if total else "disabled"
         self.txt_button.configure(state=button_state)
         self.csv_button.configure(state=button_state)
+        self.json_button.configure(state=button_state)
+        self.xlsx_button.configure(state=button_state)
         devices = sorted({result.ip for result in results})
         lines = [
             f"Devices: {len(devices)}",
@@ -119,3 +125,21 @@ class ReportsTab(PageFrame):
         )
         if path:
             self.app_controller.export_csv_report(Path(path))
+
+    def _save_json_report(self) -> None:
+        path = filedialog.asksaveasfilename(
+            title="Save JSON report", defaultextension=".json",
+            initialfile="stig-audit-report.json",
+            filetypes=[("JSON report", "*.json"), ("All files", "*.*")],
+        )
+        if path:
+            self.app_controller.export_json_report(Path(path))
+
+    def _save_excel_report(self) -> None:
+        path = filedialog.asksaveasfilename(
+            title="Save Excel report", defaultextension=".xlsx",
+            initialfile="stig-audit-report.xlsx",
+            filetypes=[("Excel workbook", "*.xlsx"), ("All files", "*.*")],
+        )
+        if path:
+            self.app_controller.export_excel_report(Path(path))

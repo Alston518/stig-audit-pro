@@ -1,11 +1,14 @@
-# STIG Audit Pro documentation
+# STIG Audit Pro v0.2.0 documentation
+
+The current documentation set begins at [docs/INDEX.md](INDEX.md). Legacy
+entry points below are retained so existing links continue to resolve.
 
 ## Product and operator documents
 
-- [Product overview](PRODUCT_OVERVIEW.md) - official product description, scope, bundled coverage, licensing, outputs, and limitations.
-- [Command reference and device-change statement](COMMAND_REFERENCE.md) - exact bundled commands, session operations, full-collection catalog, sample behavior, and custom-pack boundary.
-- [Administrator guide](ADMINISTRATOR_GUIDE.md) - authorization, license checks, operation, result interpretation, evidence handling, and Administrator-only remediation workflow.
-- [Security and data handling](SECURITY_AND_DATA_HANDLING.md) - Target Device safety boundary, raw command cache, credentials, network connections, offline licensing, and deployment controls.
+- [Product overview](PRODUCT_OVERVIEW.md) - v0.2 product scope and links to current operator/architecture guides.
+- [Generated command reference](assurance/COMMAND_REFERENCE.md) - exact executable command inventory.
+- [Administrator guide](operator/ADMINISTRATOR_GUIDE.md) - targets, profiles, checks, concurrency, offline evidence, and licensing.
+- [Security boundary](assurance/SECURITY_BOUNDARY.md) - read-only assurance and credential/data handling.
 - [Offline licensing operations](OFFLINE_LICENSING.md) - customer license locations, publisher key custody, license issuance, build verification, and acceptance tests.
 - [Root Guard configuration](ROOT_GUARD_CONFIGURATION.md) - CDP-based Root Guard profile and check behavior.
 - [Root Guard setup guide](../ROOT_GUARD_SETUP_GUIDE.md) - repository-level deployment guidance.
@@ -19,4 +22,8 @@
 
 ## Core assurance statement
 
-The unmodified version 0.1.0 product and bundled check packs use a maximum of nine documented Cisco IOS-XE `show` commands plus the non-persistent `terminal length 0` session setting. If an Administrator supplies an enable secret, the session may first enter privileged EXEC mode; it never enters configuration mode. The product makes zero changes to an audited device's running or startup configuration and provides no remediation path. Any configuration or operational change considered after a scan is an independent decision and action of authorized administrative personnel outside the product.
+The v0.2 product uses the exact generated command registry plus the
+non-persistent `terminal length 0` session setting. If an Administrator
+supplies an enable secret, the session may enter privileged EXEC mode but never
+configuration mode. The product makes zero Target Device changes and provides
+no remediation path.

@@ -3,7 +3,7 @@
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_data_files
+from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 
 project_root = Path(SPECPATH)
 datas = [
@@ -20,7 +20,18 @@ a = Analysis(
     pathex=[str(project_root)],
     binaries=[],
     datas=datas,
-    hiddenimports=[],
+    hiddenimports=[
+        *collect_submodules("sqlalchemy.dialects.sqlite"),
+        "openpyxl",
+        "openpyxl.styles",
+        "openpyxl.worksheet.table",
+        "stig_audit_pro.application.run_service",
+        "stig_audit_pro.application.stig_lifecycle_service",
+        "stig_audit_pro.infrastructure.evidence.evidence_store",
+        "stig_audit_pro.stig.cklb_writer",
+        "stig_audit_pro.stig.stig_diff",
+        "stig_audit_pro.stig.stig_repository",
+    ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],

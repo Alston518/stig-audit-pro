@@ -16,6 +16,7 @@ def test_parse_xccdf_metadata():
     assert metadata.title.startswith("Cisco IOS-XE Switch L2S")
     assert metadata.version == "V1R1"
     assert metadata.release_date == "2026-07-04"
+    assert metadata.benchmark_release_date == "04 Jul 2026"
     assert metadata.rule_count == 1
     rule = metadata.rules[0]
     assert rule.vuln_id == "V-123456"

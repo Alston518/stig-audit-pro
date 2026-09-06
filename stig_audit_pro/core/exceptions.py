@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from stig_audit_pro.config import VALID_STATUSES
 from stig_audit_pro.core.result_model import CheckResult
 
 
 class ExceptionRule(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     hostname: str = "*"
     ip: str = "*"
     vuln_id: str
@@ -17,10 +19,8 @@ class ExceptionRule(BaseModel):
     force_status: str
     reason: str
 
-    class Config:
-        extra = "forbid"
-
-    @validator("force_status")
+    @field_validator("force_status")
+    @classmethod
     def status_must_be_supported(cls, value: str) -> str:
         if value not in VALID_STATUSES:
             raise ValueError(f"unsupported force_status: {value}")
@@ -28,10 +28,9 @@ class ExceptionRule(BaseModel):
 
 
 class ExceptionLibrary(BaseModel):
-    exceptions: list[ExceptionRule] = Field(default_factory=list)
+    model_config = ConfigDict(extra="forbid")
 
-    class Config:
-        extra = "forbid"
+    exceptions: list[ExceptionRule] = Field(default_factory=list)
 
 
 def _matches(pattern: str, value: str) -> bool:

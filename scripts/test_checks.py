@@ -139,7 +139,7 @@ def main() -> int:
             secret = os.environ.get(args.secret_env) or None
             run = NetmikoSshRunner().run_commands(
                 DeviceTarget(ip=args.host, port=args.port, timeout=args.timeout),
-                DeviceCredentials(username=username, password="243Hunter!!243Hunt", secret=secret),
+                DeviceCredentials(username=username, password=password, secret=secret),
                 commands,
             )
             if run.status != "scanned":

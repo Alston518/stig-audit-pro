@@ -46,10 +46,11 @@ class ResultsTab(PageFrame):
 
         run_row = ctk.CTkFrame(self, fg_color="transparent")
         run_row.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
-        run_row.grid_columnconfigure((0, 1, 2), weight=1)
+        run_row.grid_columnconfigure((0, 1, 2, 3), weight=1)
         ctk.CTkButton(run_row, text="Run Compliant Sample", command=lambda: app_controller.run_sample_audit("compliant")).grid(row=0, column=0, sticky="ew", padx=(0, 6))
         ctk.CTkButton(run_row, text="Run Noncompliant Sample", command=lambda: app_controller.run_sample_audit("noncompliant"), fg_color="#9f1d1d", hover_color="#7f1d1d").grid(row=0, column=1, sticky="ew", padx=6)
-        ctk.CTkButton(run_row, text="Clear", command=self.clear).grid(row=0, column=2, sticky="ew", padx=(6, 0))
+        ctk.CTkButton(run_row, text="View Evidence", command=self._view_evidence).grid(row=0, column=2, sticky="ew", padx=6)
+        ctk.CTkButton(run_row, text="Clear", command=self.clear).grid(row=0, column=3, sticky="ew", padx=(6, 0))
 
         filter_row = ctk.CTkFrame(self, fg_color="transparent")
         filter_row.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
@@ -185,12 +186,35 @@ class ResultsTab(PageFrame):
         index = int(selected[0])
         self._show_result(self.filtered_results[index])
 
+    def _selected_result(self) -> CheckResult | None:
+        selected = self.tree.selection()
+        if not selected:
+            return None
+        index = int(selected[0])
+        if index >= len(self.filtered_results):
+            return None
+        return self.filtered_results[index]
+
+    def _view_evidence(self) -> None:
+        result = self._selected_result()
+        if result is not None:
+            self.app_controller.show_result_evidence(result)
+
     def _show_result(self, result: CheckResult) -> None:
         failed = "\n".join(f"- {obj.object_type}: {obj.object_name} ({obj.details})" for obj in result.failed_objects) or "None"
         passed = "\n".join(f"- {obj.object_type}: {obj.object_name}" for obj in result.passed_objects) or "None"
+        commands = "\n".join(f"- {command}" for command in result.commands_used) or "None"
+        warnings = "\n".join(f"- {warning}" for warning in result.parser_warnings) or "None"
+        artifacts = ", ".join(str(item) for item in result.evidence_artifact_ids) or "None"
         text = (
             f"{result.vuln_id}\n{result.title}\n\n"
+            f"Audit Run: {result.run_id or '-'}\n"
+            f"Rule ID: {result.rule_id or '-'}\nSTIG ID: {result.stig_id or '-'}\n"
+            f"Check ID / type: {result.check_id or '-'} / {result.check_type or '-'}\n"
             f"Status: {result.status}\nSeverity: {result.severity}\nDevice: {result.hostname} ({result.ip})\n\n"
+            f"Evaluation Reason:\n{result.evaluation_reason or '-'}\n\n"
+            f"Commands Used:\n{commands}\n\nEvidence Artifact IDs: {artifacts}\n\n"
+            f"Parser Warnings:\n{warnings}\n\nProfile Inputs:\n{result.profile_values_used or '{}'}\n\n"
             f"Failed Objects:\n{failed}\n\nPassed Objects:\n{passed}\n\n"
             f"Comments:\n{result.comments}\n\nFinding Details:\n{result.finding_details}"
         )

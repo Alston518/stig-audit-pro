@@ -6,7 +6,7 @@
 
 **Document version:** 1.0-draft
 
-**Applies to product version:** 0.1.0 and compatible updates provided by Licensor
+**Applies to product version:** 0.2.0 and compatible updates provided by Licensor
 
 **Effective date:** [EFFECTIVE DATE]
 
@@ -55,7 +55,7 @@ For the unmodified Software and bundled check packs identified in the Documentat
 4. The Software makes zero changes to a Target Device's running or startup configuration.
 5. The Software does not automatically correct, harden, or otherwise modify a Target Device in response to a result.
 
-The Software does create and modify its own local application data, including profiles, check definitions, device groups, imported STIG metadata, cached command output, licenses, backups, checklists, and reports. Those local application operations are not Target Device configuration changes.
+The Software does create and modify its own local application data, including profiles, check definitions, device groups, imported STIG metadata, per-run command evidence, audit history, licenses, checklists, and reports. Those local application operations are not Target Device configuration changes.
 
 Licensee may be able to edit or add check packs. Any command inventory introduced by Licensee, a third party, or a modified build is outside the bundled-command representation above. Licensee must review and authorize all such content before use. Modification of the Software or its check packs may invalidate the documented read-only boundary and is at Licensee's risk.
 
@@ -83,9 +83,9 @@ Except where applicable law expressly prohibits a restriction, Licensee will not
 
 Licensee retains ownership of its credentials, device data, configurations, evidence, reports, profiles, and other content processed by the Software ("Licensee Data"). Licensee authorizes the Software to process Licensee Data locally as necessary to provide the documented functions.
 
-The Software is designed to keep SSH passwords and enable secrets in process memory for the active session and not deliberately write them to profiles, reports, or the command-output cache. Command output, including `show running-config`, is cached locally without automatic redaction in product version 0.1.0 and may contain credentials, keys, community strings, topology, access-control data, or other sensitive information. Licensee is responsible for access controls, storage location, retention, encryption, backup, transfer, disclosure, and secure disposal of Licensee Data.
+The Software is designed to keep SSH passwords and enable secrets in process memory for the active session and not deliberately write them to profiles, reports, manifests, or evidence storage. Command output, including `show running-config`, is retained as sensitive local per-run evidence and may contain credentials, keys, community strings, topology, access-control data, or other sensitive information. Version 0.2 records SHA-256 values for post-collection integrity verification but does not automatically redact output or establish collector identity or chain of custody. Licensee is responsible for access controls, storage location, retention, encryption, backup, transfer, disclosure, and secure disposal of Licensee Data.
 
-The Software does not include vendor-operated telemetry or a Licensor cloud service in product version 0.1.0. Optional STIG-source features can connect to the DoD Cyber Exchange or to a URL selected by an Administrator. Live scans connect to Target Devices selected by an Administrator. Licensee is responsible for approving those connections.
+The Software does not include vendor-operated telemetry or a Licensor cloud service in product version 0.2.0. Optional STIG-source features can connect to the DoD Cyber Exchange or to a URL selected by an Administrator. Live scans connect to Target Devices selected by an Administrator. Licensee is responsible for approving those connections.
 
 ## 8. STIG and third-party materials
 

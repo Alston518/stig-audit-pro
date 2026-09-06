@@ -1,4 +1,6 @@
+schema_version: 1
 library_name: iosxe_l2
+library_version: "2026.09"
 checks:
 - vuln_id: V-220649
   stig_id: CISC-L2-000020

@@ -15,7 +15,6 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Iterable
 
-from pydantic.json import pydantic_encoder
 
 from stig_audit_pro.stig.stig_metadata import StigBenchmarkMetadata
 from stig_audit_pro.stig.xccdf_importer import parse_xccdf_file
@@ -401,7 +400,7 @@ class StigSourceManager:
         return sorted(xml_files)[0]
 
     def _write_metadata(self, family_dir: Path, metadata: StigBenchmarkMetadata) -> None:
-        payload = json.dumps(metadata, default=pydantic_encoder, indent=2)
+        payload = json.dumps(metadata.model_dump(mode="json"), indent=2)
         (family_dir / "metadata.json").write_text(payload, encoding="utf-8")
 
     def _family_from_filename(self, filename: str) -> str:

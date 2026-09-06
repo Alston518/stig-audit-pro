@@ -2,29 +2,36 @@
 
 from __future__ import annotations
 
-from stig_audit_pro.config import DEFAULT_SHOW_COMMANDS, SAFE_COMMAND_PREFIXES
+from stig_audit_pro.core.command_policy import (
+    DEFAULT_AUDIT_COMMANDS,
+    DEFAULT_COMMAND_POLICY,
+    UnsafeCommandError,
+)
 from stig_audit_pro.core.models import CheckDefinition
 
 
-class UnsafeCommandError(ValueError):
-    """Raised when a check or caller asks for a non-read-only command."""
-
-
 def is_safe_command(command: str) -> bool:
-    normalized = command.strip().lower()
-    return any(normalized.startswith(prefix) for prefix in SAFE_COMMAND_PREFIXES)
+    """Compatibility wrapper around the authoritative command policy."""
+
+    return DEFAULT_COMMAND_POLICY.is_allowed(command)
 
 
 def validate_safe_commands(commands: list[str]) -> None:
-    unsafe = [command for command in commands if not is_safe_command(command)]
-    if unsafe:
-        raise UnsafeCommandError(f"Unsafe command(s) requested: {', '.join(unsafe)}")
+    """Validate every command, raising :class:`UnsafeCommandError` on failure."""
+
+    DEFAULT_COMMAND_POLICY.validate_many(commands)
+
+
+def normalize_safe_commands(commands: list[str]) -> list[str]:
+    """Validate and return commands in their canonical registered spelling."""
+
+    return DEFAULT_COMMAND_POLICY.validate_many(commands)
 
 
 def plan_commands(checks: list[CheckDefinition], run_all: bool = False) -> list[str]:
     commands: list[str] = []
     if run_all:
-        commands.extend(DEFAULT_SHOW_COMMANDS)
+        commands.extend(DEFAULT_AUDIT_COMMANDS)
     else:
         commands.append("terminal length 0")
         for check in checks:
@@ -33,9 +40,17 @@ def plan_commands(checks: list[CheckDefinition], run_all: bool = False) -> list[
     deduped: list[str] = []
     seen: set[str] = set()
     for command in commands:
-        normalized = command.strip()
+        normalized = DEFAULT_COMMAND_POLICY.validate(command)
         if normalized and normalized not in seen:
             seen.add(normalized)
             deduped.append(normalized)
-    validate_safe_commands(deduped)
     return deduped
+
+
+__all__ = [
+    "UnsafeCommandError",
+    "is_safe_command",
+    "normalize_safe_commands",
+    "plan_commands",
+    "validate_safe_commands",
+]

@@ -1,155 +1,125 @@
-# STIG Audit Pro - Codex Handoff
+# STIG Audit Pro v0.2.0 — Developer Handoff
 
-This file is for opening the project from another laptop or a fresh Codex thread.
+## Current state
 
-## Current Project Folder
+The repository is an incremental evolution of the original CustomTkinter
+application, not a rewrite. It remains a read-only Cisco IOS-XE auditing tool.
+The product version is `0.2.0`.
 
-When cloned with GitHub Desktop, the repo is expected to be named:
+Implemented in v0.2:
 
-```powershell
-stig-audit-pro
-```
+- Application services for audits, concurrent orchestration, persisted runs,
+  reports, and STIG lifecycle operations.
+- Exact-match `CommandPolicy`; unsafe/unknown YAML commands fail before SSH.
+- SQLite audit history and versioned STIG library using SQLAlchemy 2.x.
+- Per-run evidence storage, immutable-style manifests, SHA-256 verification,
+  evidence/result links, and offline evidence import.
+- Bounded multi-device Netmiko scanning (one connection per worker), progress
+  events, failure isolation, and cancellation.
+- STIG import coexistence, normalized release diffs, YAML impact analysis,
+  coverage metrics, review-state persistence, and manual starter generation.
+- CKLB, JSON, and Excel reporting while preserving TXT, CSV, and CKL paths.
+- Evidence, History, Results, STIG Library, Profiles, Checks, Reports, and
+  Audit Run GUI workflows.
 
-On this PC/thread, the working folder is:
-
-```powershell
-C:\Users\AWC\Documents\Stig_audit_pro
-```
-
-Run the app with:
-
-```powershell
-cd "C:\Users\AWC\Documents\Stig_audit_pro"
-python app.py
-```
-
-Run tests with:
-
-```powershell
-cd "C:\Users\AWC\Documents\Stig_audit_pro"
-python -m pytest
-```
-
-## Where We Are
-
-- GUI exists and can run sample scans and SSH scans.
-- Device groups and site profiles exist.
-- Report export exists.
-- STIG import/viewing exists.
-- Cyber.mil Find Selected and Find L2 + NDM now fall back to the public quarterly IOS-XE switch bundle URL pattern on `dl.dod.cyber.mil`.
-- The combined Cisco IOS-XE switch Cyber.mil ZIP contains L2, NDM, and RTR XML files; import now chooses the L2 or NDM XCCDF based on the selected family.
-- Overview tab exists for library/run status.
-- Checks tab can pick and save individual YAML check files.
-- Profiles tab can save profile YAML.
-- L2 check file has 22 checks from `STIG_CHECKS_L2_NDM.xlsx`.
-- 19 L2 checks are automated.
-- 3 L2 checks are still manual review.
-- All automated L2 checks are editable string/pattern checks:
-  - `command_pattern_policy`
-  - `interface_config_policy`
-- NDM check file has 42 checks from `STIG_CHECKS_L2_NDM.xlsx`.
-- NDM has 33 editable string-search placeholders, 1 automated ACL deny logging check, and 8 manual/fixed-status entries.
-- CKL generation is not built yet.
-- Excel report generation is not built yet.
-
-## Important Files
-
-- `app.py`: app entry point
-- `data/checks/iosxe_l2.yaml`: L2 STIG check strings/patterns
-- `data/checks/iosxe_ndm.yaml`: NDM STIG placeholder checks
-- `data/checks/EDITING.md`: how to edit checks and profile variables
-- `data/profiles/*.yaml`: site/building variables and VLAN requirements
-- `stig_audit_pro/core/check_engine.py`: YAML-driven check engine
-- `stig_audit_pro/gui/main_window.py`: main GUI
-
-## Profile Variable Direction
-
-Profiles are becoming the user-editable variables sheet.
-
-Site-specific values should usually go in `data/profiles/*.yaml`, not directly in check logic. Examples:
-
-- `unused_vlan`
-- DHCP snooping VLANs
-- ARP inspection VLANs
-- extra trunk-pruned VLANs
-- future lists like root guard interfaces, uplink interfaces, access-layer switch links
-
-The check YAML can reference profile values with placeholders like:
-
-```yaml
-pattern: ^switchport access vlan\s+{{ unused_vlan }}$
-```
-
-For profile lists, checks can expand one pattern per profile value using `profile_all` or `profile_forbidden_patterns`.
-
-## Current Scan Behavior
-
-L2 sample output currently gives:
-
-- 16 `NotAFinding`
-- 6 `Not_Reviewed`
-
-L2 noncompliant sample output currently gives:
-
-- 16 `Open`
-- 6 `Not_Reviewed`
-
-The GUI currently loads L2 and NDM together from `data/checks/*.yaml`. Combined sample behavior is:
-
-- Compliant sample: 18 `NotAFinding`, 1 `Open`, 3 `Not_Applicable`, 42 `Not_Reviewed`
-- Noncompliant sample: 1 `NotAFinding`, 18 `Open`, 3 `Not_Applicable`, 42 `Not_Reviewed`
-
-Useful object-level findings are already shown for examples like:
-
-- missing DHCP/ARP VLANs
-- disabled/notconnect interfaces missing shutdown or unused VLAN
-- trunk interfaces allowing VLAN 1
-- ACL deny statements missing `log-input`
-
-## Next Recommended Step
-
-Build a Profile Variables GUI:
-
-- Select a profile.
-- Edit common variables without opening YAML.
-- Save profile changes.
-- Show what checks use those variables.
-- Later, add a check-string editor in the GUI so users can edit `strings`, `required_strings`, and `forbidden_strings` without opening YAML.
-- Remember: the user asked us to keep this direction noted. When making future changes, remind them that we kept the GUI string/profile editor direction in the handoff.
-
-After that, convert more manual L2 checks into automated checks where the profile can provide missing context.
-
-Example: Root Guard can become automated if a profile lists which interfaces connect to access-layer switches, then the check searches those interface blocks for:
-
-```ios
-spanning-tree guard root
-```
-
-## GitHub Workflow
-
-The GitHub repository URL follows this format:
+## Architecture and key modules
 
 ```text
-https://github.com/<owner>/stig-audit-pro
+gui -> application -> core -> infrastructure
+                    \-> stig / reports
 ```
 
-Typical sync steps from GitHub Desktop:
+- `stig_audit_pro/application/`: `AuditService`, `ScanOrchestrator`,
+  `RunService`, `StigLifecycleService`, `ReportService`.
+- `stig_audit_pro/core/command_policy.py`: authoritative approved command
+  registry. Never bypass it for YAML or runtime execution.
+- `stig_audit_pro/infrastructure/persistence/`: SQLite schema, migrations,
+  and repositories.
+- `stig_audit_pro/infrastructure/evidence/evidence_store.py`: atomic evidence
+  files, manifests, verification, purge/delete helpers.
+- `stig_audit_pro/stig/stig_repository.py` and `stig_diff.py`: release storage,
+  comparison, YAML impact, and coverage.
+- `stig_audit_pro/reports/`: JSON and Excel writers; `stig/cklb_writer.py`
+  supports CKLB.
 
-1. Review changed files.
-2. Add a short summary.
-3. Commit to `main`.
-4. Push origin.
+Full diagrams and the data model are in
+[docs/architecture](docs/architecture/ARCHITECTURE.md).
 
-On another laptop:
+## Runtime locations
 
-1. Open GitHub Desktop.
-2. Fetch origin.
-3. Pull origin.
-4. Open the project folder in Codex.
+The default SQLite database is resolved using `platformdirs` under the user
+application-data directory (normally `%LOCALAPPDATA%\STIG Audit Pro` on
+Windows), as is the evidence workspace:
 
-## Notes For Future Codex
+```text
+work/runs/<run_uuid>/manifest.json
+work/runs/<run_uuid>/checks.snapshot.yaml
+work/runs/<run_uuid>/profile.snapshot.yaml
+work/runs/<run_uuid>/devices/<safe-device>/evidence/
+```
 
-- The user wants a non-technical GUI and prefers not to edit YAML manually long term.
-- Keep site/customer tailoring in profiles/variables where possible.
-- Avoid building CKL generation until scan checks and profile editing are more mature.
-- The user wants full L2 and NDM coverage eventually, but many entries still need careful manual-to-automated conversion.
+For development, the database path is logged and described in
+[DATABASE_GUIDE.md](docs/developers/DATABASE_GUIDE.md). Tests always use a
+temporary SQLite database.
+
+## Run and test
+
+```powershell
+cd "C:\Users\AWC\Documents\Stig_audit_pro"
+python -m pip install -r requirements.txt
+python app.py
+python -m pytest
+python scripts/generate_command_reference.py --check
+python scripts/generate_stig_traceability.py --check
+python scripts/validate_docs.py
+```
+
+## Operator workflows
+
+### Import and compare a STIG
+
+Use **STIG Library → Import ZIP/XML**, then choose **Compare Previous** or
+select two releases and choose **Compare Selected**. The library retains old
+releases; an initial import is a baseline (`NO_PREVIOUS_RELEASE`), not a list
+of artificial changes. The difference view shows field-level old/new check and
+fix text and the associated YAML impact. Export JSON, CSV, or XLSX from that
+view.
+
+### YAML Impact
+
+`AUTOMATION_REVIEW_REQUIRED` means DISA check procedure content changed and an
+engineer must deliberately review the mapped YAML. `FIX_GUIDANCE_CHANGED` is
+visible without implying remediation. `NEW_CHECK_REQUIRED` generates only a
+manual-review starter; it never changes automation. `RETIRE_CHECK_REVIEW`
+does not delete historical mappings.
+
+### Reports
+
+Use **Reports** for TXT/CSV and JSON/XLSX. CKL remains available through the
+checklist workflow. Use `CKLBWriter`/`ReportService.write_cklb` to build or
+export CKLB from internal `CheckResult` models.
+
+### Evidence and history
+
+Historical results can be opened without rescanning. The Evidence panel shows
+raw command output, command, hash, and file location. **Verify Evidence**
+reports `VALID`, `MISSING`, `MODIFIED`, or `UNREADABLE`. Hashes show integrity
+after collection only; they do not authenticate the collector.
+
+## Known limitations and next work
+
+- Only IOS-XE L2/NDM is supported. No NX-OS.
+- CKLB compatibility is exercised with representative Viewer 3-style fixtures;
+  import/export deliberately remains independent from the check engine.
+- Check/profile editing has typed common fields plus advanced YAML; broader
+  form coverage can be added without changing the schema.
+- No remediation, scheduling, credential vault, web service, PostgreSQL,
+  cloud telemetry, or third-party integrations are implemented.
+- Review-state marking is stored in the local mapping database; future GUI work
+  can add a richer reviewer identity/audit trail without changing fingerprints.
+
+## Non-negotiable safety rule
+
+Never add a command by using a broad prefix allowlist or by trusting YAML. Add
+the minimum fixed command to `CommandPolicy`, update its tests, regenerate the
+command reference, and preserve the read-only boundary.

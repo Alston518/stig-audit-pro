@@ -2,32 +2,20 @@
 
 from __future__ import annotations
 
+from stig_audit_pro.core.command_policy import DEFAULT_AUDIT_COMMANDS
+
 APP_NAME = "stig-audit-pro"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.2.0"
 LICENSE_FILENAME = "stig-audit-pro.license.json"
 DEFAULT_PROFILE_NAME = "base_iosxe_access"
 
-DEFAULT_SHOW_COMMANDS: tuple[str, ...] = (
-    "terminal length 0",
-    "show running-config",
-    "show version",
-    "show inventory",
-    "show vtp status",
-    "show vlan brief",
-    "show interfaces status",
-    "show interfaces trunk",
-    "show cdp neighbors detail",
-    "show ip access-lists",
-    "show ip dhcp snooping",
-    "show ip arp inspection",
-    "show logging",
-    "show clock",
-)
+# Backward-compatible name for callers that request the standard collection
+# set.  Approval itself lives only in core.command_policy.
+DEFAULT_SHOW_COMMANDS: tuple[str, ...] = DEFAULT_AUDIT_COMMANDS
 
-SAFE_COMMAND_PREFIXES: tuple[str, ...] = (
-    "show ",
-    "terminal length ",
-)
+# Retained as an empty compatibility export.  Prefix-based approval was unsafe
+# and is intentionally no longer used anywhere in the application.
+SAFE_COMMAND_PREFIXES: tuple[str, ...] = ()
 
 SUPPORTED_CHECK_TYPES: tuple[str, ...] = (
     "command_contains",

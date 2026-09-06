@@ -1,39 +1,30 @@
-# STIG Audit Pro Enterprise Roadmap
+# STIG Audit Pro — Post-v0.2 Roadmap
 
-## Near-Term Polish
+## Delivered in v0.2
 
-- Profile variables editor: edit VLANs, strings, approved servers, banners, and site values without raw YAML.
-- Check string editor: expose `strings`, `required_strings`, and `forbidden_strings` as simple list fields.
-- Library selector: run L2 only, NDM only, or combined L2+NDM into one report.
-- Scan presets: save target scope, profile, command timeout, and report options as reusable jobs.
-- Evidence viewer: show command output snippets tied to each finding.
+- Concurrent, bounded IOS-XE audits with per-device state and cancellation.
+- Persistent audit history, evidence hashes, manifests, and run comparison.
+- JSON, XLSX, CKL, and CKLB outputs.
+- Scan presets, profile and common check-string editing, evidence/history views.
+- Versioned STIG library, normalized release difference engine, YAML impact,
+  starter checks, review state, and coverage dashboard.
 
-## Reporting
+## Next practical improvements
 
-- CKL export with L2-only, NDM-only, and combined output modes.
-- Excel workbook report with summary, findings, per-device sheets, and filterable evidence.
-- PDF executive report with compliance score, top failing controls, and affected device counts.
-- Evidence archive per scan so reports can be reproduced later.
+- Expand typed profile/check forms and show all profile-value consumers.
+- Add richer reviewer identity/change audit history for check mappings.
+- Add explicit CKLB schema-version fixtures for every supported STIG Viewer
+  release and improve asset metadata form support.
+- Add visual trend reporting based on persisted run comparisons.
+- Improve the STIG Library with a direct mapping-review action and release
+  filtering for very large libraries.
+- Increase automated coverage only after deliberate engineering and fixture
+  validation; never infer audit logic from changed DISA prose.
 
-## Operations
+## Deliberately out of scope
 
-- Concurrent multi-device scanning with progress, cancel, retry, and per-device status.
-- Encrypted credential storage or integration with an enterprise vault.
-- Scheduled scans with Windows Task Scheduler integration.
-- Scan history database with trend charts and previous-run comparison.
-- Offline mode for importing command output files from restricted environments.
-
-## Governance
-
-- Signed check-pack releases with versioned YAML libraries.
-- Approval workflow for check changes and profile changes.
-- Audit log for who changed checks, profiles, targets, and reports.
-- Role-based access if the app grows into a multi-user service.
-- CI tests that validate every check YAML file and sample scan before release.
-
-## Integrations
-
-- Asset inventory import from CSV, NetBox, ServiceNow, or IPAM.
-- Git-backed check/profile repository sync.
-- STIG update manager that compares imported STIG versions with local check coverage.
-- Optional Tenable/Nessus export mapping for teams that already track findings there.
+STIG Audit Pro remains read-only. Do not add automatic remediation,
+configuration pushes, credential vaults, scheduled autonomous scans, web or
+multi-user services, PostgreSQL/Redis, cloud telemetry, NetBox, ServiceNow,
+Tenable, CyberArk, HashiCorp Vault, or Cisco NX-OS support without a separate
+approved product scope.

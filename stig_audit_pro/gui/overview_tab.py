@@ -59,8 +59,8 @@ class OverviewTab(PageFrame):
 
         ctk.CTkButton(
             run_panel,
-            text="Targets",
-            command=lambda: app_controller.show_tab("Targets"),
+            text="Audit Run",
+            command=lambda: app_controller.show_tab("Audit Run"),
         ).grid(row=1, column=0, sticky="ew", padx=(12, 6), pady=(10, 8))
         ctk.CTkButton(
             run_panel,
@@ -81,7 +81,7 @@ class OverviewTab(PageFrame):
         quick_row.grid(row=2, column=0, columnspan=3, sticky="ew", padx=12, pady=(0, 10))
         quick_row.grid_columnconfigure((0, 1, 2), weight=1)
         ctk.CTkButton(quick_row, text="Checks", command=lambda: app_controller.show_tab("Checks")).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(quick_row, text="STIG Sources", command=lambda: app_controller.show_tab("STIG / CKL")).grid(row=0, column=1, sticky="ew", padx=6)
+        ctk.CTkButton(quick_row, text="Setup", command=lambda: app_controller.show_tab("Setup")).grid(row=0, column=1, sticky="ew", padx=6)
         ctk.CTkButton(quick_row, text="Reports", command=lambda: app_controller.show_tab("Reports")).grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
         results_frame = ctk.CTkFrame(run_panel, fg_color="transparent")

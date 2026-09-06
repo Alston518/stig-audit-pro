@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import customtkinter as ctk
+import yaml
 
 from stig_audit_pro.core.models import CheckDefinition
 from stig_audit_pro.gui.widgets import PageFrame, Panel
@@ -18,6 +19,7 @@ class ChecksTab(PageFrame):
         self.checks: list[CheckDefinition] = []
         self.yaml_paths: list[Path] = []
         self.current_yaml_path: Path | None = None
+        self.selected_check: CheckDefinition | None = None
         self.grid_columnconfigure(0, weight=1)
         self.grid_columnconfigure(1, weight=2)
         self.grid_rowconfigure(0, weight=1)
@@ -62,8 +64,50 @@ class ChecksTab(PageFrame):
         )
         self.library_select.grid(row=0, column=1, sticky="ew")
 
-        self.editor = YamlEditor(editor_panel, "Check YAML")
-        self.editor.grid(row=1, column=0, sticky="nsew")
+        self.edit_tabs = ctk.CTkTabview(editor_panel)
+        self.edit_tabs.grid(row=1, column=0, sticky="nsew")
+        simple_page = self.edit_tabs.add("Simple Editor")
+        advanced_page = self.edit_tabs.add("Advanced YAML")
+        for page in (simple_page, advanced_page):
+            page.grid_columnconfigure(0, weight=1)
+            page.grid_rowconfigure(0, weight=1)
+        simple = ctk.CTkScrollableFrame(simple_page)
+        simple.grid(row=0, column=0, sticky="nsew", padx=6, pady=6)
+        simple.grid_columnconfigure(1, weight=1)
+        self.simple_labels: dict[str, ctk.CTkLabel] = {}
+        for row, (key, label) in enumerate((
+            ("vuln_id", "Vuln ID"), ("title", "Title"), ("family", "STIG family"),
+            ("severity", "Severity"), ("check_type", "Check type"),
+            ("automation", "Automation"), ("source", "Source release"),
+            ("commands", "Approved commands"),
+        )):
+            ctk.CTkLabel(simple, text=label, anchor="w").grid(row=row, column=0, sticky="nw", padx=10, pady=4)
+            value = ctk.CTkLabel(simple, text="-", anchor="w", justify="left", wraplength=560)
+            value.grid(row=row, column=1, sticky="ew", padx=10, pady=4)
+            self.simple_labels[key] = value
+        self.simple_fields: dict[str, ctk.CTkTextbox] = {}
+        start = len(self.simple_labels)
+        for offset, (key, label) in enumerate((
+            ("strings", "Strings"), ("required_strings", "Required strings"),
+            ("forbidden_strings", "Forbidden strings"),
+            ("required_patterns", "Required patterns"),
+            ("forbidden_patterns", "Forbidden patterns"),
+        )):
+            row = start + offset
+            ctk.CTkLabel(simple, text=label, anchor="w").grid(row=row, column=0, sticky="nw", padx=10, pady=4)
+            box = ctk.CTkTextbox(simple, height=82, wrap="none")
+            box.grid(row=row, column=1, sticky="ew", padx=10, pady=4)
+            self.simple_fields[key] = box
+        simple_actions = ctk.CTkFrame(simple, fg_color="transparent")
+        simple_actions.grid(row=start + len(self.simple_fields), column=0, columnspan=2, sticky="ew", padx=10, pady=10)
+        simple_actions.grid_columnconfigure((0, 1), weight=1)
+        ctk.CTkButton(simple_actions, text="Validate Changes", command=self._validate_simple).grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        ctk.CTkButton(simple_actions, text="Save Check Strings", command=self._save_simple).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        self.simple_status = ctk.CTkLabel(simple, text="Select a check on the left.", anchor="w")
+        self.simple_status.grid(row=start + len(self.simple_fields) + 1, column=0, columnspan=2, sticky="ew", padx=10)
+
+        self.editor = YamlEditor(advanced_page, "Check YAML")
+        self.editor.grid(row=0, column=0, sticky="nsew")
 
         actions = ctk.CTkFrame(editor_panel, fg_color="transparent")
         actions.grid(row=2, column=0, sticky="ew", pady=(8, 0))
@@ -127,6 +171,68 @@ class ChecksTab(PageFrame):
                 ctk.CTkLabel(row, text=check.looking_for, anchor="w", wraplength=330, justify="left", text_color=("#475467", "#d0d5dd")).grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 4))
             mode = "Automated" if check.automated and check.check_type != "manual_review" else "Manual"
             ctk.CTkLabel(row, text=f"{check.stig_family}  |  {check.severity}  |  {mode}  |  {check.check_type}", text_color=("#475467", "#d0d5dd"), anchor="w").grid(row=3, column=0, sticky="ew", padx=10, pady=(0, 8))
+            ctk.CTkButton(
+                row, text="Edit", width=62,
+                command=lambda selected=check: self._select_check(selected),
+            ).grid(row=0, column=1, rowspan=4, sticky="e", padx=8, pady=8)
+
+    def _select_check(self, check: CheckDefinition) -> None:
+        self.selected_check = check
+        mode = "Automated" if check.automated and check.check_type != "manual_review" else "Manual review"
+        values = {
+            "vuln_id": check.vuln_id, "title": check.title,
+            "family": check.stig_family, "severity": check.severity,
+            "check_type": check.check_type, "automation": mode,
+            "source": " ".join(filter(None, [check.source_benchmark, check.source_version, check.source_release])) or "Not recorded",
+            "commands": "\n".join(check.commands) or "None",
+        }
+        for key, value in values.items():
+            self.simple_labels[key].configure(text=value)
+        for key, box in self.simple_fields.items():
+            box.delete("1.0", "end")
+            current = check.conditions.get(key, [])
+            if current:
+                box.insert("1.0", yaml.safe_dump(current, sort_keys=False).strip())
+        self.simple_status.configure(text="Edit list values as YAML, then validate and save.")
+        self.edit_tabs.set("Simple Editor")
+
+    def _simple_updates(self) -> dict[str, list[object]]:
+        updates: dict[str, list[object]] = {}
+        for key, box in self.simple_fields.items():
+            text = box.get("1.0", "end").strip()
+            if not text:
+                updates[key] = []
+                continue
+            value = yaml.safe_load(text)
+            if not isinstance(value, list):
+                raise ValueError(f"{key} must be a YAML list")
+            updates[key] = value
+        return updates
+
+    def _validate_simple(self) -> None:
+        try:
+            if self.selected_check is None:
+                raise ValueError("Select a check first")
+            ok, message = self.app_controller.validate_check_simple(
+                self.selected_check.vuln_id, self._simple_updates()
+            )
+        except (ValueError, yaml.YAMLError) as exc:
+            ok, message = False, str(exc)
+        self.simple_status.configure(text=message, text_color=("#027a48", "#6ce9a6") if ok else ("#b42318", "#f97066"))
+
+    def _save_simple(self) -> None:
+        try:
+            if self.selected_check is None:
+                raise ValueError("Select a check first")
+            path = self.app_controller.check_source_paths.get(self.selected_check.vuln_id)
+            if path is None:
+                raise ValueError("The source YAML file could not be resolved")
+            ok, message = self.app_controller.save_check_simple(
+                path, self.selected_check.vuln_id, self._simple_updates()
+            )
+        except (ValueError, yaml.YAMLError) as exc:
+            ok, message = False, str(exc)
+        self.simple_status.configure(text=message, text_color=("#027a48", "#6ce9a6") if ok else ("#b42318", "#f97066"))
 
     def _validate_yaml(self) -> None:
         ok, message = self.app_controller.validate_check_yaml(self.editor.get_text())

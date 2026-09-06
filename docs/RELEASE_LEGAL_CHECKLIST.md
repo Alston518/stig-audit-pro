@@ -24,25 +24,21 @@ This checklist is for the product owner. It is not part of the end-user agreemen
 - [ ] Confirm sample mode performs no network connection.
 - [ ] Confirm credentials are not deliberately written to cached command output, reports, logs, or crash diagnostics.
 - [ ] Treat cached command output as unredacted sensitive data and document access-control, encryption, retention, overwrite, and secure-deletion requirements.
-- [ ] Add and validate redaction, run isolation, integrity hashes, and configurable retention before claiming those protections.
+- [ ] Validate the implemented per-run isolation, SHA-256 evidence verification, and retention/purge behavior against the release artifact. Evidence remains sensitive and is not automatically redacted.
 - [ ] Confirm all outbound network destinations and verify the no-telemetry statement against the packaged artifact.
 - [ ] Confirm bundled check counts, automation coverage, source STIG identities, parser versions, and known limitations.
 - [ ] Sign the application and any installer, publish cryptographic hashes, and establish a trusted release/update channel before production distribution.
 
-## Recommended command-boundary hardening
+## Command-boundary verification
 
-The current validator permits any normalized command beginning with `show ` or `terminal length `. The bundled command set is narrow and read-only, but prefix validation is broader than an exact allow-list.
+v0.2 uses an exact allowlist in `CommandPolicy`, not a prefix validator. Check
+that the generated command reference matches the packaged registry and that
+unsafe YAML fails before connection:
 
-Before representing arbitrary custom packs as having the same read-only assurance as the bundled release:
-
-- [ ] validate against an exact approved-command registry or a deliberately constrained command grammar;
-- [ ] reject output redirection, file/URL destinations, command chaining, control characters, and platform alias syntax;
-- [ ] restrict `terminal length` to the exact command `terminal length 0`;
-- [ ] add tests for case, whitespace, abbreviations, pipes, redirects, separators, and device-specific parser behavior;
-- [ ] display and require approval of the final deduplicated command plan before a live scan; and
+- [ ] run `python scripts/generate_command_reference.py --check`;
+- [ ] run command-policy tests, including chaining/control-character attempts;
+- [ ] confirm `terminal length 0` is the only session operation; and
 - [ ] pair application validation with device-side command authorization on the scan account.
-
-Until that hardening is complete, product claims should distinguish the reviewed, unmodified bundled check packs from Administrator-supplied or third-party check packs.
 
 ## Documentation consistency
 
