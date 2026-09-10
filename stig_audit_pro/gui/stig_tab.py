@@ -189,7 +189,7 @@ class StigTab(PageFrame):
             self.library_tree.column(column, width=width, anchor="w")
         self.library_tree.grid(row=1, column=0, sticky="nsew", padx=12, pady=(8, 12))
 
-        impact_panel = Panel(parent, "Release Difference and YAML Impact")
+        impact_panel = Panel(parent, "What Changed and What Needs Attention")
         impact_panel.grid(row=1, column=1, sticky="nsew", padx=(6, 12), pady=(6, 12))
         impact_panel.grid_columnconfigure(0, weight=1)
         impact_panel.grid_rowconfigure(2, weight=1)
@@ -210,7 +210,7 @@ class StigTab(PageFrame):
         )
         for column, title, width in (
             ("change", "Change", 82), ("vuln", "Vuln ID", 105),
-            ("fields", "Changed Fields", 155), ("impact", "YAML Impact", 170),
+            ("fields", "Changed Fields", 155), ("impact", "Automation Impact", 210),
         ):
             self.library_diff_tree.heading(column, text=title)
             self.library_diff_tree.column(column, width=width, anchor="w")
@@ -673,7 +673,7 @@ class StigTab(PageFrame):
             iid = f"library-diff-{index}"
             self.library_diff_lookup[iid] = rule
             rule_impacts = impacts_by_vuln.get(rule.vuln_id, [])
-            impact_text = ", ".join(sorted({item.impact.value for item in rule_impacts})) or "NO_LOCAL_CHECK"
+            impact_text = ", ".join(sorted({self._friendly_impact(item.impact.value) for item in rule_impacts})) or "No local check"
             self.library_diff_tree.insert(
                 "", "end", iid=iid, values=(
                     rule.classification.value, rule.vuln_id,
@@ -711,6 +711,9 @@ class StigTab(PageFrame):
             f"New Rule ID: {rule.new_rule_id or '-'}",
             f"Match basis: {rule.match_basis or '-'}",
             f"Changed fields: {', '.join(rule.changed_fields) or 'None'}",
+            "",
+            "WHY IT MATTERS:",
+            self._why_diff_matters(rule),
         ]
         if rule.notes:
             lines.extend(["", "Matching notes:"] + [f"- {note}" for note in rule.notes])
@@ -718,7 +721,7 @@ class StigTab(PageFrame):
             lines.extend(["", "YAML impact:"])
             for impact in impacts:
                 lines.extend([
-                    f"- {impact.impact.value}: {impact.yaml_file or 'No local check'}",
+                    f"- {self._friendly_impact(impact.impact.value)}: {impact.yaml_file or 'No local check'}",
                     f"  Check type: {impact.check_type or '-'}; automation: {impact.automation_status or '-'}",
                     f"  Recommendation: {impact.recommended_action}",
                 ])
@@ -730,6 +733,35 @@ class StigTab(PageFrame):
                 f"NEW {field.field.upper()}:", field.new_value or "(empty)",
             ])
         self._set_library_details("\n".join(lines))
+
+    @staticmethod
+    def _friendly_impact(value: str) -> str:
+        return {
+            "AUTOMATION_REVIEW_REQUIRED": "Automation needs review",
+            "NEW_CHECK_REQUIRED": "New rule — create a check",
+            "RETIRE_CHECK_REVIEW": "Removed rule — review retirement",
+            "FIX_GUIDANCE_CHANGED": "DISA fix guidance changed",
+            "METADATA_UPDATE": "Metadata update",
+            "MANUAL_RULE_REVIEW": "Manual procedure changed",
+            "NO_ACTION_REQUIRED": "No action",
+            "NO_LOCAL_CHECK": "No local check",
+            "AMBIGUOUS_MAPPING": "Mapping needs review",
+        }.get(value, value.replace("_", " ").title())
+
+    @staticmethod
+    def _why_diff_matters(rule: RuleDiff) -> str:
+        fields = set(rule.changed_fields)
+        if rule.classification is RuleChange.ADDED:
+            return "DISA added a requirement. Create a manual-review starter, then decide whether deterministic automation is appropriate."
+        if rule.classification is RuleChange.REMOVED:
+            return "DISA removed this vulnerability. Keep historical mappings, but review whether the check should run for the new release."
+        if "check_text" in fields:
+            return "DISA changed the check procedure. Review the existing automation because required evidence or evaluation logic may have changed."
+        if fields == {"fix_text"}:
+            return "DISA changed remediation guidance. STIG Audit Pro remains read-only, so audit logic may still be valid, but the guidance must be reviewed."
+        if fields and fields <= {"severity", "title", "rule_id", "stig_id"}:
+            return "DISA changed rule metadata. Update local metadata; automated evaluation logic does not appear to require modification."
+        return "Review the field-level changes and the recommended automation impact before using this release for new audits."
 
     def _set_library_details(self, text: str) -> None:
         self.library_details.configure(state="normal")

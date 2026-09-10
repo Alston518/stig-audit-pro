@@ -1,9 +1,11 @@
 # STIG Audit Pro v0.2.0
 
-STIG Audit Pro is a Windows-focused, read-only Cisco IOS-XE switch auditing
-application. It collects approved command evidence over SSH, evaluates
-YAML-driven L2 and NDM checks, retains reproducible audit history, and helps
-administrators review the effect of new DISA STIG releases.
+STIG Audit Pro is a read-only Cisco IOS-XE compliance assessment platform. It
+automates approved DISA STIG evidence collection, explains findings, preserves
+defensible audit history, generates assessment artifacts, and helps maintain
+automation when DISA publishes new releases. It is more than a one-time STIG
+scanner: release comparison and deterministic automation impact are core
+workflows.
 
 It never enters configuration mode, applies a fix, saves configuration,
 reloads a device, or persists device credentials.
@@ -22,6 +24,9 @@ reloads a device, or persists device credentials.
 - JSON, XLSX, CKL, and CKLB reporting, plus historical-run comparison.
 - Audit History and Evidence GUI views, scan presets, typed profile editing,
   and simple check-string editing alongside advanced YAML editing.
+- A first-run welcome page, guided assessment workflow, structured preflight,
+  friendly finding explanations, failure retry, diagnostics, sanitized support
+  bundles, data backup, and portable audit-package export.
 
 ## Quick start
 
@@ -55,6 +60,8 @@ See [Security Boundary](docs/assurance/SECURITY_BOUNDARY.md) and
 
 - [Documentation index](docs/INDEX.md)
 - [Getting started](docs/operator/GETTING_STARTED.md)
+- [Your first audit](docs/operator/FIRST_AUDIT.md)
+- [Current limitations](docs/CURRENT_LIMITATIONS.md)
 - [Administrator guide](docs/operator/ADMINISTRATOR_GUIDE.md)
 - [STIG update and diff workflow](docs/operator/STIG_UPDATE_GUIDE.md)
 - [Audit history](docs/operator/AUDIT_HISTORY_GUIDE.md)

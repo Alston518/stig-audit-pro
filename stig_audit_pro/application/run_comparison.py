@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Iterable, Mapping
 
 from stig_audit_pro.core.result_model import CheckResult
+from stig_audit_pro.reports.spreadsheet_safety import safe_spreadsheet_row
 
 
 class RunChange(str, Enum):
@@ -156,7 +157,7 @@ def export_run_comparison_csv(comparison: RunComparison, path: str | Path) -> Pa
         for item in comparison.items:
             row = asdict(item)
             row["classification"] = item.classification.value
-            writer.writerow(row)
+            writer.writerow(safe_spreadsheet_row(row))
     return destination
 
 
@@ -182,10 +183,10 @@ def export_run_comparison_excel(comparison: RunComparison, path: str | Path) -> 
     ]
     details.append(headers)
     for item in comparison.items:
-        details.append([
+        details.append(safe_spreadsheet_row([
             item.device, item.vuln_id, item.previous_status, item.current_status,
             item.classification.value, item.previous_rule_id, item.current_rule_id, item.reason,
-        ])
+        ]))
     for sheet in workbook.worksheets:
         for cell in sheet[1]:
             cell.font = Font(color="FFFFFF", bold=True)

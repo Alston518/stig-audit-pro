@@ -30,10 +30,43 @@ class OverviewTab(PageFrame):
         self.app_controller = app_controller
         self.open_results: list[CheckResult] = []
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
+
+        self.welcome = Panel(self, "Welcome to STIG Audit Pro")
+        self.welcome.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 6))
+        self.welcome.grid_columnconfigure((0, 1, 2, 3), weight=1)
+        ctk.CTkLabel(
+            self.welcome,
+            text="Cisco IOS-XE STIG Assessment\nChoose a task to get started.",
+            justify="left",
+            anchor="w",
+            font=ctk.CTkFont(size=16, weight="bold"),
+        ).grid(row=1, column=0, columnspan=4, sticky="ew", padx=12, pady=(10, 8))
+        actions = (
+            ("Run an Audit", "__wizard__"),
+            ("Import a DISA STIG", "STIG Update Center"),
+            ("Review Previous Audits", "History"),
+            ("Manage STIG Automation", "Checks"),
+        )
+        for column, (label, tab) in enumerate(actions):
+            action = app_controller.open_audit_wizard if tab == "__wizard__" else lambda name=tab: app_controller.show_tab(name)
+            ctk.CTkButton(self.welcome, text=label, command=action).grid(
+                row=2, column=column, sticky="ew", padx=6, pady=4
+            )
+        ctk.CTkLabel(
+            self.welcome,
+            text="Getting started:  1. Add switches   2. Import or select a STIG   3. Review your Site Profile   4. Run the assessment",
+            anchor="w",
+            justify="left",
+        ).grid(row=3, column=0, columnspan=3, sticky="ew", padx=12, pady=(6, 10))
+        self.hide_welcome = ctk.CTkCheckBox(
+            self.welcome, text="Don't show this welcome page again",
+            command=lambda: app_controller.set_welcome_preference(not bool(self.hide_welcome.get())),
+        )
+        self.hide_welcome.grid(row=3, column=3, sticky="e", padx=12, pady=(6, 10))
 
         metrics = ctk.CTkFrame(self, fg_color="transparent")
-        metrics.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 6))
+        metrics.grid(row=1, column=0, sticky="ew", padx=12, pady=6)
         metrics.grid_columnconfigure((0, 1, 2, 3, 4, 5), weight=1)
         self.metrics = {
             "checks": Metric(metrics, "Checks", accent=PRIMARY),
@@ -47,20 +80,20 @@ class OverviewTab(PageFrame):
             metric.grid(row=0, column=column, sticky="ew", padx=4)
 
         body = ctk.CTkFrame(self, fg_color="transparent")
-        body.grid(row=1, column=0, sticky="nsew", padx=12, pady=(6, 12))
+        body.grid(row=2, column=0, sticky="nsew", padx=12, pady=(6, 12))
         body.grid_columnconfigure(0, weight=3)
         body.grid_columnconfigure(1, weight=2)
         body.grid_rowconfigure(0, weight=1)
 
-        run_panel = Panel(body, "Scan Console")
+        run_panel = Panel(body, "Assessment Workspace")
         run_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
         run_panel.grid_columnconfigure((0, 1, 2), weight=1)
         run_panel.grid_rowconfigure(3, weight=1)
 
         ctk.CTkButton(
             run_panel,
-            text="Audit Run",
-            command=lambda: app_controller.show_tab("Audit Run"),
+            text="Start an Assessment",
+            command=app_controller.open_audit_wizard,
         ).grid(row=1, column=0, sticky="ew", padx=(12, 6), pady=(10, 8))
         ctk.CTkButton(
             run_panel,
@@ -81,7 +114,7 @@ class OverviewTab(PageFrame):
         quick_row.grid(row=2, column=0, columnspan=3, sticky="ew", padx=12, pady=(0, 10))
         quick_row.grid_columnconfigure((0, 1, 2), weight=1)
         ctk.CTkButton(quick_row, text="Checks", command=lambda: app_controller.show_tab("Checks")).grid(row=0, column=0, sticky="ew", padx=(0, 6))
-        ctk.CTkButton(quick_row, text="Setup", command=lambda: app_controller.show_tab("Setup")).grid(row=0, column=1, sticky="ew", padx=6)
+        ctk.CTkButton(quick_row, text="STIG Updates", command=lambda: app_controller.show_tab("STIG Update Center")).grid(row=0, column=1, sticky="ew", padx=6)
         ctk.CTkButton(quick_row, text="Reports", command=lambda: app_controller.show_tab("Reports")).grid(row=0, column=2, sticky="ew", padx=(6, 0))
 
         results_frame = ctk.CTkFrame(run_panel, fg_color="transparent")
@@ -159,6 +192,13 @@ class OverviewTab(PageFrame):
         for family, count in sorted(family_counts.items()):
             lines.append(f"- {family}: {count}")
         self._set_library_status("\n".join(lines))
+
+    def set_welcome_visible(self, visible: bool) -> None:
+        if visible:
+            self.welcome.grid()
+            self.hide_welcome.deselect()
+        else:
+            self.welcome.grid_remove()
 
     def refresh_results(self, results: list[CheckResult]) -> None:
         for item in self.open_tree.get_children():

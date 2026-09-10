@@ -280,6 +280,26 @@ class CheckMapping(Base):
     stig_rule: Mapped[StigRule | None] = relationship(back_populates="mappings")
 
 
+class ActivityLog(Base):
+    """Secret-free application activity trail for the local desktop product."""
+
+    __tablename__ = "activity_log"
+    __table_args__ = (
+        Index("ix_activity_log_timestamp", "timestamp"),
+        Index("ix_activity_log_object", "object_type", "object_id"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    timestamp: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=utc_now
+    )
+    action: Mapped[str] = mapped_column(String(128), nullable=False)
+    object_type: Mapped[str] = mapped_column(String(128), nullable=False)
+    object_id: Mapped[str | None] = mapped_column(String(255))
+    details: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    local_username: Mapped[str | None] = mapped_column(String(255))
+
+
 # Explicit aliases make it clear at call sites when an ORM record is intended,
 # while preserving intuitive model names for direct schema inspection.
 AuditRunRecord = AuditRun
@@ -290,3 +310,4 @@ ResultEvidenceRecord = ResultEvidence
 StigBenchmarkRecord = StigBenchmark
 StigRuleRecord = StigRule
 CheckMappingRecord = CheckMapping
+ActivityLogRecord = ActivityLog

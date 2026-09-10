@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import queue
+import shutil
 import threading
 import tempfile
 from collections.abc import Callable, Mapping, Sequence
@@ -21,6 +22,12 @@ from pydantic import BaseModel, ValidationError
 from stig_audit_pro.config import APP_VERSION, DEFAULT_PROFILE_NAME
 from stig_audit_pro.application.report_service import ReportService
 from stig_audit_pro.application.audit_service import AuditService
+from stig_audit_pro.application.preflight_service import PreflightService
+from stig_audit_pro.application.error_presenter import explain_error
+from stig_audit_pro.application.support_bundle_service import SupportBundleService
+from stig_audit_pro.application.backup_service import BackupService, BackupSource
+from stig_audit_pro.application.audit_package_service import AuditPackageService
+from stig_audit_pro.application.check_fixture_service import CheckFixtureService
 from stig_audit_pro.application.run_comparison import RunComparison, compare_runs
 from stig_audit_pro.application.run_service import (
     OfflineEvidenceDevice,
@@ -40,6 +47,8 @@ from stig_audit_pro.core.models import (
 from stig_audit_pro.core.result_model import CheckResult
 from stig_audit_pro.core.yaml_loader import ConfigValidationError, deep_merge, load_check_library, load_profile, load_yaml_file
 from stig_audit_pro.gui.checks_tab import ChecksTab
+from stig_audit_pro.gui.audit_wizard import AuditWizard
+from stig_audit_pro.gui.administration_tab import AdministrationTab
 from stig_audit_pro.gui.evidence_tab import EvidenceTab
 from stig_audit_pro.gui.history_tab import HistoryTab
 from stig_audit_pro.gui.license_tab import LicenseTab
@@ -57,6 +66,8 @@ from stig_audit_pro.licensing import (
     LicenseStatus,
 )
 from stig_audit_pro.licensing.paths import application_data_dir
+from stig_audit_pro.licensing.paths import log_directory
+from stig_audit_pro.infrastructure.persistence.migrations import get_schema_version
 from stig_audit_pro.reports.audit_report import write_csv_report, write_text_report
 from stig_audit_pro.storage.device_groups import DeviceGroup, DeviceGroupStore, DeviceTargetRecord
 from stig_audit_pro.storage.scan_presets import ReportOptions, ScanPreset, ScanPresetStore
@@ -265,10 +276,12 @@ class StigAuditProApp(ctk.CTk):
         self._scan_in_progress = False
         self._license_notice_dismissed = False
         self._loading_ui_state = False
+        self.show_welcome = True
         self.license_manager = LicenseManager()
         self.license_manager.load()
         self.report_service = ReportService()
         self.audit_service = AuditService()
+        self.preflight_service = PreflightService()
         self.run_service = RunService(audit_service=self.audit_service)
         self.stig_lifecycle_service = StigLifecycleService(
             checks_dir=self.data_dir / "checks"
@@ -322,6 +335,11 @@ class StigAuditProApp(ctk.CTk):
             height=28,
         )
         self.license_badge.grid(row=0, column=2, rowspan=2, sticky="e", padx=(0, 18))
+        ctk.CTkButton(
+            header, text="Welcome / Help", width=112, height=28,
+            fg_color="transparent", border_width=1,
+            command=self.show_welcome_page,
+        ).grid(row=0, column=3, rowspan=2, sticky="e", padx=(0, 18))
 
         self.license_notice_frame = ctk.CTkFrame(
             header,
@@ -333,7 +351,7 @@ class StigAuditProApp(ctk.CTk):
         self.license_notice_frame.grid(
             row=2,
             column=0,
-            columnspan=3,
+            columnspan=4,
             sticky="ew",
         )
         self.license_notice_frame.grid_columnconfigure(0, weight=1)
@@ -374,7 +392,7 @@ class StigAuditProApp(ctk.CTk):
         self.tabs.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
         tab_overview = self.tabs.add("Overview")
         tab_targets = self.tabs.add("Audit Run")
-        tab_stig = self.tabs.add("Setup")
+        tab_stig = self.tabs.add("STIG Update Center")
         tab_profiles = self.tabs.add("Profiles")
         tab_checks = self.tabs.add("Checks")
         tab_results = self.tabs.add("Results")
@@ -382,6 +400,7 @@ class StigAuditProApp(ctk.CTk):
         tab_history = self.tabs.add("History")
         tab_reports = self.tabs.add("Reports")
         tab_license = self.tabs.add("License")
+        tab_admin = self.tabs.add("Administration")
         for tab in (
             tab_overview,
             tab_targets,
@@ -393,6 +412,7 @@ class StigAuditProApp(ctk.CTk):
             tab_history,
             tab_reports,
             tab_license,
+            tab_admin,
         ):
             tab.grid_columnconfigure(0, weight=1)
             tab.grid_rowconfigure(0, weight=1)
@@ -417,6 +437,8 @@ class StigAuditProApp(ctk.CTk):
         self.reports_tab.grid(row=0, column=0, sticky="nsew")
         self.license_tab = LicenseTab(tab_license, self)
         self.license_tab.grid(row=0, column=0, sticky="nsew")
+        self.administration_tab = AdministrationTab(tab_admin, self)
+        self.administration_tab.grid(row=0, column=0, sticky="nsew")
 
     def _build_status_bar(self) -> None:
         footer = ctk.CTkFrame(self, corner_radius=0)
@@ -452,16 +474,145 @@ class StigAuditProApp(ctk.CTk):
     def show_tab(self, tab_name: str) -> None:
         aliases = {
             "Targets": "Audit Run",
-            "STIG Source": "Setup",
-            "STIG / CKL": "Setup",
-            "STIG Library": "Setup",
+            "Setup": "STIG Update Center",
+            "STIG Source": "STIG Update Center",
+            "STIG / CKL": "STIG Update Center",
+            "STIG Library": "STIG Update Center",
         }
         self.tabs.set(aliases.get(tab_name, tab_name))
+
+    def set_welcome_preference(self, show: bool) -> None:
+        self.show_welcome = bool(show)
+        self.overview_tab.set_welcome_visible(self.show_welcome)
+        self._save_ui_state()
+
+    def show_welcome_page(self) -> None:
+        self.show_welcome = True
+        self.overview_tab.set_welcome_visible(True)
+        self.show_tab("Overview")
+
+    def open_audit_wizard(self) -> None:
+        AuditWizard(self, self)
+
+    def build_preflight_result(self):
+        settings = self.targets_tab.get_audit_run_settings()
+        families = set(settings["families"])
+        checks = [check for check in self.checks if check.stig_family in families]
+        output_dir = self.stig_tab.selected_output_dir
+        return self.preflight_service.validate(
+            targets=self.targets_tab.get_targets("checked"), checks=checks,
+            profile=self.profile, stig_families=families,
+            database=self.run_service.database,
+            evidence_root=self.run_service.evidence_store.root,
+            report_directory=output_dir,
+        )
+
+    def application_health(self) -> list[tuple[str, str]]:
+        try:
+            database_health = "✓ Healthy" if self.run_service.database.foreign_keys_enabled() else "⚠ Foreign keys disabled"
+        except Exception as exc:
+            database_health = f"✕ Unavailable ({exc})"
+        try:
+            evidence_root = self.run_service.evidence_store.root
+            evidence_root.mkdir(parents=True, exist_ok=True)
+            free_gb = shutil.disk_usage(evidence_root).free / 1024 ** 3
+            evidence_health = f"✓ Healthy ({free_gb:.1f} GB free)"
+        except Exception as exc:
+            evidence_health = f"✕ Unavailable ({exc})"
+        return [
+            ("Application", APP_VERSION),
+            ("Database", database_health),
+            ("Database schema", str(get_schema_version(self.run_service.database.engine))),
+            ("Evidence Store", evidence_health),
+            ("Check Libraries", f"✓ {len(self.checks)} checks loaded" if self.checks else "⚠ No checks loaded"),
+            ("STIG Library", f"{len(self.stig_metadata)} installed release(s)"),
+            ("Command Policy", "✓ Read-only allowlist active"),
+        ]
+
+    def create_support_bundle(self) -> None:
+        destination = filedialog.asksaveasfilename(parent=self, title="Create Support Bundle", defaultextension=".zip", initialfile=f"stig-audit-pro-support-{datetime.now().strftime('%Y%m%d')}.zip", filetypes=[("ZIP archive", "*.zip")])
+        if not destination:
+            return
+        try:
+            service = SupportBundleService(self.run_service.database, log_paths=(log_directory() / "stig-audit-pro.log",))
+            path = service.create(destination)
+            self.set_status(f"Created sanitized support bundle: {path}")
+        except Exception as exc:
+            self._show_error(str(exc))
+
+    def backup_application_data(self) -> None:
+        destination = filedialog.asksaveasfilename(parent=self, title="Back Up STIG Audit Pro Data", defaultextension=".zip", initialfile=f"stig-audit-pro-backup-{datetime.now().strftime('%Y%m%d')}.zip", filetypes=[("ZIP archive", "*.zip")])
+        if not destination:
+            return
+        try:
+            database_path = self.run_service.database.path
+            if database_path is None:
+                raise RuntimeError("The in-memory development database cannot be backed up.")
+            service = BackupService(database_path=database_path, sources=(
+                BackupSource("profiles", self.data_dir / "profiles"),
+                BackupSource("device-groups", self.data_dir / "device_groups"),
+                BackupSource("checks", self.data_dir / "checks"),
+                BackupSource("stig-library", self.data_dir / "stigs"),
+                BackupSource("scan-presets", application_data_dir() / "data" / "scan_presets"),
+            ), evidence_root=self.run_service.evidence_store.root)
+            path = service.create(destination, include_evidence=False)
+            self.run_service.activity_log.record("BACKUP_CREATED", "application_backup", str(path), details={"includes_evidence": False})
+            self.set_status(f"Backup created: {path}. Raw evidence was not included.")
+        except Exception as exc:
+            self._show_error(str(exc))
 
     def show_result(self, result: CheckResult) -> None:
         """Open the Results tab with the requested result selected."""
         self.show_tab("Results")
         self.results_tab.select_result(result.ip, result.vuln_id)
+
+    def show_disa_guidance(self, result: CheckResult, field: str) -> None:
+        label = "DISA Check Text" if field == "check_text" else "DISA Fix Text"
+        text = "This guidance is not available in the currently installed STIG releases."
+        for benchmark in self.stig_metadata:
+            for rule in benchmark.rules:
+                if rule.vuln_id == result.vuln_id or (result.rule_id and rule.rule_id == result.rule_id):
+                    text = getattr(rule, field, "") or text
+                    break
+        self._show_text_dialog(label, text)
+
+    def open_manual_review(self, result: CheckResult) -> None:
+        if not result.run_id:
+            self._show_error("Run and persist the audit before recording a reviewer decision.", kind="validation")
+            return
+        dialog = ctk.CTkToplevel(self)
+        dialog.title(f"Manual Review — {result.vuln_id}")
+        dialog.geometry("680x560")
+        dialog.transient(self)
+        dialog.grab_set()
+        dialog.grid_columnconfigure(0, weight=1)
+        dialog.grid_rowconfigure(4, weight=1)
+        ctk.CTkLabel(dialog, text="Manual Review Required", font=ctk.CTkFont(size=20, weight="bold"), anchor="w").grid(row=0, column=0, sticky="ew", padx=16, pady=(16, 4))
+        ctk.CTkLabel(dialog, text="Choose a reviewer status. This decision is stored in the Audit Run and does not change the device.", anchor="w", justify="left", wraplength=640).grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 10))
+        status = ctk.CTkComboBox(dialog, values=["Open", "Not a Finding", "Not Applicable", "Not Reviewed"], state="readonly")
+        status.set({"NotAFinding": "Not a Finding", "Not_Applicable": "Not Applicable", "Not_Reviewed": "Not Reviewed"}.get(result.status, result.status))
+        status.grid(row=2, column=0, sticky="ew", padx=16, pady=4)
+        fields = ctk.CTkFrame(dialog, fg_color="transparent")
+        fields.grid(row=4, column=0, sticky="nsew", padx=16, pady=8)
+        fields.grid_columnconfigure(0, weight=1)
+        fields.grid_rowconfigure((1, 3), weight=1)
+        ctk.CTkLabel(fields, text="Finding Details", anchor="w").grid(row=0, column=0, sticky="ew")
+        details = ctk.CTkTextbox(fields, wrap="word", height=130)
+        details.grid(row=1, column=0, sticky="nsew", pady=(2, 8)); details.insert("1.0", result.finding_details)
+        ctk.CTkLabel(fields, text="Comments", anchor="w").grid(row=2, column=0, sticky="ew")
+        comments = ctk.CTkTextbox(fields, wrap="word", height=110)
+        comments.grid(row=3, column=0, sticky="nsew", pady=(2, 8)); comments.insert("1.0", result.comments)
+        def save() -> None:
+            internal = {"Not a Finding": "NotAFinding", "Not Applicable": "Not_Applicable", "Not Reviewed": "Not_Reviewed"}.get(status.get(), status.get())
+            try:
+                self.results = self.run_service.save_manual_decision(result, status=internal, finding_details=details.get("1.0", "end").strip(), comments=comments.get("1.0", "end").strip())
+                self.results_tab.refresh(self.results)
+                self.update_report_summary(self.results)
+                dialog.destroy()
+                self.set_status(f"Saved manual reviewer decision for {result.vuln_id}.")
+            except Exception as exc:
+                self._show_error(str(exc))
+        ctk.CTkButton(dialog, text="Save Reviewer Decision", command=save).grid(row=5, column=0, sticky="e", padx=16, pady=(0, 16))
 
     def show_result_evidence(self, result: CheckResult) -> list[Any]:
         """Open the immutable evidence linked to one result."""
@@ -565,6 +716,24 @@ class StigAuditProApp(ctk.CTk):
             self._show_error(str(exc))
             return None
 
+    def retry_failed_devices(self, run_id: str) -> None:
+        """Create a linked retry run containing only previously failed devices."""
+        failure_states = {"AUTH_FAILED", "CONNECT_FAILED", "COLLECTION_FAILED", "EVALUATION_FAILED"}
+        devices = self.run_service.repository.list_devices(run_id)
+        failed = [item for item in devices if item.status in failure_states]
+        if not failed:
+            self.set_status("The selected audit has no failed devices to retry.")
+            return
+        settings = self.targets_tab.get_scan_settings()
+        if settings.get("mode") != "Live SSH":
+            self.show_tab("Audit Run")
+            self._show_error("Select Live SSH and enter session credentials before retrying failed devices.", title="Retry Needs Credentials", kind="validation")
+            return
+        targets = [DeviceTargetRecord(ip=item.target_ip, checked=True) for item in failed]
+        self.targets_tab.set_targets(targets)
+        self.run_service.activity_log.record("FAILED_DEVICES_RETRIED", "audit_run", run_id, details={"device_count": len(targets)})
+        self._run_live_for_targets(targets, settings, f"retry of audit {run_id}", list(self.checks))
+
     def export_historical_run(
         self, run_id: str, output_dir: Path | None = None
     ) -> list[Path]:
@@ -601,6 +770,20 @@ class StigAuditProApp(ctk.CTk):
             self.set_status("Historical report export failed.")
             self._show_error(str(exc))
             return []
+
+    def export_audit_package(self, run_id: str) -> Path | None:
+        destination = filedialog.asksaveasfilename(parent=self, title="Export Audit Package", defaultextension=".zip", initialfile=f"STIG-Audit-Pro-Audit-{run_id}.zip", filetypes=[("Audit package", "*.zip")])
+        if not destination:
+            return None
+        try:
+            run_directory = self.run_service.evidence_store.root / run_id
+            path = AuditPackageService().export(run_id=run_id, run_directory=run_directory, destination=destination, include_evidence=True)
+            self.run_service.activity_log.record("AUDIT_PACKAGE_EXPORTED", "audit_run", run_id, details={"path": str(path), "includes_evidence": True})
+            self.set_status(f"Exported verified audit package: {path}")
+            return path
+        except Exception as exc:
+            self._show_error(str(exc))
+            return None
 
     def verify_historical_evidence(self, run_id: str) -> Any | None:
         try:
@@ -926,6 +1109,8 @@ class StigAuditProApp(ctk.CTk):
             output_text = raw_state.get("checklist_output_dir") or raw_state.get("output_dir")
             if isinstance(output_text, str) and output_text.strip():
                 self.set_checklist_output_dir(Path(output_text))
+            self.show_welcome = bool(raw_state.get("show_welcome", True))
+            self.overview_tab.set_welcome_visible(self.show_welcome)
         finally:
             self._loading_ui_state = False
 
@@ -939,6 +1124,7 @@ class StigAuditProApp(ctk.CTk):
             is not None
         }
         state = {
+            "show_welcome": self.show_welcome,
             "ckl_templates": templates,
             "checklist_output_dir": (
                 str(self.stig_tab.selected_output_dir)
@@ -1008,6 +1194,13 @@ class StigAuditProApp(ctk.CTk):
         self._refresh_audit_preflight()
 
     def run_configured_checklist_audit(self) -> None:
+        readiness = self.build_preflight_result()
+        if not readiness.ready:
+            lines = ["The audit did not start because readiness checks found:", ""]
+            for issue in readiness.blocking_issues:
+                lines.extend((f"• {issue.message}", f"  {issue.guidance}"))
+            self._show_error("\n".join(lines), title="Audit Not Ready", kind="validation")
+            return
         setup_settings = self.stig_tab.get_checklist_settings()
         run_settings = self.targets_tab.get_audit_run_settings()
         self.run_checklist_audit(
@@ -1267,6 +1460,7 @@ class StigAuditProApp(ctk.CTk):
                 f"{metadata.rule_count} rule(s). {library_note}"
             )
             self.set_status(f"Imported {release_summary}.")
+            self.run_service.activity_log.record("STIG_IMPORTED", "stig_release", str(import_result.benchmark.database_id or ""), details={"family": metadata.family, "version": metadata.version, "release": metadata.release})
         except Exception as exc:
             self.stig_tab.set_status("STIG import failed.")
             self.set_status("STIG import failed.")
@@ -1277,6 +1471,7 @@ class StigAuditProApp(ctk.CTk):
             diff = self.stig_lifecycle_service.compare_to_previous(benchmark_id)
             self.stig_tab.show_library_diff(diff)
             self.set_status("STIG release comparison complete.")
+            self.run_service.activity_log.record("STIG_RELEASE_COMPARED", "stig_release", str(benchmark_id), details={"comparison": "previous"})
             return diff
         except Exception as exc:
             self.set_status("STIG release comparison failed.")
@@ -1288,6 +1483,7 @@ class StigAuditProApp(ctk.CTk):
             diff = self.stig_lifecycle_service.compare(previous_id, current_id)
             self.stig_tab.show_library_diff(diff)
             self.set_status("STIG release comparison complete.")
+            self.run_service.activity_log.record("STIG_RELEASE_COMPARED", "stig_release", str(current_id), details={"previous_id": previous_id})
             return diff
         except Exception as exc:
             self.set_status("STIG release comparison failed.")
@@ -1332,6 +1528,7 @@ class StigAuditProApp(ctk.CTk):
         self.stig_lifecycle_service.mark_automation_reviewed(
             mappings[0].id, benchmark_id, vuln_id
         )
+        self.run_service.activity_log.record("AUTOMATION_REVIEWED", "stig_rule", vuln_id, details={"benchmark_id": benchmark_id, "mapping_id": mappings[0].id})
 
     def compare_stig_sources(
         self,
@@ -2306,6 +2503,11 @@ class StigAuditProApp(ctk.CTk):
             ok, message = self.validate_check_yaml(text)
             if not ok:
                 return False, message
+            backup_dir = application_data_dir() / "check_backups"
+            backup_dir.mkdir(parents=True, exist_ok=True)
+            if path.is_file():
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                shutil.copy2(path, backup_dir / f"{path.stem}-{stamp}{path.suffix}.bak")
             descriptor, temporary_name = tempfile.mkstemp(
                 prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
             )
@@ -2319,9 +2521,15 @@ class StigAuditProApp(ctk.CTk):
                 Path(temporary_name).unlink(missing_ok=True)
                 raise
             self.reload_from_disk()
+            self.run_service.activity_log.record("CHECK_MODIFIED", "check_library", path.name, details={"backup_created": True})
             return True, f"Saved {path.name}"
         except OSError as exc:
             return False, self._short_error(exc)
+
+    def run_check_fixture_tests(self, check: CheckDefinition):
+        if self.profile is None:
+            raise ValueError("Load a Site Profile before running check tests")
+        return CheckFixtureService(self.root_dir / "tests" / "check_fixtures").run_check(check, self.profile)
 
     def validate_profile_yaml(self, text: str) -> tuple[bool, str]:
         try:
@@ -2425,6 +2633,11 @@ class StigAuditProApp(ctk.CTk):
             if not ok:
                 return False, message
             path.parent.mkdir(parents=True, exist_ok=True)
+            if path.is_file():
+                backup_dir = application_data_dir() / "profile_backups"
+                backup_dir.mkdir(parents=True, exist_ok=True)
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                shutil.copy2(path, backup_dir / f"{path.stem}-{stamp}{path.suffix}.bak")
             descriptor, temporary_name = tempfile.mkstemp(
                 prefix=f".{path.name}.", suffix=".tmp", dir=path.parent
             )
@@ -2440,6 +2653,7 @@ class StigAuditProApp(ctk.CTk):
             if activate:
                 self.profile_name = path.stem
             self.reload_from_disk()
+            self.run_service.activity_log.record("PROFILE_MODIFIED", "site_profile", path.stem, details={"backup_created": True})
             return True, f"Saved {path.name}"
         except (OSError, yaml.YAMLError) as exc:
             return False, self._short_error(exc)
@@ -2802,6 +3016,10 @@ class StigAuditProApp(ctk.CTk):
             "validation": "Invalid Input",
             "generic": "Error",
         }
+        if kind == "connection":
+            presented = explain_error(message)
+            title = title or presented.title
+            message = f"{presented.message}\n\nRecommended action\n{presented.guidance}\n\nTechnical details\n{presented.technical_details}"
         dialog = ctk.CTkToplevel(self)
         dialog.title(title or dialog_titles.get(kind, dialog_titles["generic"]))
         dialog.geometry("620x260")

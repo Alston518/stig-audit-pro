@@ -961,9 +961,38 @@ class TargetsTab(PageFrame):
         )
         if not path:
             return
-        imported_text = self._read_import_file(Path(path))
-        added, skipped = self._add_targets_from_text(imported_text)
-        self._set_add_status(added, skipped)
+        try:
+            imported_text = self._read_import_file(Path(path))
+            values, invalid = self._extract_ips(imported_text)
+            existing = {target.ip for target in self.targets}
+            valid: list[str] = []
+            duplicates = 0
+            seen = set(existing)
+            for value in values:
+                if value in seen:
+                    duplicates += 1
+                else:
+                    valid.append(value)
+                    seen.add(value)
+            message = (
+                f"{len(values) + invalid} address value(s) detected\n"
+                f"{len(valid)} valid new device(s)\n"
+                f"{duplicates} duplicate(s)\n{invalid} invalid value(s)\n\n"
+                "Only valid, non-duplicate devices will be imported. Bad rows are never silently accepted."
+            )
+            if not valid:
+                self._set_status(message.replace("\n", " · "))
+                return
+            if not confirm_action(self, title="Review CSV Import", message=message, confirm_text=f"Import {len(valid)} Valid Devices"):
+                return
+            for value in valid:
+                self.targets.append(DeviceTargetRecord(ip=value, checked=True))
+            if self.selected_index is None:
+                self.selected_index = 0
+            self._render_rows()
+            self._set_add_status(len(valid), duplicates + invalid)
+        except (OSError, UnicodeError, ValueError, csv.Error) as exc:
+            self._set_status(f"Import failed: {exc}")
 
     def save_current_group(self) -> None:
         self._sync_row_state()
@@ -1058,11 +1087,17 @@ class TargetsTab(PageFrame):
         return values, skipped
 
     def _read_import_file(self, path: Path) -> str:
+        if path.suffix.lower() not in {".csv", ".txt"}:
+            raise ValueError("Choose a CSV or text target file")
+        if not path.is_file() or path.stat().st_size > 5 * 1024 * 1024:
+            raise ValueError("Target file is missing or exceeds the supported 5 MB limit")
         if path.suffix.lower() == ".csv":
             values: list[str] = []
             with path.open("r", encoding="utf-8-sig", newline="") as handle:
                 reader = csv.reader(handle)
-                for row in reader:
+                for index, row in enumerate(reader):
+                    if index >= 10_000:
+                        raise ValueError("CSV contains more than 10,000 rows")
                     values.extend(row)
             return "\n".join(values)
         return path.read_text(encoding="utf-8-sig")

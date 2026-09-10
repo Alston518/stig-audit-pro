@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 from stig_audit_pro.core.result_model import CheckResult
+from stig_audit_pro.reports.spreadsheet_safety import safe_spreadsheet_row, safe_spreadsheet_value
 
 
 EXPECTED_SHEETS = (
@@ -97,7 +98,7 @@ def write_excel_report(
         header_list = list(headers)
         sheet.append(header_list)
         for row in rows:
-            sheet.append(list(row))
+            sheet.append(safe_spreadsheet_row(list(row)))
         for cell in sheet[1]:
             cell.fill = header_fill
             cell.font = header_font
@@ -147,7 +148,7 @@ def write_excel_report(
     summary["A1"].fill = PatternFill("solid", fgColor=navy)
     summary.merge_cells("A1:B1")
     for row in summary_rows:
-        summary.append(list(row))
+        summary.append(safe_spreadsheet_row(list(row)))
     for row in range(2, summary.max_row + 1):
         summary.cell(row, 1).font = Font(bold=True, color=navy)
         if row % 2 == 0:

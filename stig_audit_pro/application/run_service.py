@@ -21,7 +21,7 @@ from stig_audit_pro.core.command_policy import DEFAULT_COMMAND_POLICY
 from stig_audit_pro.core.models import AuditRun, CollectionMode, DeviceStatus, RunStatus
 from stig_audit_pro.core.result_model import CheckResult, FindingObject
 from stig_audit_pro.infrastructure.persistence import Database
-from stig_audit_pro.infrastructure.persistence.repositories import AuditRunRepository
+from stig_audit_pro.infrastructure.persistence.repositories import ActivityLogRepository, AuditRunRepository
 from stig_audit_pro.logging_config import audit_logger
 from stig_audit_pro.parsers.iosxe_facts import parse_facts
 
@@ -167,6 +167,7 @@ class RunService:
     ) -> None:
         self.database = database or Database()
         self.repository = repository or AuditRunRepository(self.database)
+        self.activity_log = ActivityLogRepository(self.database)
         if evidence_store is None:
             from stig_audit_pro.infrastructure.evidence.evidence_store import EvidenceStore
 
@@ -240,6 +241,7 @@ class RunService:
                 device_ids[ip] = device.id
                 self.evidence_store.prepare_device(run.run_id, ip, metadata={"target_ip": ip})
             self.repository.update_run(run.run_id, status=RunStatus.RUNNING)
+            self.activity_log.record("AUDIT_STARTED", "audit_run", run.run_id, details={"device_count": len(target_ips), "collection_mode": run.collection_mode.value})
         except Exception:
             self.repository.delete_run(run.run_id)
             self.evidence_store.delete_run(run.run_id)
@@ -410,6 +412,7 @@ class RunService:
             },
         }
         self.evidence_store.finalize_run(context.run_id, manifest)
+        self.activity_log.record("AUDIT_COMPLETED", "audit_run", context.run_id, details={"status": service_result.summary.status.value, "result_counts": dict(status_counts)})
         return persisted_results
 
     def import_offline(
@@ -481,9 +484,9 @@ class RunService:
             self.abort_run(context, str(exc))
             raise
 
-    def list_history(self) -> list[RunHistoryItem]:
+    def list_history(self, *, limit: int = 500, offset: int = 0) -> list[RunHistoryItem]:
         items: list[RunHistoryItem] = []
-        for run in self.repository.list_runs():
+        for run in self.repository.list_runs(limit=max(1, min(limit, 1000)), offset=max(0, offset)):
             counts = self.repository.result_counts(run.id)
             items.append(RunHistoryItem(
                 id=run.id,
@@ -556,6 +559,11 @@ class RunService:
                 audit_stage="finalize",
                 error_type="abort_manifest",
             ).exception("Could not finalize the interrupted audit manifest")
+        self.activity_log.record(
+            "AUDIT_CANCELLED" if cancelled else "AUDIT_FAILED",
+            "audit_run", context.run_id,
+            details={"error_type": type(error_message).__name__, "message": str(error_message)[:1000]},
+        )
 
     def load_results(self, run_id: str) -> list[CheckResult]:
         run = self.repository.get_run(run_id)
@@ -602,15 +610,26 @@ class RunService:
             if artifact.id in wanted
         ]
 
+    def save_manual_decision(self, result: CheckResult, *, status: str, finding_details: str, comments: str) -> list[CheckResult]:
+        if not result.run_id:
+            raise ValueError("Manual decisions require a persisted Audit Run")
+        self.repository.update_result_decision(result.run_id, result.ip, result.vuln_id, status=status, finding_details=finding_details, comments=comments)
+        self.activity_log.record("MANUAL_REVIEW_RECORDED", "check_result", f"{result.run_id}:{result.ip}:{result.vuln_id}", details={"status": status})
+        return self.load_results(result.run_id)
+
     def verify_evidence(self, run_id: str) -> Any:
         return self.evidence_store.verify_evidence(run_id)
 
     def purge_raw_evidence(self, run_id: str) -> int:
-        return self.evidence_store.purge_raw_evidence(run_id)
+        removed = self.evidence_store.purge_raw_evidence(run_id)
+        self.activity_log.record("EVIDENCE_PURGED", "audit_run", run_id, details={"files_removed": removed})
+        return removed
 
     def delete_run(self, run_id: str) -> bool:
         deleted_files = self.evidence_store.delete_run(run_id)
         deleted_record = self.repository.delete_run(run_id)
+        if deleted_files or deleted_record:
+            self.activity_log.record("AUDIT_DELETED", "audit_run", run_id, details={"evidence_deleted": bool(deleted_files)})
         return bool(deleted_files or deleted_record)
 
     def read_evidence(self, relative_path: str) -> str:

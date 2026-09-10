@@ -22,3 +22,11 @@ __all__ = [
     "ScanSummary",
     "StigLifecycleService",
 ]
+from stig_audit_pro.application.preflight_service import (
+    PreflightIssue,
+    PreflightResult,
+    PreflightService,
+    PreflightSeverity,
+)
+
+__all__ = ["PreflightIssue", "PreflightResult", "PreflightService", "PreflightSeverity"]

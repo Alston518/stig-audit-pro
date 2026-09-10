@@ -142,6 +142,8 @@ def _parse_ckl(path: str | Path) -> ET.ElementTree:
     source = Path(path)
     if not source.is_file():
         raise CklError(f"Could not read CKL file: {source}")
+    if source.stat().st_size > 25 * 1024 * 1024:
+        raise CklError("CKL exceeds the supported 25 MB size limit")
     try:
         return ET.parse(source)
     except (ET.ParseError, OSError) as exc:

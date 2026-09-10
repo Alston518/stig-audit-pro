@@ -57,14 +57,14 @@ class ResultsTab(PageFrame):
         filter_row.grid_columnconfigure(1, weight=1)
         self.status_filter = ctk.CTkComboBox(
             filter_row,
-            values=["All statuses", "Open", "NotAFinding", "Not_Reviewed", "Not_Applicable", "Error", "Skipped"],
+            values=["All findings", "CAT I", "CAT II", "CAT III", "Open", "Not a Finding", "Manual Review", "Not Applicable", "Errors"],
             command=lambda _value: self._render_tree(),
             state="readonly",
             width=160,
         )
-        self.status_filter.set("All statuses")
+        self.status_filter.set("All findings")
         self.status_filter.grid(row=0, column=0, sticky="w", padx=(0, 8))
-        self.search = ctk.CTkEntry(filter_row, placeholder_text="Search IP, Vuln ID, family, title")
+        self.search = ctk.CTkEntry(filter_row, placeholder_text="Search hostname, IP, Vuln ID, Rule ID, or title")
         self.search.grid(row=0, column=1, sticky="ew")
         self.search.bind("<KeyRelease>", lambda _event: self._render_tree())
 
@@ -98,6 +98,18 @@ class ResultsTab(PageFrame):
         self.details.insert("1.0", "Run a sample audit to populate results.")
         self.details.configure(state="disabled")
 
+        detail_actions = ctk.CTkFrame(content, fg_color="transparent")
+        detail_actions.grid(row=1, column=1, sticky="ew", padx=(6, 10), pady=(0, 10))
+        for column, (label, command) in enumerate((
+            ("View Evidence", self._view_evidence),
+            ("DISA Check Text", lambda: self._view_stig_text("check_text")),
+            ("DISA Fix Text", lambda: self._view_stig_text("fix_text")),
+            ("Copy Finding", self._copy_finding),
+            ("Record Manual Review", self._manual_review),
+        )):
+            ctk.CTkButton(detail_actions, text=label, height=28, command=command).grid(row=0, column=column, sticky="ew", padx=3)
+            detail_actions.grid_columnconfigure(column, weight=1)
+
     def refresh(self, results: list[CheckResult]) -> None:
         self.results = results
         self._update_metrics()
@@ -106,7 +118,9 @@ class ResultsTab(PageFrame):
     def _render_tree(self, selected_result: tuple[str, str] | None = None) -> None:
         for item in self.tree.get_children():
             self.tree.delete(item)
-        self.filtered_results = self._filtered_results()
+        # Bound widget creation for enterprise-size histories. Search/filtering
+        # narrows the full in-memory result set before this display window.
+        self.filtered_results = self._filtered_results()[:1000]
         selected_iid: str | None = None
         for index, result in enumerate(self.filtered_results):
             failed = ", ".join(obj.object_name for obj in result.failed_objects)
@@ -133,18 +147,24 @@ class ResultsTab(PageFrame):
 
     def select_result(self, ip: str, vuln_id: str) -> None:
         """Reveal and select a result, clearing filters that would otherwise hide it."""
-        self.status_filter.set("All statuses")
+        self.status_filter.set("All findings")
         self.search.delete(0, "end")
         self._render_tree((ip, vuln_id))
 
     def _filtered_results(self) -> list[CheckResult]:
-        status = self.status_filter.get()
+        selected_filter = self.status_filter.get()
+        status_map = {"Not a Finding": "NotAFinding", "Manual Review": "Not_Reviewed", "Not Applicable": "Not_Applicable"}
         query = self.search.get().strip().lower()
         filtered: list[CheckResult] = []
         for result in self.results:
-            if status != "All statuses" and result.status != status:
+            if selected_filter in {"CAT I", "CAT II", "CAT III"} and self._cat(result.severity) != selected_filter:
                 continue
-            haystack = f"{result.ip} {result.hostname} {result.vuln_id} {result.title} {result.stig_family} {result.severity} {result.status}".lower()
+            wanted_status = status_map.get(selected_filter, selected_filter)
+            if selected_filter == "Errors" and result.status not in {"Error", "Skipped"}:
+                continue
+            if selected_filter not in {"All findings", "CAT I", "CAT II", "CAT III", "Errors"} and result.status != wanted_status:
+                continue
+            haystack = f"{result.ip} {result.hostname} {result.vuln_id} {result.rule_id or ''} {result.stig_id or ''} {result.title} {result.stig_family} {result.severity} {result.status}".lower()
             if query and query not in haystack:
                 continue
             filtered.append(result)
@@ -206,19 +226,43 @@ class ResultsTab(PageFrame):
         commands = "\n".join(f"- {command}" for command in result.commands_used) or "None"
         warnings = "\n".join(f"- {warning}" for warning in result.parser_warnings) or "None"
         artifacts = ", ".join(str(item) for item in result.evidence_artifact_ids) or "None"
+        status = {"NotAFinding": "NOT A FINDING", "Not_Reviewed": "MANUAL REVIEW REQUIRED", "Not_Applicable": "NOT APPLICABLE"}.get(result.status, result.status.upper())
+        explanation = result.evaluation_reason or result.finding_details or result.comments or "No automated explanation was recorded."
+        if result.status == "Not_Reviewed":
+            explanation = "STIG Audit Pro cannot reliably determine this requirement from the available Cisco CLI evidence. A reviewer decision is required.\n\n" + explanation
         text = (
-            f"{result.vuln_id}\n{result.title}\n\n"
-            f"Audit Run: {result.run_id or '-'}\n"
-            f"Rule ID: {result.rule_id or '-'}\nSTIG ID: {result.stig_id or '-'}\n"
-            f"Check ID / type: {result.check_id or '-'} / {result.check_type or '-'}\n"
-            f"Status: {result.status}\nSeverity: {result.severity}\nDevice: {result.hostname} ({result.ip})\n\n"
-            f"Evaluation Reason:\n{result.evaluation_reason or '-'}\n\n"
-            f"Commands Used:\n{commands}\n\nEvidence Artifact IDs: {artifacts}\n\n"
-            f"Parser Warnings:\n{warnings}\n\nProfile Inputs:\n{result.profile_values_used or '{}'}\n\n"
-            f"Failed Objects:\n{failed}\n\nPassed Objects:\n{passed}\n\n"
-            f"Comments:\n{result.comments}\n\nFinding Details:\n{result.finding_details}"
+            f"{result.vuln_id}   {self._cat(result.severity) or result.severity.upper()}   {status}\n{result.title}\n\n"
+            f"WHY STIG AUDIT PRO CHOSE THIS RESULT\n{'─' * 38}\n{explanation}\n\n"
+            f"WHAT WAS FOUND\n{'─' * 18}\n{result.finding_details or failed}\n\n"
+            f"DEVICE\n{'─' * 10}\n{result.hostname or 'Unknown hostname'}\n{result.ip}\n\n"
+            f"EVIDENCE USED\n{'─' * 18}\n{commands}\nFiles: {artifacts}\n\n"
+            f"SITE SETTINGS USED\n{'─' * 22}\n{result.profile_values_used or 'None'}\n\n"
+            f"Rule ID: {result.rule_id or '-'}\nSTIG ID: {result.stig_id or '-'}\nAudit Run: {result.run_id or '-'}\n"
+            f"Parser warnings: {warnings}\nPassed objects: {passed}\nComments: {result.comments or '-'}"
         )
         self._set_details(text)
+
+    @staticmethod
+    def _cat(severity: str) -> str:
+        value = severity.lower().replace(" ", "")
+        return {"high": "CAT I", "cat1": "CAT I", "cati": "CAT I", "medium": "CAT II", "cat2": "CAT II", "catii": "CAT II", "low": "CAT III", "cat3": "CAT III", "catiii": "CAT III"}.get(value, "")
+
+    def _view_stig_text(self, field: str) -> None:
+        if result := self._selected_result():
+            self.app_controller.show_disa_guidance(result, field)
+
+    def _copy_finding(self) -> None:
+        result = self._selected_result()
+        if result is None:
+            return
+        self.clipboard_clear()
+        self.clipboard_append(f"{result.vuln_id} | {result.status} | {result.hostname} ({result.ip})\n{result.title}\n{result.evaluation_reason or result.finding_details}")
+        self.update_idletasks()
+
+    def _manual_review(self) -> None:
+        result = self._selected_result()
+        if result is not None:
+            self.app_controller.open_manual_review(result)
 
     def _set_details(self, text: str) -> None:
         self.details.configure(state="normal")

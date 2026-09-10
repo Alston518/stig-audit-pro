@@ -8,6 +8,7 @@ from PyInstaller.utils.hooks import collect_data_files, collect_submodules
 project_root = Path(SPECPATH)
 datas = [
     (str(project_root / "data"), "data"),
+    (str(project_root / "docs"), "docs"),
     (
         str(project_root / "stig_audit_pro" / "resources"),
         "stig_audit_pro/resources",
@@ -26,11 +27,18 @@ a = Analysis(
         "openpyxl.styles",
         "openpyxl.worksheet.table",
         "stig_audit_pro.application.run_service",
+        "stig_audit_pro.application.preflight_service",
+        "stig_audit_pro.application.support_bundle_service",
+        "stig_audit_pro.application.backup_service",
+        "stig_audit_pro.application.audit_package_service",
+        "stig_audit_pro.application.check_fixture_service",
         "stig_audit_pro.application.stig_lifecycle_service",
         "stig_audit_pro.infrastructure.evidence.evidence_store",
         "stig_audit_pro.stig.cklb_writer",
         "stig_audit_pro.stig.stig_diff",
         "stig_audit_pro.stig.stig_repository",
+        "stig_audit_pro.gui.audit_wizard",
+        "stig_audit_pro.gui.administration_tab",
     ],
     hookspath=[],
     hooksconfig={},

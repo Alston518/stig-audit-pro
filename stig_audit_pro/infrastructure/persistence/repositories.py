@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import getpass
 import hashlib
 import json
 import re
@@ -18,6 +19,7 @@ from sqlalchemy.orm import selectinload
 from stig_audit_pro.config import APP_VERSION
 from stig_audit_pro.infrastructure.persistence.database import Database
 from stig_audit_pro.infrastructure.persistence.db_models import (
+    ActivityLog,
     AuditRun,
     CheckMapping,
     CheckResult,
@@ -95,6 +97,77 @@ def _canonical_sha256(value: Any) -> str:
         _plain(value), sort_keys=True, separators=(",", ":"), default=str
     ).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+_SECRET_KEYS = {
+    "password", "passphrase", "secret", "enable_secret", "private_key",
+    "private_signing_key", "token", "api_key",
+}
+_SECRET_TEXT = re.compile(
+    r"(?i)(password|passphrase|enable[_ -]?secret|private[_ -]?key|token|api[_ -]?key)\s*[:=]\s*([^\s,;]+)"
+)
+
+
+def _sanitize_activity_value(value: Any) -> Any:
+    """Remove credential-shaped values before they can reach persistence."""
+
+    if isinstance(value, Mapping):
+        return {
+            str(key): "[REDACTED]" if str(key).lower() in _SECRET_KEYS
+            else _sanitize_activity_value(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple, set)):
+        return [_sanitize_activity_value(item) for item in value]
+    if isinstance(value, str):
+        return _SECRET_TEXT.sub(lambda match: f"{match.group(1)}=[REDACTED]", value)
+    return _plain(value)
+
+
+class ActivityLogRepository:
+    """Append and query a local, sanitized application activity trail."""
+
+    def __init__(self, database: Database) -> None:
+        self.database = database
+
+    def record(
+        self,
+        action: str,
+        object_type: str,
+        object_id: str | None = None,
+        *,
+        details: Mapping[str, Any] | None = None,
+        local_username: str | None = None,
+    ) -> ActivityLog:
+        record = ActivityLog(
+            timestamp=utc_now(),
+            action=str(action).strip(),
+            object_type=str(object_type).strip(),
+            object_id=str(object_id) if object_id is not None else None,
+            details=_sanitize_activity_value(details or {}),
+            local_username=(local_username or _safe_username()),
+        )
+        if not record.action or not record.object_type:
+            raise ValueError("Activity action and object type are required")
+        with self.database.session() as session:
+            session.add(record)
+        return record
+
+    def list_recent(self, *, limit: int = 100) -> list[ActivityLog]:
+        safe_limit = max(1, min(int(limit), 1000))
+        statement = select(ActivityLog).order_by(
+            ActivityLog.timestamp.desc(), ActivityLog.id.desc()
+        ).limit(safe_limit)
+        with self.database.session() as session:
+            return list(session.scalars(statement))
+
+
+def _safe_username() -> str | None:
+    try:
+        value = getpass.getuser().strip()
+    except Exception:
+        return None
+    return value[:255] or None
 
 
 class AuditRunRepository:
@@ -297,6 +370,31 @@ class AuditRunRepository:
         )
         with self.database.session() as session:
             return list(session.scalars(statement))
+
+    def update_result_decision(
+        self, run_id: str, target_ip: str, vuln_id: str, *,
+        status: str, finding_details: str = "", comments: str = "",
+    ) -> CheckResult:
+        allowed = {"Open", "NotAFinding", "Not_Applicable", "Not_Reviewed"}
+        if status not in allowed:
+            raise ValueError(f"Unsupported reviewer status: {status}")
+        statement = (
+            select(CheckResult).join(RunDevice)
+            .where(RunDevice.run_id == run_id, RunDevice.target_ip == target_ip, CheckResult.vuln_id == vuln_id)
+            .order_by(CheckResult.id)
+        )
+        with self.database.session() as session:
+            records = list(session.scalars(statement))
+            if len(records) != 1:
+                raise ValueError("A reviewer decision requires exactly one matching historical result")
+            record = records[0]
+            record.status = status
+            record.finding_details = finding_details
+            record.comments = comments
+            record.evaluation_reason = "Manual reviewer decision"
+            record.evaluated_at = utc_now()
+            session.flush()
+            return record
 
     def list_evidence_artifacts(self, run_id: str) -> list[EvidenceArtifact]:
         statement = (

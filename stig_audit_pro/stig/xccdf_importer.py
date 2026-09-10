@@ -135,7 +135,12 @@ def parse_xccdf_root(
 
 def parse_xccdf_file(path: str | Path, family: str = "") -> StigBenchmarkMetadata:
     xml_path = Path(path)
-    root = ET.parse(xml_path).getroot()
+    try:
+        if not xml_path.is_file() or xml_path.stat().st_size > 25 * 1024 * 1024:
+            raise ValueError("XCCDF XML is missing or exceeds the supported 25 MB limit")
+        root = ET.parse(xml_path).getroot()
+    except (ET.ParseError, OSError, ValueError) as exc:
+        raise ValueError(f"Could not safely parse XCCDF {xml_path}: {exc}") from exc
     metadata = parse_xccdf_root(
         root,
         source_path=str(xml_path),

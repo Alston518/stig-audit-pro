@@ -100,9 +100,10 @@ class ChecksTab(PageFrame):
             self.simple_fields[key] = box
         simple_actions = ctk.CTkFrame(simple, fg_color="transparent")
         simple_actions.grid(row=start + len(self.simple_fields), column=0, columnspan=2, sticky="ew", padx=10, pady=10)
-        simple_actions.grid_columnconfigure((0, 1), weight=1)
+        simple_actions.grid_columnconfigure((0, 1, 2), weight=1)
         ctk.CTkButton(simple_actions, text="Validate Changes", command=self._validate_simple).grid(row=0, column=0, sticky="ew", padx=(0, 6))
         ctk.CTkButton(simple_actions, text="Save Check Strings", command=self._save_simple).grid(row=0, column=1, sticky="ew", padx=(6, 0))
+        ctk.CTkButton(simple_actions, text="Run Check Tests", command=self._run_tests).grid(row=0, column=2, sticky="ew", padx=(6, 0))
         self.simple_status = ctk.CTkLabel(simple, text="Select a check on the left.", anchor="w")
         self.simple_status.grid(row=start + len(self.simple_fields) + 1, column=0, columnspan=2, sticky="ew", padx=10)
 
@@ -233,6 +234,20 @@ class ChecksTab(PageFrame):
         except (ValueError, yaml.YAMLError) as exc:
             ok, message = False, str(exc)
         self.simple_status.configure(text=message, text_color=("#027a48", "#6ce9a6") if ok else ("#b42318", "#f97066"))
+
+    def _run_tests(self) -> None:
+        if self.selected_check is None:
+            self.simple_status.configure(text="Select a check first.")
+            return
+        summary = self.app_controller.run_check_fixture_tests(self.selected_check)
+        if not summary.results:
+            message, ok = "No standardized fixtures are available for this check yet.", False
+        else:
+            passed = sum(1 for item in summary.results if item.passed)
+            lines = [f"Automation Validation: {passed} / {len(summary.results)} passed"]
+            lines.extend(f"{item.name}: {'PASS' if item.passed else 'FAIL'} {item.message}" for item in summary.results)
+            message, ok = "\n".join(lines), summary.passed and summary.complete
+        self.simple_status.configure(text=message, text_color=("#027a48", "#6ce9a6") if ok else ("#b54708", "#fdb022"))
 
     def _validate_yaml(self) -> None:
         ok, message = self.app_controller.validate_check_yaml(self.editor.get_text())

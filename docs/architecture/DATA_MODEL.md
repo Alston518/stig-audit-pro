@@ -9,6 +9,7 @@ SQLite stores structured history; raw evidence and immutable context snapshots l
 - `check_result`: normalized finding, traceability metadata, commands, inputs, failed objects, warnings, reason, and UTC evaluation time.
 - `evidence_artifact`: command, relative path, exact-byte SHA-256, UTC collection time, and byte length.
 - `result_evidence`: many-to-many links from findings to artifacts. Raw output is not copied into every finding.
+- `activity_log`: timestamped, secret-free records of important local actions such as audit lifecycle, evidence purge, check edits, backups, and package exports.
 
 ## STIG records
 

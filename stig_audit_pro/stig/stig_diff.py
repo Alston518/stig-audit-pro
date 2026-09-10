@@ -13,6 +13,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 from stig_audit_pro.core.models import CheckDefinition, CheckLibrary
+from stig_audit_pro.reports.spreadsheet_safety import safe_spreadsheet_row
 from stig_audit_pro.stig.stig_metadata import (
     RULE_FINGERPRINT_FIELDS,
     StigBenchmarkMetadata,
@@ -546,7 +547,7 @@ def export_stig_diff_csv(diff: StigDiff, path: str | Path) -> Path:
     with destination.open("w", encoding="utf-8-sig", newline="") as handle:
         writer = csv.writer(handle)
         writer.writerow(_EXPORT_COLUMNS)
-        writer.writerows(_export_rows(diff))
+        writer.writerows(safe_spreadsheet_row(row) for row in _export_rows(diff))
     return destination
 
 
@@ -580,7 +581,7 @@ def export_stig_diff_xlsx(diff: StigDiff, path: str | Path) -> Path:
         sheet.append(list(_EXPORT_COLUMNS))
         for row in rows:
             if change is None or row[4] == change:
-                sheet.append(row)
+                sheet.append(safe_spreadsheet_row(row))
         sheet.freeze_panes = "A2"
         sheet.auto_filter.ref = sheet.dimensions
         for column, width in enumerate((16, 16, 24, 24, 13, 30, 36, 26, 22, 30, 80), 1):

@@ -39,8 +39,10 @@ INTERNAL_STATUS_MAP = {
 def load_cklb(path: str | Path) -> dict[str, Any]:
     source = Path(path)
     try:
+        if not source.is_file() or source.stat().st_size > 25 * 1024 * 1024:
+            raise CklbError("CKLB is missing or exceeds the supported 25 MB size limit")
         payload = json.loads(source.read_text(encoding="utf-8-sig"))
-    except (OSError, json.JSONDecodeError) as exc:
+    except (OSError, json.JSONDecodeError, CklbError) as exc:
         raise CklbError(f"Could not read CKLB file {source}: {exc}") from exc
     validate_cklb(payload)
     return payload
@@ -60,9 +62,13 @@ def validate_cklb(payload: Any) -> None:
     stigs = payload.get("stigs")
     if not isinstance(stigs, list):
         raise CklbError("CKLB stigs must be an array")
+    if len(stigs) > 100:
+        raise CklbError("CKLB contains too many STIG entries")
     for stig in stigs:
         if not isinstance(stig, dict) or not isinstance(stig.get("rules"), list):
             raise CklbError("Each CKLB STIG must contain a rules array")
+        if len(stig["rules"]) > 20_000:
+            raise CklbError("CKLB contains too many rules")
         for rule in stig["rules"]:
             if not isinstance(rule, dict):
                 raise CklbError("Each CKLB rule must be an object")

@@ -2,6 +2,17 @@
 
 ## 0.2.0 — 2026-09-04
 
+### Enterprise-readiness refinement — 2026-09-10
+
+- Added a first-run welcome page, guided Devices → STIG → Site Profile → Readiness workflow, and a structured preflight service that blocks invalid audits before SSH.
+- Added plain-language finding explanations, DISA guidance actions, CAT/status search filters, bounded large-result/history views, CSV import preview, and linked failed-device retry runs.
+- Added an Administration health page, sanitized support bundles, local data backup, activity logging, and portable integrity-verifiable audit-package export.
+- Added explicit automation confidence states and a standardized per-check fixture runner surfaced from the Check editor. Existing check automation is never marked reviewed automatically.
+- Added schema version 2 with an activity log and automatic pre-migration database safety copy.
+- Hardened ZIP/XML/CKL/CKLB imports against traversal, malformed content, and resource limits; neutralized formula-like CSV/XLSX values.
+- Added deterministic “why it matters” language to STIG release differences and clearer automation-impact terminology.
+- Added a synthetic scale benchmark and expanded security, readiness, migration, support-bundle, backup, audit-package, and confidence tests.
+
 ### Architecture and safety
 
 - Introduced application-service, core/domain, and infrastructure boundaries while preserving the CustomTkinter desktop and existing parsers/check engine.

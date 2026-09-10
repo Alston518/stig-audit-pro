@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
+import shutil
 from typing import Iterator
 
 from platformdirs import user_data_path
@@ -11,7 +13,11 @@ from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from stig_audit_pro.infrastructure.persistence.migrations import initialize_schema
+from stig_audit_pro.infrastructure.persistence.migrations import (
+    CURRENT_SCHEMA_VERSION,
+    get_schema_version,
+    initialize_schema,
+)
 
 DATABASE_FILENAME = "stig-audit-pro.sqlite3"
 
@@ -82,6 +88,11 @@ class Database:
             expire_on_commit=False,
         )
         if initialize:
+            version = get_schema_version(self.engine)
+            if self.path is not None and 0 < version < CURRENT_SCHEMA_VERSION:
+                stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                backup = self.path.with_name(f"{self.path.name}.pre-v{CURRENT_SCHEMA_VERSION}-{stamp}.bak")
+                shutil.copy2(self.path, backup)
             initialize_schema(self.engine)
 
     @staticmethod

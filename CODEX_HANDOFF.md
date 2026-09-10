@@ -22,6 +22,21 @@ Implemented in v0.2:
 - Evidence, History, Results, STIG Library, Profiles, Checks, Reports, and
   Audit Run GUI workflows.
 
+Enterprise-readiness refinement implemented on 2026-09-10:
+
+- First-run welcome, guided assessment wizard, structured blocking/warning
+  preflight, plain-language error guidance, and improved finding explanations.
+- Failed-device retry as a separate linked run, bounded History/Results views,
+  validated CSV import preview, and user-friendly STIG impact language.
+- Check fixture runner and explicit `VERIFIED`, `REVIEW_REQUIRED`, `UNTESTED`,
+  `MANUAL`, `MISSING`, and `RETIRED` automation confidence classifications.
+- Schema v2 activity trail with secret-field redaction and an on-disk backup
+  before forward migration.
+- Administration health view, sanitized support bundle, application-data
+  backup, and integrity-verifiable portable audit-package export.
+- ZIP-slip/resource-limit import controls, CKL/CKLB/XML bounds, spreadsheet
+  formula neutralization, expanded security tests, and a synthetic scale harness.
+
 ## Architecture and key modules
 
 ```text
@@ -29,8 +44,8 @@ gui -> application -> core -> infrastructure
                     \-> stig / reports
 ```
 
-- `stig_audit_pro/application/`: `AuditService`, `ScanOrchestrator`,
-  `RunService`, `StigLifecycleService`, `ReportService`.
+- `stig_audit_pro/application/`: audit/run/report/STIG services plus
+  `PreflightService`, support bundle, backup, audit-package, and fixture services.
 - `stig_audit_pro/core/command_policy.py`: authoritative approved command
   registry. Never bypass it for YAML or runtime execution.
 - `stig_audit_pro/infrastructure/persistence/`: SQLite schema, migrations,
@@ -78,7 +93,7 @@ python scripts/validate_docs.py
 
 ### Import and compare a STIG
 
-Use **STIG Library → Import ZIP/XML**, then choose **Compare Previous** or
+Use **STIG Update Center → STIG Source → Import ZIP/XML**, then choose **Compare Previous** or
 select two releases and choose **Compare Selected**. The library retains old
 releases; an initial import is a baseline (`NO_PREVIOUS_RELEASE`), not a list
 of artificial changes. The difference view shows field-level old/new check and
@@ -117,6 +132,18 @@ after collection only; they do not authenticate the collector.
   cloud telemetry, or third-party integrations are implemented.
 - Review-state marking is stored in the local mapping database; future GUI work
   can add a richer reviewer identity/audit trail without changing fingerprints.
+
+Refinement limitations:
+
+- Audit-package export/verification is implemented; package import into the
+  local History database is not yet wired into the GUI.
+- Backup creation is wired into Administration. Restore validation and safety
+  backup exist at service level; the destructive restore UI is deferred.
+- Standard fixture tooling and GUI execution exist. Bundled checks have not all
+  been migrated into per-Vulnerability good/bad fixture directories, so the
+  dashboard must not describe all mappings as `VERIFIED`.
+- Results/History use bounded windows rather than a fully virtualized SQLite
+  query model. This prevents widget overload but remains a next-release scaling area.
 
 ## Non-negotiable safety rule
 

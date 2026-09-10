@@ -26,3 +26,5 @@ jobs:
         run: python scripts/generate_stig_traceability.py --check
       - name: Validate documentation
         run: python scripts/validate_docs.py
+      - name: Validate packaging inputs
+        run: python scripts/packaging_smoke_test.py

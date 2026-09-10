@@ -24,7 +24,7 @@ class HistoryTab(PageFrame):
         super().__init__(master)
         self.app_controller = app_controller
         self.rows: list[Any] = []
-        self.grid_rowconfigure(2, weight=1)
+        self.grid_rowconfigure(3, weight=1)
 
         heading = ctk.CTkFrame(self, fg_color="transparent")
         heading.grid(row=0, column=0, sticky="ew", padx=12, pady=(12, 6))
@@ -43,14 +43,16 @@ class HistoryTab(PageFrame):
 
         actions = ctk.CTkFrame(self, fg_color="transparent")
         actions.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
-        for column in range(7):
+        for column in range(9):
             actions.grid_columnconfigure(column, weight=1)
         buttons = (
             ("Refresh", self.refresh_from_controller),
             ("Open Run", self._open),
             ("Compare Runs", self._compare),
             ("Export Reports", self._export),
+            ("Export Package", self._export_package),
             ("Verify Evidence", self._verify),
+            ("Retry Failed", self._retry),
             ("Purge Raw Evidence", self._purge),
             ("Delete Run", self._delete),
         )
@@ -62,6 +64,14 @@ class HistoryTab(PageFrame):
             ctk.CTkButton(actions, text=label, command=command, **kwargs).grid(
                 row=0, column=column, sticky="ew", padx=3
             )
+
+        search_row = ctk.CTkFrame(self, fg_color="transparent")
+        search_row.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 8))
+        search_row.grid_columnconfigure(0, weight=1)
+        self.search = ctk.CTkEntry(search_row, placeholder_text="Search date, run ID, description, STIG, profile, or status")
+        self.search.grid(row=0, column=0, sticky="ew")
+        self.search.bind("<KeyRelease>", lambda _event: self._render())
+        ctk.CTkLabel(search_row, text="Showing up to 500 recent audits").grid(row=0, column=1, padx=(10, 0))
 
         columns = (
             "time", "run_id", "description", "families", "stig", "profile",
@@ -85,13 +95,18 @@ class HistoryTab(PageFrame):
         for column in columns:
             self.tree.heading(column, text=headings[column])
             self.tree.column(column, width=widths[column], anchor="w")
-        self.tree.grid(row=2, column=0, sticky="nsew", padx=12, pady=(0, 12))
+        self.tree.grid(row=3, column=0, sticky="nsew", padx=12, pady=(0, 12))
         self.tree.bind("<Double-1>", lambda _event: self._open())
 
     def refresh(self, rows: Iterable[Any]) -> None:
         self.rows = list(rows)
+        self._render()
+
+    def _render(self) -> None:
         for item in self.tree.get_children():
             self.tree.delete(item)
+        query = self.search.get().strip().casefold() if hasattr(self, "search") else ""
+        visible = 0
         for index, row in enumerate(self.rows):
             started = _value(row, "started_at", "")
             if hasattr(started, "isoformat"):
@@ -110,6 +125,9 @@ class HistoryTab(PageFrame):
                 or _value(row, "preset_name", "")
                 or _value(row, "collection_mode", "")
             )
+            haystack = f"{started} {_value(row, 'id', _value(row, 'run_id', ''))} {description} {families} {version} {_value(row, 'profile_name', '')} {_value(row, 'status', '')}".casefold()
+            if query and query not in haystack:
+                continue
             self.tree.insert("", "end", iid=str(index), values=(
                 started,
                 _value(row, "id", _value(row, "run_id", "")),
@@ -123,7 +141,8 @@ class HistoryTab(PageFrame):
                 _value(row, "error_count", _value(row, "failure_count", 0)),
                 _value(row, "status", ""),
             ))
-        self.message.configure(text=f"{len(self.rows)} historical run(s).")
+            visible += 1
+        self.message.configure(text=f"{visible} of {len(self.rows)} historical run(s).")
 
     def refresh_from_controller(self) -> None:
         rows = self.app_controller.list_audit_runs()
@@ -158,9 +177,17 @@ class HistoryTab(PageFrame):
         if run_id := self._require_one():
             self.app_controller.export_historical_run(run_id)
 
+    def _export_package(self) -> None:
+        if run_id := self._require_one():
+            self.app_controller.export_audit_package(run_id)
+
     def _verify(self) -> None:
         if run_id := self._require_one():
             self.app_controller.verify_historical_evidence(run_id)
+
+    def _retry(self) -> None:
+        if run_id := self._require_one():
+            self.app_controller.retry_failed_devices(run_id)
 
     def _purge(self) -> None:
         run_id = self._require_one()

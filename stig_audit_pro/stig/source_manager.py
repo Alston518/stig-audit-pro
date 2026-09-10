@@ -12,10 +12,9 @@ import zipfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from typing import Iterable
 
-
+from stig_audit_pro.core.archive_safety import MAX_ARCHIVE_BYTES, validate_zip
 from stig_audit_pro.stig.stig_metadata import StigBenchmarkMetadata
 from stig_audit_pro.stig.xccdf_importer import parse_xccdf_file
 
@@ -24,7 +23,7 @@ CYBER_MIL_APEX_BASE_URL = "https://www.cyber.mil/lwr/apex/v67.0"
 CYBER_MIL_DOWNLOAD_BASE_URL = "https://dl.dod.cyber.mil/wp-content/uploads/stigs/zip"
 CYBER_DOCUMENT_CONTROLLER = "@udd/01pRw0000002mOj"
 S3_FILE_DOWNLOAD_CONTROLLER = "@udd/01pRw00000030Y9"
-USER_AGENT = "STIG-Audit-Pro/0.1 (+https://www.cyber.mil/stigs/downloads/)"
+USER_AGENT = "STIG-Audit-Pro/0.2 (+https://www.cyber.mil/stigs/downloads/)"
 
 DEFAULT_STIG_SOURCES = {
     "IOSXE_L2": ["cisco", "ios", "xe", "switch", "l2"],
@@ -362,21 +361,33 @@ class StigSourceManager:
 
     def _extract_xccdf(self, source: Path, family_dir: Path, family: str) -> Path:
         if source.suffix.lower() == ".xml":
+            if source.stat().st_size > 25 * 1024 * 1024:
+                raise StigSourceError("STIG XML exceeds the supported 25 MB size limit")
             return source
         if source.suffix.lower() != ".zip":
             raise StigSourceError("STIG source must be an XCCDF XML file or ZIP package")
-        with TemporaryDirectory() as temp_dir:
-            temp_root = Path(temp_dir)
+        if source.stat().st_size > MAX_ARCHIVE_BYTES:
+            raise StigSourceError("STIG ZIP exceeds the supported 100 MB size limit")
+        try:
             with zipfile.ZipFile(source) as archive:
-                archive.extractall(temp_root)
-            xml_files = sorted(temp_root.rglob("*.xml"))
-            xccdf_files = [path for path in xml_files if "xccdf" in path.name.lower()]
-            selected = self._select_xccdf_for_family(xccdf_files or xml_files, family)
-            if selected is None:
-                raise StigSourceError("No XML/XCCDF file found in STIG ZIP")
-            extracted = family_dir / selected.name
-            shutil.copy2(selected, extracted)
-            return extracted
+                infos = validate_zip(archive)
+                xml_names = sorted(
+                    Path(info.filename) for info in infos
+                    if not info.is_dir() and info.filename.lower().endswith(".xml")
+                )
+                xccdf_names = [path for path in xml_names if "xccdf" in path.name.lower()]
+                selected = self._select_xccdf_for_family(xccdf_names or xml_names, family)
+                if selected is None:
+                    raise StigSourceError("No XML/XCCDF file found in STIG ZIP")
+                info_by_name = {Path(info.filename): info for info in infos}
+                data = archive.read(info_by_name[selected])
+        except (zipfile.BadZipFile, ValueError) as exc:
+            raise StigSourceError(f"Unsafe or malformed STIG ZIP: {exc}") from exc
+        extracted = family_dir / Path(selected.name).name
+        temporary = extracted.with_suffix(extracted.suffix + ".tmp")
+        temporary.write_bytes(data)
+        temporary.replace(extracted)
+        return extracted
 
     def _select_xccdf_for_family(self, xml_files: list[Path], family: str) -> Path | None:
         if not xml_files:

@@ -11,8 +11,13 @@
 
 ## Next practical improvements
 
+- Complete per-check compliant/noncompliant fixtures for every automated rule
+  and make verified fixture coverage the primary assurance metric.
+- Wire validated audit-package import into History and add an explicit,
+  carefully confirmed backup-restore screen.
+- Replace bounded desktop result windows with virtualized, SQLite-backed paging.
 - Expand typed profile/check forms and show all profile-value consumers.
-- Add richer reviewer identity/change audit history for check mappings.
+- Add authenticated reviewer identity/change audit history when a server edition exists.
 - Add explicit CKLB schema-version fixtures for every supported STIG Viewer
   release and improve asset metadata form support.
 - Add visual trend reporting based on persisted run comparisons.
@@ -28,3 +33,9 @@ configuration pushes, credential vaults, scheduled autonomous scans, web or
 multi-user services, PostgreSQL/Redis, cloud telemetry, NetBox, ServiceNow,
 Tenable, CyberArk, HashiCorp Vault, or Cisco NX-OS support without a separate
 approved product scope.
+
+Future enterprise-edition architecture may add a centralized service, REST API,
+PostgreSQL, multi-user authentication, RBAC, SAML/OIDC SSO, central inventory,
+NetBox, ServiceNow, Tenable, vault integrations, scheduled scans, signed official
+check-pack distribution, and additional Cisco platforms. None are part of the
+local desktop v0.2 implementation.

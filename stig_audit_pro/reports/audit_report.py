@@ -9,6 +9,7 @@ from pathlib import Path
 from textwrap import TextWrapper
 
 from stig_audit_pro.core.result_model import CheckResult
+from stig_audit_pro.reports.spreadsheet_safety import safe_spreadsheet_row
 
 REPORT_STATUSES = ("NotAFinding", "Open", "Error", "Skipped", "Not_Applicable", "Not_Reviewed")
 REPORT_WIDTH = 88
@@ -155,7 +156,7 @@ def write_csv_report(results: list[CheckResult], path: str | Path) -> Path:
         writer.writeheader()
         for result in results:
             writer.writerow(
-                {
+                safe_spreadsheet_row({
                     "ip": result.ip,
                     "hostname": result.hostname,
                     "vuln_id": result.vuln_id,
@@ -169,7 +170,7 @@ def write_csv_report(results: list[CheckResult], path: str | Path) -> Path:
                     "finding_details": result.finding_details,
                     "commands_used": "; ".join(result.commands_used),
                     "timestamp": result.timestamp.isoformat(),
-                }
+                })
             )
     return destination
 

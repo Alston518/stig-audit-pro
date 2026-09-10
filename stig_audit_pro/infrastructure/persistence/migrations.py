@@ -13,7 +13,7 @@ from sqlalchemy import Engine, inspect, select
 
 from stig_audit_pro.infrastructure.persistence.db_models import Base, SchemaVersion
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
 
 
 class UnsupportedSchemaVersion(RuntimeError):
@@ -43,9 +43,8 @@ def initialize_schema(engine: Engine) -> int:
             f"{CURRENT_SCHEMA_VERSION}."
         )
 
-    # Version 1 has no predecessor with persisted tables.  create_all is used
-    # only to establish missing v1 tables; later versions belong in explicit
-    # migration functions before the version record is advanced.
+    # Version 2 adds the local activity trail. create_all is safe for this
+    # additive migration and preserves every existing v1 table and row.
     Base.metadata.create_all(engine)
     with engine.begin() as connection:
         version = connection.scalar(
