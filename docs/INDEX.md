@@ -5,6 +5,7 @@ STIG Audit Pro 0.2 is a read-only Cisco IOS-XE assessment desktop application. I
 ## Operators
 
 - [Getting Started](operator/GETTING_STARTED.md)
+- [Files and Folders](operator/FILES_AND_FOLDERS.md)
 - [Your First Audit](operator/FIRST_AUDIT.md)
 - [Device Management](operator/DEVICE_MANAGEMENT.md)
 - [Site Profiles](operator/SITE_PROFILES.md)

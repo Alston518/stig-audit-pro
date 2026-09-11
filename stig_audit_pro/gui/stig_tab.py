@@ -629,6 +629,7 @@ class StigTab(PageFrame):
             return
         destination = filedialog.asksaveasfilename(
             title="Export STIG release diff",
+            initialdir=str(self.app_controller.operator_workspace.stig_comparisons),
             defaultextension=".xlsx",
             initialfile="stig_release_diff.xlsx",
             filetypes=[("Excel workbook", "*.xlsx"), ("JSON", "*.json"), ("CSV", "*.csv")],
@@ -901,6 +902,7 @@ class StigTab(PageFrame):
         }
         path = filedialog.askopenfilename(
             title=f"Select {labels.get(family_key, family_key)} checklist template",
+            initialdir=str(self.app_controller.operator_workspace.ckl_templates),
             filetypes=[("DISA checklist", "*.ckl"), ("XML files", "*.xml"), ("All files", "*.*")],
         )
         if not path:
@@ -918,7 +920,10 @@ class StigTab(PageFrame):
         self.set_checklist_status(f"Selected {labels.get(family_key, family_key)} template: {selected.name}.")
 
     def _browse_output(self) -> None:
-        path = filedialog.askdirectory(title="Select completed-file destination")
+        path = filedialog.askdirectory(
+            title="Select completed-file destination",
+            initialdir=str(self.app_controller.operator_workspace.completed_ckls),
+        )
         if not path:
             return
         selected = Path(path)
@@ -997,6 +1002,7 @@ class StigTab(PageFrame):
     def _browse_comparison_source(self, which: str) -> None:
         path = filedialog.askopenfilename(
             title=f"Select {which} STIG source",
+            initialdir=str(self.app_controller.operator_workspace.stig_packages),
             filetypes=[("STIG source", "*.zip *.xml"), ("All files", "*.*")],
         )
         if not path:
@@ -1029,6 +1035,7 @@ class StigTab(PageFrame):
         new_stem = Path(self.comparison_report.new_source).stem
         destination = filedialog.asksaveasfilename(
             title="Export STIG comparison report",
+            initialdir=str(self.app_controller.operator_workspace.stig_comparisons),
             defaultextension=".md",
             initialfile=f"stig_comparison_{old_stem}_to_{new_stem}.md",
             filetypes=[("Markdown report", "*.md"), ("All files", "*.*")],
@@ -1114,6 +1121,7 @@ class StigTab(PageFrame):
     def _import_source(self) -> None:
         path = filedialog.askopenfilename(
             title="Import STIG source",
+            initialdir=str(self.app_controller.operator_workspace.stig_packages),
             filetypes=[("STIG source", "*.zip *.xml"), ("All files", "*.*")],
         )
         if path:

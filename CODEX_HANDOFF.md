@@ -38,6 +38,9 @@ Enterprise-readiness refinement implemented on 2026-09-10:
 - Upgrade-safe application-data working copies for editable checks, profiles,
   groups, presets, and imported STIG content; bundled defaults never overwrite
   existing customer files.
+- A numbered `Documents\STIG Audit Pro\Workspace` separates operator-selected
+  inputs/outputs from protected application data. Administration provides
+  one-click access to the workspace, checks, profiles, and all app data.
 - Paramiko/Netmiko/SCP routine logs are suppressed below WARNING, and support
   bundles remove older third-party SSH diagnostic lines that could contain a
   device authentication banner.
@@ -81,9 +84,19 @@ work/runs/<run_uuid>/devices/<safe-device>/evidence/
 data/checks/
 data/profiles/
 data/device_groups/
-data/scan_presets/
 data/stigs/
+scan_presets/
 ```
+
+Operator-selected files default to:
+
+```text
+%USERPROFILE%\Documents\STIG Audit Pro\Workspace\
+```
+
+See [FILES_AND_FOLDERS.md](docs/operator/FILES_AND_FOLDERS.md) for the complete
+numbered layout and the distinction between source, operator files, and
+app-managed state.
 
 For development, the database path is logged and described in
 [DATABASE_GUIDE.md](docs/developers/DATABASE_GUIDE.md). Tests always use a

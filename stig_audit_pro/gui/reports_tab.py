@@ -109,6 +109,7 @@ class ReportsTab(PageFrame):
     def _save_txt_report(self) -> None:
         path = filedialog.asksaveasfilename(
             title="Save TXT report",
+            initialdir=str(self.app_controller.operator_workspace.reports),
             defaultextension=".txt",
             initialfile="stig-audit-report.txt",
             filetypes=[("Text report", "*.txt"), ("All files", "*.*")],
@@ -119,6 +120,7 @@ class ReportsTab(PageFrame):
     def _save_csv_report(self) -> None:
         path = filedialog.asksaveasfilename(
             title="Save CSV report",
+            initialdir=str(self.app_controller.operator_workspace.reports),
             defaultextension=".csv",
             initialfile="stig-audit-results.csv",
             filetypes=[("CSV report", "*.csv"), ("All files", "*.*")],
@@ -128,7 +130,9 @@ class ReportsTab(PageFrame):
 
     def _save_json_report(self) -> None:
         path = filedialog.asksaveasfilename(
-            title="Save JSON report", defaultextension=".json",
+            title="Save JSON report",
+            initialdir=str(self.app_controller.operator_workspace.reports),
+            defaultextension=".json",
             initialfile="stig-audit-report.json",
             filetypes=[("JSON report", "*.json"), ("All files", "*.*")],
         )
@@ -137,7 +141,9 @@ class ReportsTab(PageFrame):
 
     def _save_excel_report(self) -> None:
         path = filedialog.asksaveasfilename(
-            title="Save Excel report", defaultextension=".xlsx",
+            title="Save Excel report",
+            initialdir=str(self.app_controller.operator_workspace.reports),
+            defaultextension=".xlsx",
             initialfile="stig-audit-report.xlsx",
             filetypes=[("Excel workbook", "*.xlsx"), ("All files", "*.*")],
         )

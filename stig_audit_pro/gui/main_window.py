@@ -71,6 +71,7 @@ from stig_audit_pro.infrastructure.persistence.migrations import get_schema_vers
 from stig_audit_pro.reports.audit_report import write_csv_report, write_text_report
 from stig_audit_pro.storage.device_groups import DeviceGroup, DeviceGroupStore, DeviceTargetRecord
 from stig_audit_pro.storage.application_data import bootstrap_writable_data
+from stig_audit_pro.storage.operator_workspace import ensure_operator_workspace
 from stig_audit_pro.storage.scan_presets import ReportOptions, ScanPreset, ScanPresetStore
 from stig_audit_pro.stig.check_generator import build_manual_starter_library, write_manual_starter_library
 from stig_audit_pro.stig.ckl_writer import (
@@ -250,6 +251,7 @@ class StigAuditProApp(ctk.CTk):
         configure_treeview_style()
 
         self.root_dir = Path(__file__).resolve().parents[2]
+        self.operator_workspace = ensure_operator_workspace()
         self.ui_state_path = application_data_dir() / "ui_state.json"
         self.data_dir = bootstrap_writable_data(self.root_dir / "data")
         self.sample_dir = self.root_dir / "tests" / "sample_outputs"
@@ -296,6 +298,8 @@ class StigAuditProApp(ctk.CTk):
 
         self._build_header()
         self._build_tabs()
+        # A saved preset/UI preference may replace this during _load_ui_state.
+        self.set_checklist_output_dir(self.operator_workspace.completed_ckls)
         self._build_status_bar()
         self._load_ui_state()
         self.reload_from_disk()
@@ -531,7 +535,7 @@ class StigAuditProApp(ctk.CTk):
         ]
 
     def create_support_bundle(self) -> None:
-        destination = filedialog.asksaveasfilename(parent=self, title="Create Support Bundle", defaultextension=".zip", initialfile=f"stig-audit-pro-support-{datetime.now().strftime('%Y%m%d')}.zip", filetypes=[("ZIP archive", "*.zip")])
+        destination = filedialog.asksaveasfilename(parent=self, title="Create Support Bundle", initialdir=str(self.operator_workspace.support_bundles), defaultextension=".zip", initialfile=f"stig-audit-pro-support-{datetime.now().strftime('%Y%m%d')}.zip", filetypes=[("ZIP archive", "*.zip")])
         if not destination:
             return
         try:
@@ -542,7 +546,7 @@ class StigAuditProApp(ctk.CTk):
             self._show_error(str(exc))
 
     def backup_application_data(self) -> None:
-        destination = filedialog.asksaveasfilename(parent=self, title="Back Up STIG Audit Pro Data", defaultextension=".zip", initialfile=f"stig-audit-pro-backup-{datetime.now().strftime('%Y%m%d')}.zip", filetypes=[("ZIP archive", "*.zip")])
+        destination = filedialog.asksaveasfilename(parent=self, title="Back Up STIG Audit Pro Data", initialdir=str(self.operator_workspace.backups), defaultextension=".zip", initialfile=f"stig-audit-pro-backup-{datetime.now().strftime('%Y%m%d')}.zip", filetypes=[("ZIP archive", "*.zip")])
         if not destination:
             return
         try:
@@ -557,6 +561,7 @@ class StigAuditProApp(ctk.CTk):
         selected = filedialog.askopenfilename(
             parent=self,
             title="Restore STIG Audit Pro Data",
+            initialdir=str(self.operator_workspace.backups),
             filetypes=[("STIG Audit Pro backup", "*.zip")],
         )
         if not selected:
@@ -625,6 +630,28 @@ class StigAuditProApp(ctk.CTk):
             ),
             evidence_root=self.run_service.evidence_store.root,
         )
+
+    def _open_local_folder(self, path: Path, label: str) -> None:
+        """Open an operator-requested local folder in Windows Explorer."""
+
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+            os.startfile(str(path))  # type: ignore[attr-defined]
+            self.set_status(f"Opened {label}: {path}")
+        except (AttributeError, OSError) as exc:
+            self._show_error(f"Could not open {label}.\n\n{path}\n\n{exc}")
+
+    def open_operator_workspace(self) -> None:
+        self._open_local_folder(self.operator_workspace.root, "operator workspace")
+
+    def open_application_data_folder(self) -> None:
+        self._open_local_folder(application_data_dir(), "application data")
+
+    def open_checks_folder(self) -> None:
+        self._open_local_folder(self.data_dir / "checks", "editable checks")
+
+    def open_profiles_folder(self) -> None:
+        self._open_local_folder(self.data_dir / "profiles", "Site Profiles")
 
     def show_result(self, result: CheckResult) -> None:
         """Open the Results tab with the requested result selected."""
@@ -825,6 +852,7 @@ class StigAuditProApp(ctk.CTk):
                 selected = filedialog.askdirectory(
                     parent=self,
                     title="Export historical audit reports",
+                    initialdir=str(self.operator_workspace.reports),
                 )
                 if not selected:
                     return []
@@ -851,7 +879,7 @@ class StigAuditProApp(ctk.CTk):
             return []
 
     def export_audit_package(self, run_id: str) -> Path | None:
-        destination = filedialog.asksaveasfilename(parent=self, title="Export Audit Package", defaultextension=".zip", initialfile=f"STIG-Audit-Pro-Audit-{run_id}.zip", filetypes=[("Audit package", "*.zip")])
+        destination = filedialog.asksaveasfilename(parent=self, title="Export Audit Package", initialdir=str(self.operator_workspace.audit_packages), defaultextension=".zip", initialfile=f"STIG-Audit-Pro-Audit-{run_id}.zip", filetypes=[("Audit package", "*.zip")])
         if not destination:
             return None
         try:
@@ -868,6 +896,7 @@ class StigAuditProApp(ctk.CTk):
         selected = filedialog.askopenfilename(
             parent=self,
             title="Import Historical Audit Package",
+            initialdir=str(self.operator_workspace.audit_packages),
             filetypes=[("STIG Audit Pro package", "*.zip")],
         )
         if not selected:
@@ -957,7 +986,9 @@ class StigAuditProApp(ctk.CTk):
         policy used by live SSH collection.
         """
         selected = filedialog.askdirectory(
-            parent=self, title="Select offline command-output directory"
+            parent=self,
+            title="Select offline command-output directory",
+            initialdir=str(self.operator_workspace.offline_evidence),
         )
         if not selected:
             return

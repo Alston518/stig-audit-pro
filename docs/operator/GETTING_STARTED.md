@@ -9,7 +9,9 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-The database and historical evidence locations are shown in application logging and use the platform-specific application-data directory, not the current working directory. Bundled checks, profiles, and sample output remain under `data/` and `tests/sample_outputs/` in a source checkout.
+On first launch, the app creates `Documents\STIG Audit Pro\Workspace` with numbered folders for STIG packages, blank CKLs, imports, completed CKLs, reports, backups, and exports. See [Files and Folders](FILES_AND_FOLDERS.md).
+
+The database, editable checks/profiles, imported release library, and historical evidence use protected platform application data rather than the current working directory. Open their exact locations from **Administration → Files & Folders**. Bundled defaults and sample output remain under `data/` and `tests/sample_outputs/` in a source checkout.
 
 ## First audit
 

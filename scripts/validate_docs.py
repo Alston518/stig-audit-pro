@@ -14,6 +14,7 @@ REQUIRED = (
     "docs/architecture/DATA_MODEL.md",
     "docs/architecture/SCAN_LIFECYCLE.md",
     "docs/operator/GETTING_STARTED.md",
+    "docs/operator/FILES_AND_FOLDERS.md",
     "docs/operator/FIRST_AUDIT.md",
     "docs/operator/DEVICE_MANAGEMENT.md",
     "docs/operator/SITE_PROFILES.md",

@@ -44,8 +44,12 @@ python -m pytest
 The database, evidence, editable checks, profiles, device groups, presets, and
 imported STIG working files use the platform data directory. On first launch,
 bundled defaults are copied there without overwriting existing customer files.
+The app also creates a numbered operator workspace under
+`Documents\STIG Audit Pro\Workspace` for STIG packages, blank CKL templates,
+device imports, completed CKLs, reports, backups, and portable exports.
 Resolved database and evidence locations are reported by the application logs; see
-the [database guide](docs/developers/DATABASE_GUIDE.md) for the expected paths.
+the [files and folders guide](docs/operator/FILES_AND_FOLDERS.md) and
+[database guide](docs/developers/DATABASE_GUIDE.md) for the expected paths.
 
 ## Safety boundary
 
@@ -62,6 +66,7 @@ See [Security Boundary](docs/assurance/SECURITY_BOUNDARY.md) and
 
 - [Documentation index](docs/INDEX.md)
 - [Getting started](docs/operator/GETTING_STARTED.md)
+- [Files and folders](docs/operator/FILES_AND_FOLDERS.md)
 - [Your first audit](docs/operator/FIRST_AUDIT.md)
 - [Current limitations](docs/CURRENT_LIMITATIONS.md)
 - [Administrator guide](docs/operator/ADMINISTRATOR_GUIDE.md)

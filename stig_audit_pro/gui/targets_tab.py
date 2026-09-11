@@ -957,6 +957,7 @@ class TargetsTab(PageFrame):
     def import_targets(self) -> None:
         path = filedialog.askopenfilename(
             title="Import targets",
+            initialdir=str(self.app_controller.operator_workspace.device_imports),
             filetypes=[("Target files", "*.csv *.txt"), ("All files", "*.*")],
         )
         if not path:

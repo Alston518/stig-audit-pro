@@ -6,6 +6,13 @@
 
 #### Historical fidelity and upgrade safety — 2026-09-11
 
+- Added a numbered operator workspace under `Documents\STIG Audit Pro` with
+  predictable folders for STIG packages, blank CKLs, device/offline imports,
+  completed CKLs, reports, audit packages, backups, support bundles, and STIG
+  comparison exports.
+- Added one-click Administration actions for the operator workspace, editable
+  checks, Site Profiles, and all protected application data; relevant import
+  and export dialogs now begin in their matching workspace folder.
 - Added schema version 3 so historical results retain the exact STIG title
   shown during the original assessment; existing databases receive a safety
   backup and an additive migration.
