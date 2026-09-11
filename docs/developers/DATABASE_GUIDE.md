@@ -4,7 +4,13 @@ STIG Audit Pro uses an embedded SQLite database through SQLAlchemy 2.0. No serve
 
 ## Initialization and versions
 
-`Database` creates parent directories as needed, enables SQLite foreign keys for every connection, and calls the migration initializer. `schema_version` is a singleton integer record. Schema v2 adds the secret-free `activity_log`. Before an existing on-disk database is migrated forward, startup creates a timestamped `.bak` beside it. A database newer than the application supports fails closed; upgrades never reset user history.
+`Database` creates parent directories as needed, enables SQLite foreign keys for every connection, and calls the migration initializer. `schema_version` is a singleton integer record. Schema v2 adds the secret-free `activity_log`; schema v3 preserves the STIG title on historical check results. Before an existing on-disk database is migrated forward, startup creates a timestamped `.bak` beside it. A database newer than the application supports fails closed; upgrades never reset user history.
+
+Editable checks, profiles, device groups, presets, and imported STIG working
+files also live beneath the platform application-data directory. Startup copies
+missing bundled defaults into that working directory atomically and never
+replaces an existing customer-edited file. Repository `data/` remains the
+distribution source for defaults, not the runtime edit location.
 
 ## Repositories
 

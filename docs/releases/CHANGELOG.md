@@ -4,6 +4,28 @@
 
 ### Enterprise-readiness refinement — 2026-09-10
 
+#### Historical fidelity and upgrade safety — 2026-09-11
+
+- Added schema version 3 so historical results retain the exact STIG title
+  shown during the original assessment; existing databases receive a safety
+  backup and an additive migration.
+- Added verified, atomic portable audit-package import with SQLite history
+  reconstruction, evidence-link remapping, duplicate protection, and explicit
+  **Imported historical audit** classification.
+- Moved runtime-editable checks, profiles, groups, presets, and STIG working
+  files to an upgrade-safe application-data working copy. Bundled defaults are
+  added only when missing and never overwrite customer changes.
+- Added the feature-preservation inventory and regression tests for historical
+  package round trips, migration fidelity, and application-data bootstrap.
+- Added SQLite-backed Audit History search and 100-row paging so large history
+  collections are not materialized into Tk widgets at once.
+- Added confirmed in-place restore with archive hash and SQLite validation,
+  automatic safety backup, exact-destination publication, and rollback on
+  partial failure.
+- Suppressed third-party SSH INFO logging and sanitize historical Paramiko,
+  Netmiko, and SCP diagnostic lines from support bundles so device banners and
+  session detail remain outside normal application logs.
+
 - Added a first-run welcome page, guided Devices → STIG → Site Profile → Readiness workflow, and a structured preflight service that blocks invalid audits before SSH.
 - Added plain-language finding explanations, DISA guidance actions, CAT/status search filters, bounded large-result/history views, CSV import preview, and linked failed-device retry runs.
 - Added an Administration health page, sanitized support bundles, local data backup, activity logging, and portable integrity-verifiable audit-package export.

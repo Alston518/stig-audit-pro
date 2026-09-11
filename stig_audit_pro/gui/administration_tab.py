@@ -20,6 +20,7 @@ class AdministrationTab(PageFrame):
         ctk.CTkButton(heading, text="Refresh Health", command=self.refresh).grid(row=0, column=1, padx=4)
         ctk.CTkButton(heading, text="Create Support Bundle", command=app_controller.create_support_bundle).grid(row=0, column=2, padx=4)
         ctk.CTkButton(heading, text="Back Up Data", command=app_controller.backup_application_data).grid(row=0, column=3, padx=4)
+        ctk.CTkButton(heading, text="Restore Data", command=app_controller.restore_application_data, fg_color="#b42318", hover_color="#912018").grid(row=0, column=4, padx=4)
         panel = Panel(self, "Application Health")
         panel.grid(row=1, column=0, sticky="nsew", padx=12, pady=(6, 12))
         panel.grid_columnconfigure(0, weight=1)

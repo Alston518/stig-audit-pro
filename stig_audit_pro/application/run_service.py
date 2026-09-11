@@ -16,8 +16,11 @@ from uuid import uuid4
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from stig_audit_pro.application.audit_package_service import AuditPackageService
 from stig_audit_pro.application.audit_service import AuditService, AuditServiceResult
+from stig_audit_pro.config import APP_VERSION
 from stig_audit_pro.core.command_policy import DEFAULT_COMMAND_POLICY
+from stig_audit_pro.core.evidence import EvidenceArtifact
 from stig_audit_pro.core.models import AuditRun, CollectionMode, DeviceStatus, RunStatus
 from stig_audit_pro.core.result_model import CheckResult, FindingObject
 from stig_audit_pro.infrastructure.persistence import Database
@@ -379,6 +382,7 @@ class RunService:
                     "serial_number": row.serial_number,
                     "ios_version": row.ios_version,
                     "status": row.status,
+                    "error_message": row.error_message,
                 }
                 for row in self.repository.list_devices(context.run_id)
             ],
@@ -484,9 +488,19 @@ class RunService:
             self.abort_run(context, str(exc))
             raise
 
-    def list_history(self, *, limit: int = 500, offset: int = 0) -> list[RunHistoryItem]:
+    def list_history(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        search: str = "",
+    ) -> list[RunHistoryItem]:
         items: list[RunHistoryItem] = []
-        for run in self.repository.list_runs(limit=max(1, min(limit, 1000)), offset=max(0, offset)):
+        for run in self.repository.list_runs(
+            limit=max(1, min(limit, 1000)),
+            offset=max(0, offset),
+            search=search,
+        ):
             counts = self.repository.result_counts(run.id)
             items.append(RunHistoryItem(
                 id=run.id,
@@ -509,6 +523,9 @@ class RunService:
                 ),
             ))
         return items
+
+    def count_history(self, *, search: str = "") -> int:
+        return self.repository.count_runs(search=search)
 
     def abort_run(
         self,
@@ -631,6 +648,199 @@ class RunService:
         if deleted_files or deleted_record:
             self.activity_log.record("AUDIT_DELETED", "audit_run", run_id, details={"evidence_deleted": bool(deleted_files)})
         return bool(deleted_files or deleted_record)
+
+    def import_audit_package(self, package_path: str | Path) -> str:
+        """Install a verified portable audit as immutable historical data.
+
+        Original evidence/result bytes are retained. Database primary keys are
+        rebuilt locally, so evidence links are remapped without trusting IDs
+        from another installation.
+        """
+
+        service = AuditPackageService()
+        verification = service.verify(package_path)
+        if not verification.valid or not verification.run_id:
+            details = "; ".join(verification.problems) or verification.status
+            raise ValueError(f"Audit package verification failed: {details}")
+        run_id = verification.run_id
+        if self.repository.get_run(run_id, include_details=False) is not None:
+            raise ValueError(f"Audit run is already present in History: {run_id}")
+
+        imported = service.import_to(
+            package_path,
+            evidence_root=self.evidence_store.root,
+        )
+        manifest_path = imported.run_directory / "manifest.json"
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            if imported.includes_evidence:
+                integrity = self.evidence_store.verify_evidence(run_id)
+                if not integrity.is_valid:
+                    raise ValueError(
+                        "The audit package is internally consistent, but its evidence "
+                        f"does not match the audit hashes ({integrity.aggregate.value})."
+                    )
+
+            self.repository.create_run(
+                id=run_id,
+                started_at=manifest.get("started_at"),
+                completed_at=manifest.get("completed_at"),
+                status=manifest.get("status") or "COMPLETE",
+                app_version=manifest.get("application_version") or APP_VERSION,
+                profile_name=manifest.get("selected_profile"),
+                profile_sha256=manifest.get("profile_sha256"),
+                check_pack_sha256=manifest.get("check_library_sha256"),
+                stig_families=(
+                    manifest.get("stig_family")
+                    or manifest.get("selected_check_libraries")
+                    or []
+                ),
+                stig_benchmark=manifest.get("stig_benchmark"),
+                stig_version=manifest.get("stig_version"),
+                stig_release=manifest.get("stig_release"),
+                description=(
+                    f"Imported historical audit — {manifest.get('description')}"
+                    if manifest.get("description")
+                    else "Imported historical audit"
+                ),
+                preset_name=manifest.get("preset_name"),
+                collection_mode=CollectionMode.IMPORTED_HISTORICAL_AUDIT.value,
+            )
+
+            device_directories = sorted(
+                path
+                for path in (imported.run_directory / "devices").iterdir()
+                if path.is_dir() and not path.is_symlink()
+            )
+            manifest_devices = {
+                str(item.get("target_ip")): item
+                for item in (manifest.get("device_facts") or [])
+                if isinstance(item, Mapping) and item.get("target_ip")
+            }
+            for device_directory in device_directories:
+                device_payload = json.loads(
+                    (device_directory / "device.json").read_text(encoding="utf-8")
+                )
+                target_ip = str(device_payload.get("target_ip") or "").strip()
+                if not target_ip:
+                    raise ValueError(
+                        f"Imported device metadata is missing target_ip: {device_directory.name}"
+                    )
+                facts = device_payload.get("device_facts") or {}
+                historical_device = manifest_devices.get(target_ip, {})
+                device = self.repository.add_device(
+                    run_id,
+                    target_ip=target_ip,
+                    hostname=(
+                        device_payload.get("hostname")
+                        or historical_device.get("hostname")
+                        or facts.get("hostname")
+                    ),
+                    serial_number=(
+                        historical_device.get("serial_number")
+                        or facts.get("serial_number")
+                    ),
+                    ios_version=(
+                        historical_device.get("ios_version")
+                        or facts.get("ios_version")
+                    ),
+                    status=(
+                        historical_device.get("status")
+                        or device_payload.get("status")
+                        or "COMPLETE"
+                    ),
+                    started_at=manifest.get("started_at"),
+                    completed_at=manifest.get("completed_at"),
+                    error_message=historical_device.get("error_message"),
+                )
+
+                old_to_new_artifact: dict[int, int] = {}
+                artifacts_by_command: dict[str, list[int]] = {}
+                for artifact_payload in device_payload.get("evidence_artifacts") or []:
+                    payload = dict(artifact_payload)
+                    relative_path = self._imported_evidence_path(
+                        run_id, str(payload.get("relative_path") or "")
+                    )
+                    artifact = EvidenceArtifact.model_validate({
+                        "run_id": run_id,
+                        "command": payload.get("command"),
+                        "relative_path": relative_path,
+                        "sha256": payload.get("sha256"),
+                        "collected_at": payload.get("collected_at"),
+                        "byte_length": payload.get("byte_length"),
+                    })
+                    stored_artifact = self.repository.add_evidence_artifact(
+                        device.id, artifact
+                    )
+                    old_id = payload.get("artifact_id") or payload.get("id")
+                    if old_id is not None:
+                        old_to_new_artifact[int(old_id)] = stored_artifact.id
+                    artifacts_by_command.setdefault(artifact.command, []).append(
+                        stored_artifact.id
+                    )
+
+                results_path = device_directory / "results.json"
+                if not results_path.is_file():
+                    continue
+                result_payloads = json.loads(results_path.read_text(encoding="utf-8"))
+                if not isinstance(result_payloads, list):
+                    raise ValueError(f"Imported results are not a list: {results_path.name}")
+                for result_payload in result_payloads:
+                    parsed = CheckResult.model_validate({
+                        **dict(result_payload),
+                        "run_id": run_id,
+                        "ip": target_ip,
+                        "hostname": (
+                            result_payload.get("hostname")
+                            or device_payload.get("hostname")
+                            or facts.get("hostname")
+                            or "unknown"
+                        ),
+                    })
+                    stored_result = self.repository.add_check_result(device.id, parsed)
+                    evidence_ids = [
+                        old_to_new_artifact[old_id]
+                        for old_id in parsed.evidence_artifact_ids
+                        if old_id in old_to_new_artifact
+                    ]
+                    if not evidence_ids:
+                        evidence_ids = [
+                            artifact_id
+                            for command in parsed.commands_used
+                            for artifact_id in artifacts_by_command.get(command, [])
+                        ]
+                    if evidence_ids:
+                        self.repository.link_result_evidence(
+                            stored_result.id, evidence_ids
+                        )
+
+            self.repository.refresh_run_counts(run_id)
+            self.activity_log.record(
+                "AUDIT_PACKAGE_IMPORTED",
+                "audit_run",
+                run_id,
+                details={
+                    "classification": "IMPORTED_HISTORICAL_AUDIT",
+                    "includes_evidence": imported.includes_evidence,
+                },
+            )
+            return run_id
+        except Exception:
+            self.repository.delete_run(run_id)
+            self.evidence_store.delete_run(run_id)
+            raise
+
+    @staticmethod
+    def _imported_evidence_path(run_id: str, value: str) -> str:
+        normalized = value.strip().replace("\\", "/")
+        path = Path(normalized)
+        if not normalized or path.is_absolute() or ".." in path.parts:
+            raise ValueError("Imported audit contains an unsafe evidence path")
+        if path.parts[0] == run_id:
+            return path.as_posix()
+        if path.parts[0] == "devices":
+            return (Path(run_id) / path).as_posix()
+        raise ValueError("Imported evidence path is not scoped to the audit run")
 
     def read_evidence(self, relative_path: str) -> str:
         return self.evidence_store.read_evidence(relative_path)

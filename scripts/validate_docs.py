@@ -22,6 +22,7 @@ REQUIRED = (
     "docs/operator/MANUAL_REVIEWS.md",
     "docs/operator/TROUBLESHOOTING.md",
     "docs/CURRENT_LIMITATIONS.md",
+    "docs/FEATURE_PRESERVATION_INVENTORY.md",
     "docs/operator/ADMINISTRATOR_GUIDE.md",
     "docs/operator/REPORTING_GUIDE.md",
     "docs/operator/STIG_UPDATE_GUIDE.md",

@@ -12,7 +12,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from tkinter import filedialog
+from tkinter import filedialog, messagebox
 from typing import Any, TypeVar
 
 import customtkinter as ctk
@@ -58,7 +58,7 @@ from stig_audit_pro.gui.reports_tab import ReportsTab
 from stig_audit_pro.gui.results_tab import ResultsTab
 from stig_audit_pro.gui.stig_tab import StigTab
 from stig_audit_pro.gui.targets_tab import TargetsTab
-from stig_audit_pro.gui.widgets import configure_treeview_style
+from stig_audit_pro.gui.widgets import configure_treeview_style, confirm_action
 from stig_audit_pro.licensing import (
     LicenseImportError,
     LicenseManager,
@@ -70,6 +70,7 @@ from stig_audit_pro.licensing.paths import log_directory
 from stig_audit_pro.infrastructure.persistence.migrations import get_schema_version
 from stig_audit_pro.reports.audit_report import write_csv_report, write_text_report
 from stig_audit_pro.storage.device_groups import DeviceGroup, DeviceGroupStore, DeviceTargetRecord
+from stig_audit_pro.storage.application_data import bootstrap_writable_data
 from stig_audit_pro.storage.scan_presets import ReportOptions, ScanPreset, ScanPresetStore
 from stig_audit_pro.stig.check_generator import build_manual_starter_library, write_manual_starter_library
 from stig_audit_pro.stig.ckl_writer import (
@@ -250,7 +251,7 @@ class StigAuditProApp(ctk.CTk):
 
         self.root_dir = Path(__file__).resolve().parents[2]
         self.ui_state_path = application_data_dir() / "ui_state.json"
-        self.data_dir = self.root_dir / "data"
+        self.data_dir = bootstrap_writable_data(self.root_dir / "data")
         self.sample_dir = self.root_dir / "tests" / "sample_outputs"
         self.device_group_store = DeviceGroupStore(self.data_dir / "device_groups")
         self.scan_preset_store = ScanPresetStore()
@@ -545,21 +546,85 @@ class StigAuditProApp(ctk.CTk):
         if not destination:
             return
         try:
-            database_path = self.run_service.database.path
-            if database_path is None:
-                raise RuntimeError("The in-memory development database cannot be backed up.")
-            service = BackupService(database_path=database_path, sources=(
-                BackupSource("profiles", self.data_dir / "profiles"),
-                BackupSource("device-groups", self.data_dir / "device_groups"),
-                BackupSource("checks", self.data_dir / "checks"),
-                BackupSource("stig-library", self.data_dir / "stigs"),
-                BackupSource("scan-presets", application_data_dir() / "data" / "scan_presets"),
-            ), evidence_root=self.run_service.evidence_store.root)
+            service = self._application_backup_service()
             path = service.create(destination, include_evidence=False)
             self.run_service.activity_log.record("BACKUP_CREATED", "application_backup", str(path), details={"includes_evidence": False})
             self.set_status(f"Backup created: {path}. Raw evidence was not included.")
         except Exception as exc:
             self._show_error(str(exc))
+
+    def restore_application_data(self) -> None:
+        selected = filedialog.askopenfilename(
+            parent=self,
+            title="Restore STIG Audit Pro Data",
+            filetypes=[("STIG Audit Pro backup", "*.zip")],
+        )
+        if not selected:
+            return
+        service = self._application_backup_service()
+        try:
+            inspection = service.inspect(selected)
+        except Exception as exc:
+            self._show_error(str(exc), kind="validation")
+            return
+        evidence_text = (
+            "Raw evidence in the backup will replace the current evidence store."
+            if inspection.includes_evidence
+            else "The backup does not replace raw evidence."
+        )
+        if not confirm_action(
+            self,
+            title="Restore Application Data?",
+            message=(
+                f"Restore the backup created {inspection.created_at}?\n\n"
+                "The current database, profiles, device groups, checks, STIG "
+                "library, and presets will be replaced. A safety backup is "
+                f"created first. {evidence_text}\n\n"
+                "STIG Audit Pro will close after restore."
+            ),
+            confirm_text="Restore and Close",
+        ):
+            return
+        try:
+            self.run_service.database.dispose()
+            safety = service.restore_in_place(selected)
+            self.run_service.activity_log.record(
+                "RESTORE_PERFORMED",
+                "application_backup",
+                str(selected),
+                details={"safety_backup": str(safety)},
+            )
+            messagebox.showinfo(
+                "Restore Complete",
+                "Application data was restored successfully. A safety backup "
+                f"was saved at:\n{safety}\n\nReopen STIG Audit Pro to continue.",
+                parent=self,
+            )
+            self.destroy()
+        except Exception as exc:
+            messagebox.showerror(
+                "Restore Failed",
+                f"The restore did not complete. Current data was rolled back "
+                f"where necessary.\n\n{exc}\n\nClose and reopen STIG Audit Pro.",
+                parent=self,
+            )
+            self.destroy()
+
+    def _application_backup_service(self) -> BackupService:
+        database_path = self.run_service.database.path
+        if database_path is None:
+            raise RuntimeError("The in-memory development database cannot be backed up.")
+        return BackupService(
+            database_path=database_path,
+            sources=(
+                BackupSource("profiles", self.data_dir / "profiles"),
+                BackupSource("device-groups", self.data_dir / "device_groups"),
+                BackupSource("checks", self.data_dir / "checks"),
+                BackupSource("stig-library", self.data_dir / "stigs"),
+                BackupSource("scan-presets", self.scan_preset_store.root),
+            ),
+            evidence_root=self.run_service.evidence_store.root,
+        )
 
     def show_result(self, result: CheckResult) -> None:
         """Open the Results tab with the requested result selected."""
@@ -632,13 +697,27 @@ class StigAuditProApp(ctk.CTk):
             self._show_error(str(exc))
             return []
 
-    def list_audit_runs(self) -> list[Any]:
-        return list(self.run_service.list_history())
+    def list_audit_runs(
+        self,
+        *,
+        limit: int = 100,
+        offset: int = 0,
+        search: str = "",
+    ) -> list[Any]:
+        return list(
+            self.run_service.list_history(
+                limit=limit,
+                offset=offset,
+                search=search,
+            )
+        )
+
+    def count_audit_runs(self, *, search: str = "") -> int:
+        return self.run_service.count_history(search=search)
 
     def refresh_audit_history(self, *, announce: bool = True) -> list[Any]:
         try:
-            rows = self.list_audit_runs()
-            self.history_tab.refresh(rows)
+            rows = self.history_tab.refresh_from_controller(reset=True)
             if announce:
                 self.set_status(f"Loaded {len(rows)} historical audit run(s).")
             return rows
@@ -783,6 +862,29 @@ class StigAuditProApp(ctk.CTk):
             return path
         except Exception as exc:
             self._show_error(str(exc))
+            return None
+
+    def import_audit_package(self) -> str | None:
+        selected = filedialog.askopenfilename(
+            parent=self,
+            title="Import Historical Audit Package",
+            filetypes=[("STIG Audit Pro package", "*.zip")],
+        )
+        if not selected:
+            return None
+        try:
+            run_id = self.run_service.import_audit_package(selected)
+            self.refresh_audit_history(announce=False)
+            self.open_historical_run(run_id)
+            message = (
+                f"Imported historical audit {run_id}. Its original results and "
+                "evidence are shown without rescanning any device."
+            )
+            self.history_tab.message.configure(text=message)
+            self.set_status(message)
+            return run_id
+        except Exception as exc:
+            self._show_error(str(exc), kind="validation")
             return None
 
     def verify_historical_evidence(self, run_id: str) -> Any | None:

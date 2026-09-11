@@ -1,8 +1,7 @@
 """Small, explicit schema-version mechanism for the local SQLite database.
 
-Version 1 is the first persisted audit/STIG schema.  Future releases should add
-ordered migration functions here rather than silently mutating existing user
-databases through ``create_all``.
+Version 1 is the first persisted audit/STIG schema. Migrations are deliberately
+additive and ordered so an application upgrade never resets customer history.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from sqlalchemy import Engine, inspect, select
 
 from stig_audit_pro.infrastructure.persistence.db_models import Base, SchemaVersion
 
-CURRENT_SCHEMA_VERSION = 2
+CURRENT_SCHEMA_VERSION = 3
 
 
 class UnsupportedSchemaVersion(RuntimeError):
@@ -43,9 +42,18 @@ def initialize_schema(engine: Engine) -> int:
             f"{CURRENT_SCHEMA_VERSION}."
         )
 
-    # Version 2 adds the local activity trail. create_all is safe for this
-    # additive migration and preserves every existing v1 table and row.
+    # ``create_all`` creates a complete schema for new installations and adds
+    # the v2 activity-log table to v1 databases. It intentionally cannot add
+    # columns to existing tables, so those changes remain explicit below.
     Base.metadata.create_all(engine)
+
+    if existing_version and existing_version < 3:
+        check_result_columns = {
+            column["name"] for column in inspect(engine).get_columns("check_result")
+        }
+        if "title" not in check_result_columns:
+            with engine.begin() as connection:
+                connection.exec_driver_sql("ALTER TABLE check_result ADD COLUMN title TEXT")
     with engine.begin() as connection:
         version = connection.scalar(
             select(SchemaVersion.version).where(SchemaVersion.id == 1)

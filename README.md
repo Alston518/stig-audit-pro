@@ -26,7 +26,7 @@ reloads a device, or persists device credentials.
   and simple check-string editing alongside advanced YAML editing.
 - A first-run welcome page, guided assessment workflow, structured preflight,
   friendly finding explanations, failure retry, diagnostics, sanitized support
-  bundles, data backup, and portable audit-package export.
+  bundles, data backup, and portable audit-package export/import.
 
 ## Quick start
 
@@ -41,8 +41,10 @@ Run the test suite:
 python -m pytest
 ```
 
-The default application database and evidence workspace use the platform data
-directory. Their resolved locations are reported by the application logs; see
+The database, evidence, editable checks, profiles, device groups, presets, and
+imported STIG working files use the platform data directory. On first launch,
+bundled defaults are copied there without overwriting existing customer files.
+Resolved database and evidence locations are reported by the application logs; see
 the [database guide](docs/developers/DATABASE_GUIDE.md) for the expected paths.
 
 ## Safety boundary

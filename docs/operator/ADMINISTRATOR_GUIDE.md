@@ -20,6 +20,20 @@ Sample and offline evidence workflows evaluate through the same parser/check pat
 
 Completed runs remain until an operator explicitly deletes them. **Purge Raw Evidence** removes command-output files while retaining structured history. **Delete Run** removes structured history and, when selected, its evidence tree. Both operations require confirmation.
 
+## Backup and restore
+
+Open **Administration → Back Up Data** to create an integrity-indexed archive
+of the database, profiles, device groups, checks, STIG working library, and
+scan presets. Raw evidence is excluded from the standard GUI backup.
+
+Use **Restore Data** only when replacing the current local application state.
+The application validates archive paths, contents, hashes, and the SQLite
+schema before showing the destructive confirmation. It creates a timestamped
+safety backup, publishes only known STIG Audit Pro destinations, rolls back a
+partial publication, and closes after success so the restored database is
+reopened cleanly. Credentials are not restored because the product does not
+store device credentials.
+
 ## Licensing
 
 Free/paid device limits and licensed feature checks remain enforced. License payloads and private signing material are not included in audit metadata.

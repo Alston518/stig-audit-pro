@@ -20,10 +20,14 @@ def _value(row: Any, name: str, default: Any = "") -> Any:
 class HistoryTab(PageFrame):
     """Render persistent runs without coupling the UI to SQLAlchemy."""
 
+    PAGE_SIZE = 100
+
     def __init__(self, master: ctk.CTkBaseClass, app_controller: object) -> None:
         super().__init__(master)
         self.app_controller = app_controller
         self.rows: list[Any] = []
+        self.offset = 0
+        self.total_rows = 0
         self.grid_rowconfigure(3, weight=1)
 
         heading = ctk.CTkFrame(self, fg_color="transparent")
@@ -43,7 +47,7 @@ class HistoryTab(PageFrame):
 
         actions = ctk.CTkFrame(self, fg_color="transparent")
         actions.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 8))
-        for column in range(9):
+        for column in range(10):
             actions.grid_columnconfigure(column, weight=1)
         buttons = (
             ("Refresh", self.refresh_from_controller),
@@ -51,6 +55,7 @@ class HistoryTab(PageFrame):
             ("Compare Runs", self._compare),
             ("Export Reports", self._export),
             ("Export Package", self._export_package),
+            ("Import Package", self._import_package),
             ("Verify Evidence", self._verify),
             ("Retry Failed", self._retry),
             ("Purge Raw Evidence", self._purge),
@@ -70,8 +75,13 @@ class HistoryTab(PageFrame):
         search_row.grid_columnconfigure(0, weight=1)
         self.search = ctk.CTkEntry(search_row, placeholder_text="Search date, run ID, description, STIG, profile, or status")
         self.search.grid(row=0, column=0, sticky="ew")
-        self.search.bind("<KeyRelease>", lambda _event: self._render())
-        ctk.CTkLabel(search_row, text="Showing up to 500 recent audits").grid(row=0, column=1, padx=(10, 0))
+        self.search.bind("<KeyRelease>", lambda _event: self.refresh_from_controller(reset=True))
+        self.previous_button = ctk.CTkButton(search_row, text="Previous", width=88, command=self._previous_page)
+        self.previous_button.grid(row=0, column=1, padx=(10, 4))
+        self.page_label = ctk.CTkLabel(search_row, text="0 audits", width=130)
+        self.page_label.grid(row=0, column=2, padx=4)
+        self.next_button = ctk.CTkButton(search_row, text="Next", width=88, command=self._next_page)
+        self.next_button.grid(row=0, column=3, padx=(4, 0))
 
         columns = (
             "time", "run_id", "description", "families", "stig", "profile",
@@ -98,8 +108,9 @@ class HistoryTab(PageFrame):
         self.tree.grid(row=3, column=0, sticky="nsew", padx=12, pady=(0, 12))
         self.tree.bind("<Double-1>", lambda _event: self._open())
 
-    def refresh(self, rows: Iterable[Any]) -> None:
+    def refresh(self, rows: Iterable[Any], *, total: int | None = None) -> None:
         self.rows = list(rows)
+        self.total_rows = len(self.rows) if total is None else max(0, int(total))
         self._render()
 
     def _render(self) -> None:
@@ -142,11 +153,38 @@ class HistoryTab(PageFrame):
                 _value(row, "status", ""),
             ))
             visible += 1
-        self.message.configure(text=f"{visible} of {len(self.rows)} historical run(s).")
+        first = self.offset + 1 if visible else 0
+        last = self.offset + visible
+        self.message.configure(text=f"Showing {first}–{last} of {self.total_rows} historical audit(s).")
+        self.page_label.configure(text=f"{first}–{last} of {self.total_rows}")
+        self.previous_button.configure(state="normal" if self.offset else "disabled")
+        self.next_button.configure(
+            state="normal" if self.offset + len(self.rows) < self.total_rows else "disabled"
+        )
 
-    def refresh_from_controller(self) -> None:
-        rows = self.app_controller.list_audit_runs()
-        self.refresh(rows)
+    def refresh_from_controller(self, *, reset: bool = False) -> list[Any]:
+        if reset:
+            self.offset = 0
+        query = self.search.get().strip()
+        total = self.app_controller.count_audit_runs(search=query)
+        if self.offset >= total and self.offset:
+            self.offset = max(0, ((max(total, 1) - 1) // self.PAGE_SIZE) * self.PAGE_SIZE)
+        rows = self.app_controller.list_audit_runs(
+            limit=self.PAGE_SIZE,
+            offset=self.offset,
+            search=query,
+        )
+        self.refresh(rows, total=total)
+        return rows
+
+    def _previous_page(self) -> None:
+        self.offset = max(0, self.offset - self.PAGE_SIZE)
+        self.refresh_from_controller()
+
+    def _next_page(self) -> None:
+        if self.offset + len(self.rows) < self.total_rows:
+            self.offset += self.PAGE_SIZE
+            self.refresh_from_controller()
 
     def _selected_ids(self) -> list[str]:
         selected: list[str] = []
@@ -180,6 +218,9 @@ class HistoryTab(PageFrame):
     def _export_package(self) -> None:
         if run_id := self._require_one():
             self.app_controller.export_audit_package(run_id)
+
+    def _import_package(self) -> None:
+        self.app_controller.import_audit_package()
 
     def _verify(self) -> None:
         if run_id := self._require_one():

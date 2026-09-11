@@ -15,5 +15,8 @@ Use it when readiness fails, a device cannot complete, or evidence verification 
 - **Evidence modified:** retain the run and investigate. The stored bytes no longer match their capture hash.
 - **Evidence missing:** determine whether raw evidence was purged intentionally. Structured history may remain.
 - **Application diagnostics:** open **Administration** to verify database/evidence health, create a sanitized support bundle, or back up application data.
+- **Restore a backup:** use **Administration → Restore Data**. Review the
+  confirmation carefully; a safety backup is created first and the application
+  closes after a successful restore.
 
 Support bundles exclude credentials, signing keys, raw evidence, and full running configurations by default.

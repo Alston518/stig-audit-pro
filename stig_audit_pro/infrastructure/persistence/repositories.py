@@ -13,7 +13,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
-from sqlalchemy import func, select
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import selectinload
 
 from stig_audit_pro.config import APP_VERSION
@@ -211,8 +211,38 @@ class AuditRunRepository:
 
     get = get_run
 
-    def list_runs(self, *, limit: int | None = None, offset: int = 0) -> list[AuditRun]:
+    @staticmethod
+    def _run_search(query: str):
+        cleaned = str(query or "").strip().casefold()
+        if not cleaned:
+            return None
+        columns = (
+            AuditRun.id,
+            AuditRun.description,
+            AuditRun.preset_name,
+            AuditRun.collection_mode,
+            AuditRun.profile_name,
+            AuditRun.stig_benchmark,
+            AuditRun.stig_version,
+            AuditRun.stig_release,
+            AuditRun.status,
+            cast(AuditRun.stig_families, String),
+        )
+        return or_(*(
+            func.lower(cast(column, String)).contains(cleaned, autoescape=True)
+            for column in columns
+        ))
+
+    def list_runs(
+        self,
+        *,
+        limit: int | None = None,
+        offset: int = 0,
+        search: str = "",
+    ) -> list[AuditRun]:
         statement = select(AuditRun).order_by(AuditRun.started_at.desc(), AuditRun.id.desc())
+        if (criterion := self._run_search(search)) is not None:
+            statement = statement.where(criterion)
         if offset:
             statement = statement.offset(offset)
         if limit is not None:
@@ -370,6 +400,13 @@ class AuditRunRepository:
         )
         with self.database.session() as session:
             return list(session.scalars(statement))
+
+    def count_runs(self, *, search: str = "") -> int:
+        statement = select(func.count(AuditRun.id))
+        if (criterion := self._run_search(search)) is not None:
+            statement = statement.where(criterion)
+        with self.database.session() as session:
+            return int(session.scalar(statement) or 0)
 
     def update_result_decision(
         self, run_id: str, target_ip: str, vuln_id: str, *,

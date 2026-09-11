@@ -30,10 +30,17 @@ Enterprise-readiness refinement implemented on 2026-09-10:
   validated CSV import preview, and user-friendly STIG impact language.
 - Check fixture runner and explicit `VERIFIED`, `REVIEW_REQUIRED`, `UNTESTED`,
   `MANUAL`, `MISSING`, and `RETIRED` automation confidence classifications.
-- Schema v2 activity trail with secret-field redaction and an on-disk backup
-  before forward migration.
+- Schema v3 persistence: the v2 activity trail remains, and historical results
+  now retain their exact STIG title. On-disk databases are backed up before
+  forward migration.
 - Administration health view, sanitized support bundle, application-data
-  backup, and integrity-verifiable portable audit-package export.
+  backup, and integrity-verifiable portable audit-package export/import.
+- Upgrade-safe application-data working copies for editable checks, profiles,
+  groups, presets, and imported STIG content; bundled defaults never overwrite
+  existing customer files.
+- Paramiko/Netmiko/SCP routine logs are suppressed below WARNING, and support
+  bundles remove older third-party SSH diagnostic lines that could contain a
+  device authentication banner.
 - ZIP-slip/resource-limit import controls, CKL/CKLB/XML bounds, spreadsheet
   formula neutralization, expanded security tests, and a synthetic scale harness.
 
@@ -64,13 +71,18 @@ Full diagrams and the data model are in
 
 The default SQLite database is resolved using `platformdirs` under the user
 application-data directory (normally `%LOCALAPPDATA%\STIG Audit Pro` on
-Windows), as is the evidence workspace:
+Windows), as are editable data and the evidence workspace:
 
 ```text
 work/runs/<run_uuid>/manifest.json
 work/runs/<run_uuid>/checks.snapshot.yaml
 work/runs/<run_uuid>/profile.snapshot.yaml
 work/runs/<run_uuid>/devices/<safe-device>/evidence/
+data/checks/
+data/profiles/
+data/device_groups/
+data/scan_presets/
+data/stigs/
 ```
 
 For development, the database path is logged and described in
@@ -88,6 +100,12 @@ python scripts/generate_command_reference.py --check
 python scripts/generate_stig_traceability.py --check
 python scripts/validate_docs.py
 ```
+
+Last verified on 2026-09-11: `190 passed`; generated command/traceability
+documents and all 35 required documentation files validated; PyInstaller built
+`dist/STIGAuditPro/STIGAuditPro.exe`; both source and packaged GUI processes
+remained responsive during launch smoke tests; the migrated application
+database reported schema version 3.
 
 ## Operator workflows
 
@@ -135,15 +153,16 @@ after collection only; they do not authenticate the collector.
 
 Refinement limitations:
 
-- Audit-package export/verification is implemented; package import into the
-  local History database is not yet wired into the GUI.
-- Backup creation is wired into Administration. Restore validation and safety
-  backup exist at service level; the destructive restore UI is deferred.
+- Audit-package export, verification, and historical import are wired into
+  History. Duplicate run UUIDs are deliberately refused.
+- Backup and deliberately confirmed restore are wired into Administration.
+  Restore validates content hashes and schema, creates a safety backup, rolls
+  back partial publication, and closes the application after success.
 - Standard fixture tooling and GUI execution exist. Bundled checks have not all
   been migrated into per-Vulnerability good/bad fixture directories, so the
   dashboard must not describe all mappings as `VERIFIED`.
-- Results/History use bounded windows rather than a fully virtualized SQLite
-  query model. This prevents widget overload but remains a next-release scaling area.
+- History uses SQLite-backed search and 100-row paging. Results uses a bounded
+  filtered window rather than a fully virtualized SQLite query model.
 
 ## Non-negotiable safety rule
 

@@ -301,6 +301,7 @@ class CollectionMode(str, Enum):
     LIVE_SSH = "LIVE_SSH"
     SAMPLE = "SAMPLE"
     OFFLINE_IMPORTED = "OFFLINE_IMPORTED"
+    IMPORTED_HISTORICAL_AUDIT = "IMPORTED_HISTORICAL_AUDIT"
 
 
 def _utc_datetime(value: datetime | None) -> datetime | None:

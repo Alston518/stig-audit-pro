@@ -18,10 +18,12 @@ STIG Audit Pro 0.2 is a read-only Cisco IOS-XE assessment desktop application. I
 - [STIG Difference Guide](operator/STIG_DIFF_GUIDE.md)
 - [Audit History Guide](operator/AUDIT_HISTORY_GUIDE.md)
 - [Current Limitations](CURRENT_LIMITATIONS.md)
+- [Feature-Preservation Inventory](FEATURE_PRESERVATION_INVENTORY.md)
 
 ## Developers
 
 - [Architecture](architecture/ARCHITECTURE.md)
+- [Feature-Preservation Inventory](FEATURE_PRESERVATION_INVENTORY.md)
 - [Data Model](architecture/DATA_MODEL.md)
 - [Scan Lifecycle](architecture/SCAN_LIFECYCLE.md)
 - [Development Setup](developers/DEVELOPMENT_SETUP.md)

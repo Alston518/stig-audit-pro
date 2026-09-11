@@ -20,6 +20,7 @@ from stig_audit_pro.infrastructure.persistence.repositories import ActivityLogRe
 _SECRET_PATTERN = re.compile(
     r"(?i)(password|enable[_ -]?secret|passphrase|api[_ -]?key|token|private[_ -]?key)\s*[:=]\s*([^\s,;]+)"
 )
+_SSH_LIBRARY_LINE = re.compile(r"\b(?:paramiko|netmiko|scp)(?:\.[A-Za-z0-9_]+)*\b", re.IGNORECASE)
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,14 +65,30 @@ class SupportBundleService:
             archive.writestr("recent_activity.json", self._json(activities))
             for index, log_path in enumerate(self.log_paths):
                 if log_path.is_file() and log_path.stat().st_size <= 10 * 1024 * 1024:
-                    archive.writestr(f"logs/log-{index + 1}.txt", self.redact(log_path.read_text(encoding="utf-8", errors="replace")))
+                    archive.writestr(
+                        f"logs/log-{index + 1}.txt",
+                        self.redact(
+                            log_path.read_text(encoding="utf-8", errors="replace"),
+                            suppress_ssh_diagnostics=True,
+                        ),
+                    )
             archive.writestr("README.txt", "This support bundle excludes credentials and raw device evidence by default.\n")
         temporary.replace(target)
         return target
 
     @staticmethod
-    def redact(value: str) -> str:
-        return _SECRET_PATTERN.sub(lambda match: f"{match.group(1)}=[REDACTED]", value)
+    def redact(value: str, *, suppress_ssh_diagnostics: bool = False) -> str:
+        cleaned = value
+        if suppress_ssh_diagnostics:
+            cleaned = "\n".join(
+                "[REDACTED THIRD-PARTY SSH DIAGNOSTIC]"
+                if _SSH_LIBRARY_LINE.search(line)
+                else line
+                for line in value.splitlines()
+            )
+        return _SECRET_PATTERN.sub(
+            lambda match: f"{match.group(1)}=[REDACTED]", cleaned
+        )
 
     @classmethod
     def _json(cls, value) -> str:

@@ -13,9 +13,11 @@
 
 - Complete per-check compliant/noncompliant fixtures for every automated rule
   and make verified fixture coverage the primary assurance metric.
-- Wire validated audit-package import into History and add an explicit,
-  carefully confirmed backup-restore screen.
-- Replace bounded desktop result windows with virtualized, SQLite-backed paging.
+- Add optional evidence selection and estimated-size preview to the existing
+  confirmed backup/restore workflow. Validated audit-package import is now
+  available in History.
+- Replace the bounded Results window with virtualized, SQLite-backed paging;
+  History already uses SQLite search and 100-row pages.
 - Expand typed profile/check forms and show all profile-value consumers.
 - Add authenticated reviewer identity/change audit history when a server edition exists.
 - Add explicit CKLB schema-version fixtures for every supported STIG Viewer

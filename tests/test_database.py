@@ -50,6 +50,7 @@ def test_temporary_sqlite_schema_foreign_keys_and_history_crud(tmp_path):
         assert get_schema_version(database.engine) == CURRENT_SCHEMA_VERSION
         loaded = repository.get_run(run.run_id)
         assert loaded is not None
+        assert loaded.devices[0].check_results[0].title == "Test"
         assert loaded.devices[0].check_results[0].evidence_links[0].evidence_artifact_id == artifact.id
         assert repository.result_counts(run.run_id) == {"Open": 1}
         assert repository.list_runs()[0].success_count == 1
@@ -67,5 +68,26 @@ def test_database_path_is_injected_and_never_uses_user_database(tmp_path):
     database = Database(selected)
     try:
         assert database.path == selected.resolve()
+    finally:
+        database.dispose()
+
+
+def test_audit_history_supports_database_paging_and_search(tmp_path):
+    database = Database(tmp_path / "history-search.sqlite3")
+    try:
+        repository = AuditRunRepository(database)
+        for description in ("Quarterly access audit", "Core validation", "Branch review"):
+            repository.create_run(
+                AuditRun(run_id=str(uuid4()), description=description)
+            )
+
+        assert repository.count_runs() == 3
+        first_page = repository.list_runs(limit=2, offset=0)
+        second_page = repository.list_runs(limit=2, offset=2)
+        assert len(first_page) == 2
+        assert len(second_page) == 1
+        assert not ({item.id for item in first_page} & {item.id for item in second_page})
+        assert repository.count_runs(search="quarterly") == 1
+        assert repository.list_runs(search="ACCESS")[0].description == "Quarterly access audit"
     finally:
         database.dispose()

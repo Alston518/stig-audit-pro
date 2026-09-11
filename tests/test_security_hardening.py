@@ -1,3 +1,4 @@
+import logging
 import zipfile
 
 import pytest
@@ -5,6 +6,7 @@ from openpyxl import load_workbook
 
 from stig_audit_pro.core.archive_safety import UnsafeArchiveError, validate_zip
 from stig_audit_pro.core.result_model import CheckResult
+from stig_audit_pro.logging_config import configure_logging
 from stig_audit_pro.reports.audit_report import write_csv_report
 from stig_audit_pro.reports.excel_writer import write_excel_report
 from stig_audit_pro.reports.spreadsheet_safety import safe_spreadsheet_value
@@ -40,3 +42,9 @@ def test_report_writers_neutralize_formula_like_finding_text(tmp_path):
     workbook = load_workbook(excel_path, read_only=True)
     values = list(workbook["All Findings"].iter_rows(values_only=True))[1]
     assert values[9].startswith("'=")
+
+
+def test_ssh_library_logging_cannot_emit_banners_at_info_level():
+    configure_logging()
+    assert logging.getLogger("paramiko.transport").getEffectiveLevel() >= logging.WARNING
+    assert logging.getLogger("netmiko").getEffectiveLevel() >= logging.WARNING

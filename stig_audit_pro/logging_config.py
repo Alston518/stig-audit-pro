@@ -64,6 +64,12 @@ def audit_logger(
 def configure_logging() -> Path | None:
     """Configure a rotating-free first-version log without failing app startup."""
 
+    # Paramiko emits authentication banners and Netmiko may emit command/session
+    # detail at INFO/DEBUG. Those bytes belong in the evidence store, never in
+    # routine application diagnostics or a support bundle.
+    for logger_name in ("paramiko", "netmiko", "scp"):
+        logging.getLogger(logger_name).setLevel(logging.WARNING)
+
     root_logger = logging.getLogger()
     if root_logger.handlers:
         return None

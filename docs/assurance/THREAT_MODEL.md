@@ -27,4 +27,9 @@ Protected assets include device credentials in memory, raw configuration evidenc
 
 The workstation, Python/runtime dependencies, OS file permissions, operator-selected STIG files, and reachable network are trust dependencies. A source hash detects later changes but is not publisher authentication; signed official check-pack distribution remains future work. Hashes do not provide collector identity. The desktop is single-user and does not provide role-based access control, a server database, vault integration, telemetry, or autonomous scheduling in v0.2.
 
+Routine logging suppresses Paramiko, Netmiko, and SCP below WARNING because
+those libraries may emit device authentication banners or session detail.
+Support-bundle creation also removes historical third-party SSH diagnostic
+lines, protecting bundles created from logs written by older releases.
+
 The application displays DISA fix guidance but never executes it. Operators remain responsible for authorization, source validation, findings review, custody, and any remediation performed outside this product.

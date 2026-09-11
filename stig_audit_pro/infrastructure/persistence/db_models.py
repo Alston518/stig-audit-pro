@@ -115,6 +115,7 @@ class CheckResult(Base):
     stig_id: Mapped[str | None] = mapped_column(String(255))
     check_id: Mapped[str | None] = mapped_column(String(255))
     stig_family: Mapped[str] = mapped_column(String(255), nullable=False)
+    title: Mapped[str | None] = mapped_column(Text)
     severity: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     finding_details: Mapped[str | None] = mapped_column(Text)
