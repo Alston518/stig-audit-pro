@@ -4,6 +4,9 @@ library_version: "2026.09"
 checks:
 - vuln_id: V-220649
   stig_id: CISC-L2-000020
+  rule_id: SV-220649r863283_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must uniquely identify and authenticate all network-connected endpoint devices before establishing any connection.
   looking_for: Require 802.1X and MAB on every physical access port and require all profile-defined RADIUS servers in the profile-defined AAA server group
   stig_family: IOSXE_L2
@@ -50,6 +53,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220650
   stig_id: CISC-L2-000030
+  rule_id: SV-220650r539671_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must authenticate all VLAN Trunk Protocol (VTP) messages with a hash function using the most secured
     cryptographic algorithm available.
   looking_for: Looking to see if VTP status is off in "show vtp status"
@@ -82,6 +88,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220651
   stig_id: CISC-L2-000040
+  rule_id: SV-220651r1107171_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must manage excess bandwidth to limit the effects of packet flooding types of denial-of-service
     (DoS) attacks.
   looking_for: QoS is not currently configured; retain as Open until the site QoS policy is implemented and this check is automated
@@ -105,6 +114,9 @@ checks:
     finding_details_template: manual_review
 - vuln_id: V-220655
   stig_id: CISC-L2-000090
+  rule_id: SV-220655r917683_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have Root Guard enabled on all switch ports connecting to access layer switches.
   looking_for: Use CDP to identify directly connected switches. Exempt configured core/distribution neighbors and require
     "spanning-tree guard root" on all other switch-facing interfaces.
@@ -132,6 +144,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220656
   stig_id: CISC-L2-000100
+  rule_id: SV-220656r856278_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have BPDU Guard enabled on all user-facing or untrusted access switch ports.
   looking_for: Check if "spanning-tree bpduguard enable" is set globally, and if not, make sure it is applied to all access
     ports
@@ -164,6 +179,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220657
   stig_id: CISC-L2-000110
+  rule_id: SV-220657r856279_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have STP Loop Guard enabled.
   looking_for: Looking for list of strings in "show run"
   stig_family: IOSXE_L2
@@ -191,6 +209,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220658
   stig_id: CISC-L2-000120
+  rule_id: SV-220658r856280_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have Unknown Unicast Flood Blocking (UUFB) enabled.
   looking_for: Look through all access ports to ensure that "switchport block unicast" is configured on all access ports.
   stig_family: IOSXE_L2
@@ -222,6 +243,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220659
   stig_id: CISC-L2-000130
+  rule_id: SV-220659r928999_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have DHCP snooping for all user VLANs to validate DHCP messages from untrusted sources.
   looking_for: Ensure global DHCP snooping and all profile-defined user VLANs are configured
   stig_family: IOSXE_L2
@@ -255,6 +279,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220660
   stig_id: CISC-L2-000140
+  rule_id: SV-220660r929001_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have IP Source Guard enabled on all user-facing or untrusted access switch ports.
   looking_for: Look through all access ports to ensure that "ip verify source" is configured on all access ports.
   stig_family: IOSXE_L2
@@ -286,6 +313,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220661
   stig_id: CISC-L2-000150
+  rule_id: SV-220661r929003_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have Dynamic Address Resolution Protocol (ARP) Inspection (DAI) enabled on all user VLANs.
   looking_for: Ensure Dynamic ARP Inspection is configured for all profile-defined user VLANs
   stig_family: IOSXE_L2
@@ -315,6 +345,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220662
   stig_id: CISC-L2-000160
+  rule_id: SV-220662r648766_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have Storm Control configured on all host-facing switchports.
   looking_for: Loop through all access ports to ensure multiple strings are applied
   stig_family: IOSXE_L2
@@ -346,6 +379,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220663
   stig_id: CISC-L2-000170
+  rule_id: SV-220663r929005_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have IGMP or MLD Snooping configured on all VLANs.
   looking_for: Ensure IGMP and IPv6 MLD snooping are not disabled globally or for individual VLANs
   stig_family: IOSXE_L2
@@ -376,6 +412,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220664
   stig_id: CISC-L2-000180
+  rule_id: SV-220664r539671_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must implement Rapid STP where VLANs span multiple switches with redundant links.
   looking_for: Looking for list of strings in "show run"
   stig_family: IOSXE_L2
@@ -406,6 +445,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220665
   stig_id: CISC-L2-000190
+  rule_id: SV-220665r539671_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must enable Unidirectional Link Detection (UDLD) to protect against one-way connections.
   looking_for: Looking for list of strings in "show run | inc udld"
   stig_family: IOSXE_L2
@@ -433,6 +475,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220666
   stig_id: CISC-L2-000200
+  rule_id: SV-220666r539671_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have all trunk links enabled statically.
   looking_for: Ensure all switchports report Negotiation of Trunking as Off
   stig_family: IOSXE_L2
@@ -464,6 +509,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220667
   stig_id: CISC-L2-000210
+  rule_id: SV-220667r991904_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have all disabled switch ports assigned to an unused VLAN.
   looking_for: Exempt 802.1X access ports; require all other disabled or disconnected access ports to be shut down and assigned to the unused VLAN
   stig_family: IOSXE_L2
@@ -502,6 +550,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220668
   stig_id: CISC-L2-000220
+  rule_id: SV-220668r991905_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must not have the default VLAN assigned to any host-facing switch ports.
   looking_for: Loop through access ports to make sure none are assigned to VLAN 1
   stig_family: IOSXE_L2
@@ -537,6 +588,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220669
   stig_id: CISC-L2-000230
+  rule_id: SV-220669r991906_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have the default VLAN pruned from all trunk ports that do not require it.
   looking_for: Loop through trunk ports to ensure all have VLAN 1 pruned
   stig_family: IOSXE_L2
@@ -577,6 +631,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220670
   stig_id: CISC-L2-000240
+  rule_id: SV-220670r991907_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must not use the default VLAN for management traffic.
   looking_for: Ensure VLAN 1 is not the management VLAN and has no IP address assigned
   stig_family: IOSXE_L2
@@ -604,6 +661,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220671
   stig_id: CISC-L2-000250
+  rule_id: SV-220671r991908_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have all user-facing or untrusted ports configured as access switch ports.
   looking_for: Require switchport mode access on every physical copper Ethernet port; ignore SFP/fiber ports used as uplinks
   stig_family: IOSXE_L2
@@ -636,6 +696,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220672
   stig_id: CISC-L2-000260
+  rule_id: SV-220672r991909_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must have the native VLAN assigned to an ID other than the default VLAN for all 802.1q trunk links.
   looking_for: Ensure every physical trunk has an explicitly configured native VLAN other than VLAN 1
   stig_family: IOSXE_L2
@@ -671,6 +734,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220673
   stig_id: CISC-L2-000270
+  rule_id: SV-220673r991910_rule
+  source_version: "3"
+  source_release: "Release: 2 Benchmark Date: 02 Jul 2025"
   title: The Cisco switch must not have any switchports assigned to the native VLAN.
   looking_for: Ensure no physical switchport is assigned as an access port in the profile-defined native VLAN
   stig_family: IOSXE_L2

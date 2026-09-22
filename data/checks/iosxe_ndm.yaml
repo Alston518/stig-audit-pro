@@ -4,6 +4,9 @@ library_version: "2026.09"
 checks:
 - vuln_id: V-220518
   stig_id: CISC-ND-000010
+  rule_id: SV-220518r960735_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to limit the number of concurrent management
     sessions to an organization-defined number.
   looking_for: Validate session-limit under every VTY section, or count the available
@@ -33,6 +36,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220519
   stig_id: CISC-ND-000090
+  rule_id: SV-220519r1186338_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to automatically audit account creation.
   looking_for: Ensure archive log configuration auditing is enabled in the correct configuration hierarchy
   stig_family: IOSXE_NDM
@@ -66,6 +72,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220520
   stig_id: CISC-ND-000100
+  rule_id: SV-220520r1186340_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to automatically audit account modification.
   looking_for: Ensure archive log configuration auditing is enabled in the correct configuration hierarchy
   stig_family: IOSXE_NDM
@@ -99,6 +108,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220521
   stig_id: CISC-ND-000110
+  rule_id: SV-220521r1186342_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to automatically audit account disabling
     actions.
   looking_for: Ensure archive log configuration auditing is enabled in the correct configuration hierarchy
@@ -133,6 +145,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220522
   stig_id: CISC-ND-000120
+  rule_id: SV-220522r1186344_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to automatically audit account removal
     actions.
   looking_for: Ensure archive log configuration auditing is enabled in the correct configuration hierarchy
@@ -167,6 +182,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220523
   stig_id: CISC-ND-000140
+  rule_id: SV-220523r1137875_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to enforce approved authorizations for
     controlling the flow of management information within the device based on control
     policies.
@@ -192,6 +210,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220524
   stig_id: CISC-ND-000150
+  rule_id: SV-220524r960840_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to enforce the limit of three consecutive
     invalid logon attempts, after which time it must lock out the user account from
     accessing the device for 15 minutes.
@@ -221,6 +242,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220525
   stig_id: CISC-ND-000160
+  rule_id: SV-220525r960843_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to display the Standard Mandatory DoD
     Notice and Consent Banner before granting access to the device.
   looking_for: Verify the login banner contains every mandatory DoD notice and consent clause
@@ -247,6 +271,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220526
   stig_id: CISC-ND-000210
+  rule_id: SV-220526r1186346_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco device must be configured to audit all administrator activity.
   looking_for: Ensure administrator configuration changes generate informational logging messages
   stig_family: IOSXE_NDM
@@ -274,6 +301,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220528
   stig_id: CISC-ND-000280
+  rule_id: SV-220528r960894_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must produce audit records containing information to establish
     when (date and time) the events occurred.
   looking_for: Ensure log messages use millisecond local date and time timestamps with timezone and year
@@ -302,6 +332,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220529
   stig_id: CISC-ND-000290
+  rule_id: SV-220529r960897_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must produce audit records containing information to establish
     where the events occurred.
   looking_for: Require log-input on every deny statement in each interface-bound IPv4 ACL
@@ -333,6 +366,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220530
   stig_id: CISC-ND-000330
+  rule_id: SV-220530r1186348_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to generate audit records containing
     the full-text recording of privileged commands.
   looking_for: Ensure archive log configuration auditing is enabled in the correct configuration hierarchy
@@ -367,6 +403,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220531
   stig_id: CISC-ND-000380
+  rule_id: SV-220531r960933_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to protect audit information from unauthorized
     modification.
   looking_for: Logging persistent is not configured; temporarily Not Applicable pending future implementation and validation
@@ -390,6 +429,9 @@ checks:
     finding_details_template: manual_review
 - vuln_id: V-220532
   stig_id: CISC-ND-000390
+  rule_id: SV-220532r960936_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to protect audit information from unauthorized
     deletion.
   looking_for: Logging persistent is not configured; temporarily Not Applicable pending future implementation and validation
@@ -413,6 +455,9 @@ checks:
     finding_details_template: manual_review
 - vuln_id: V-220533
   stig_id: CISC-ND-000460
+  rule_id: SV-220533r960960_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to limit privileges to change the software
     resident within software libraries.
   looking_for: Logging persistent is not configured; temporarily Not Applicable pending future implementation and validation
@@ -436,6 +481,9 @@ checks:
     finding_details_template: manual_review
 - vuln_id: V-220534
   stig_id: CISC-ND-000470
+  rule_id: SV-220534r1043177_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to prohibit the use of all unnecessary
     and nonsecure functions and services.
   looking_for: Ensure prohibited and unnecessary services are not enabled in the
@@ -470,6 +518,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220535
   stig_id: CISC-ND-000490
+  rule_id: SV-220535r1051115_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured with only one local account to be used
     as the account of last resort in the event the authentication server is unavailable.
   looking_for: Require exactly one local username using the profile-defined common-criteria password policy and require the profile-defined TACACS group before local in the default login authentication order
@@ -515,6 +566,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220537
   stig_id: CISC-ND-000550
+  rule_id: SV-220537r991912_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to enforce a minimum 15-character password
     length.
   looking_for: Require min-length 15 under the profile-defined AAA common-criteria password policy
@@ -546,6 +600,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220538
   stig_id: CISC-ND-000570
+  rule_id: SV-220538r991915_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to enforce password complexity by requiring
     that at least one uppercase character be used.
   looking_for: Require upper-case 1 under the profile-defined AAA common-criteria password policy
@@ -577,6 +634,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220539
   stig_id: CISC-ND-000580
+  rule_id: SV-220539r991918_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to enforce password complexity by requiring
     that at least one lowercase character be used.
   looking_for: Require lower-case 1 under the profile-defined AAA common-criteria password policy
@@ -608,6 +668,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220540
   stig_id: CISC-ND-000590
+  rule_id: SV-220540r991919_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to enforce password complexity by requiring
     that at least one numeric character be used.
   looking_for: Require numeric-count 1 under the profile-defined AAA common-criteria password policy
@@ -639,6 +702,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220541
   stig_id: CISC-ND-000600
+  rule_id: SV-220541r991920_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to enforce password complexity by requiring
     that at least one special character be used.
   looking_for: Require special-case 1 under the profile-defined AAA common-criteria password policy
@@ -670,6 +736,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220542
   stig_id: CISC-ND-000610
+  rule_id: SV-220542r1043189_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to require that when a password is changed,
     the characters are changed in at least eight of the positions within the password.
   looking_for: Require char-changes 8 under the profile-defined AAA common-criteria password policy
@@ -701,6 +770,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220543
   stig_id: CISC-ND-000620
+  rule_id: SV-220543r991922_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must only store cryptographic representations of passwords.
   looking_for: Ensure service password-encryption is enabled
   stig_family: IOSXE_NDM
@@ -728,6 +800,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220544
   stig_id: CISC-ND-000720
+  rule_id: SV-220544r961068_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to terminate all network connections
     associated with device management after five minutes of inactivity.
   looking_for: Require session-timeout 5 or exec-timeout 5 0 under every VTY line
@@ -764,6 +839,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220545
   stig_id: CISC-ND-000880
+  rule_id: SV-220545r1186350_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to automatically audit account enabling
     actions.
   looking_for: Ensure archive log configuration auditing is enabled in the correct configuration hierarchy
@@ -798,6 +876,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220547
   stig_id: CISC-ND-000980
+  rule_id: SV-220547r961392_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to allocate audit record storage capacity
     in accordance with organization-defined audit record storage requirements.
   looking_for: Ensure logging buffered specifies a numeric buffer size and a valid logging severity level
@@ -826,6 +907,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220548
   stig_id: CISC-ND-001000
+  rule_id: SV-220548r991923_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to generate an alert for all audit failure
     events.
   looking_for: Ensure remote logging uses a valid named trap severity level
@@ -854,6 +938,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220549
   stig_id: CISC-ND-001030
+  rule_id: SV-220549r991924_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to synchronize its clock with the primary
     and secondary time sources using redundant authoritative time sources.
   looking_for: Require at least two NTP server commands and every NTP server defined
@@ -892,6 +979,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220552
   stig_id: CISC-ND-001130
+  rule_id: SV-220552r1107175_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to authenticate SNMP messages using a
     FIPS-validated Keyed-Hash Message Authentication Code (HMAC).
   looking_for: Require at least one SNMPv3 user using SHA or a supported SHA-2 authentication
@@ -924,6 +1014,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220553
   stig_id: CISC-ND-001140
+  rule_id: SV-220553r961506_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to encrypt SNMP messages using a FIPS
     140-2 approved algorithm.
   looking_for: Require at least one SNMPv3 user using AES-128, AES-192, or AES-256
@@ -953,6 +1046,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220554
   stig_id: CISC-ND-001150
+  rule_id: SV-220554r1107160_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to authenticate Network Time Protocol
     (NTP) sources using authentication that is cryptographically based.
   looking_for: Require every profile-defined NTP server to use a trusted HMAC-SHA2-256 authentication key
@@ -982,6 +1078,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220555
   stig_id: CISC-ND-001200
+  rule_id: SV-220555r961554_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to use FIPS-validated Keyed-Hash Message
     Authentication Code (HMAC) to protect the integrity of remote maintenance sessions.
   looking_for: Require the approved SSH HMAC algorithms in the configured order
@@ -1012,6 +1111,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220556
   stig_id: CISC-ND-001210
+  rule_id: SV-220556r961557_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to implement cryptographic mechanisms
     to protect the confidentiality of remote maintenance sessions.
   looking_for: Require the approved SSH AES-CTR encryption algorithms in the configured
@@ -1044,6 +1146,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220559
   stig_id: CISC-ND-001250
+  rule_id: SV-220559r1186352_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to generate log records when administrator
     privileges are deleted.
   looking_for: Ensure archive log configuration auditing is enabled in the correct configuration hierarchy
@@ -1078,6 +1183,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220560
   stig_id: CISC-ND-001260
+  rule_id: SV-220560r961824_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to generate audit records when successful/unsuccessful
     logon attempts occur.
   looking_for: Ensure successful and failed login attempts are logged
@@ -1109,6 +1217,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220561
   stig_id: CISC-ND-001270
+  rule_id: SV-220561r1186354_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to generate log records for privileged
     activities.
   looking_for: Ensure archive log configuration auditing is enabled in the correct configuration hierarchy
@@ -1143,6 +1254,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220565
   stig_id: CISC-ND-001370
+  rule_id: SV-220565r1195273_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to use at least two authentication servers
     for the purpose of authenticating users prior to granting administrative access.
   looking_for: Require at least two profile-defined RADIUS server blocks with the
@@ -1175,6 +1289,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220566
   stig_id: CISC-ND-001410
+  rule_id: SV-220566r1186357_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to support organizational requirements
     to conduct backups of the configuration when changes occur.
   looking_for: Temporarily mark NotAFinding because configuration backups are performed
@@ -1199,6 +1316,9 @@ checks:
     finding_details_template: manual_review
 - vuln_id: V-220567
   stig_id: CISC-ND-001440
+  rule_id: SV-220567r991926_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to obtain its public key certificates
     from an appropriate certificate policy through an approved service provider.
   looking_for: Not Applicable because these access switches do not use organization-managed public key certificates
@@ -1222,6 +1342,9 @@ checks:
     finding_details_template: manual_review
 - vuln_id: V-220568
   stig_id: CISC-ND-001450
+  rule_id: SV-220568r1137890_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be configured to send log data to at least two central
     log servers for the purpose of forwarding alerts to the administrators and the
     information system security officer (ISSO).
@@ -1258,6 +1381,9 @@ checks:
     finding_details_template: default
 - vuln_id: V-220569
   stig_id: CISC-ND-001470
+  rule_id: SV-220569r961863_rule
+  source_version: "3"
+  source_release: "Release: 6 Benchmark Date: 01 Apr 2026"
   title: The Cisco switch must be running an IOS release that is currently supported
     by Cisco Systems.
   looking_for: Match the installed IOS-XE release against the profile-defined list

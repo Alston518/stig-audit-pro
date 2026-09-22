@@ -27,6 +27,21 @@ def test_check_library_and_profile_validate():
     )
 
 
+def test_bundled_checks_carry_complete_traceability_metadata():
+    for check_path in sorted((DATA_DIR / "checks").glob("*.yaml")):
+        library = load_check_library(check_path)
+
+        missing = [
+            check.vuln_id
+            for check in library.checks
+            if not check.rule_id
+            or not check.source_version
+            or not check.source_release
+        ]
+
+        assert missing == []
+
+
 def test_building_profiles_override_site_specific_vlans():
     building_1 = load_profile(DATA_DIR / "profiles" / "building_1.yaml")
     building_2 = load_profile(DATA_DIR / "profiles" / "building_2.yaml")
